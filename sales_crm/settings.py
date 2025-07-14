@@ -37,6 +37,7 @@ TENANT_DOMAIN_MODEL = "tenants.Domain"
 SHARED_APPS = [
     'django_tenants',
     # 'unfold',
+    'jazzmin',
     'tenants',
     'allauth',
     'allauth.account',
@@ -196,7 +197,7 @@ REST_FRAMEWORK = {
 }
 
 # Email configuration for development
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
 
 # Django Allauth settings
@@ -207,7 +208,7 @@ ACCOUNT_LOGIN_METHODS = {'email', 'username'}
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = False
@@ -218,18 +219,92 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https' if not DEBUG else 'http'
 ACCOUNT_PASSWORD_MIN_LENGTH = 8
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 ACCOUNT_EMAIL_SUBJECT_PREFIX = '[Sales CRM]'
-# Email verification token expiry (48 hours = 2 days)
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 2
-# Maximum login attempts
 
 ACCOUNT_HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
+
 HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
 
 FETCH_USER_INFO = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APP': {
+            'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+            'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+            'key': ''
+        },
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
+
+HEADLESS_FRONTEND_URLS = {
+    "account_confirm_email": "http://localhost:3000/account/verify-email/{key}",
+    # Key placeholders are automatically populated. You are free to adjust this
+    # to your own needs, e.g.
+    #
+    # "https://app.project.org/account/email/verify-email?token={key}",
+    "account_reset_password": "http://localhost:3000/account/password/reset",
+    "account_reset_password_from_key": "http://localhost:3000/account/password/reset/key/{key}/",
+    "account_signup": "http://localhost:3000/account/signup",
+    # Fallback in case the state containing the `next` URL is lost and the handshake
+    # with the third-party provider fails.
+}
 
 AUTHENTICATION_BACKENDS = (
     "allauth.account.auth_backends.AuthenticationBackend",
     "rest_framework.authentication.TokenAuthentication",
     "rest_framework_simplejwt.authentication.JWTAuthentication"
 )
+
+JAZZMIN_SETTINGS = {
+    # title of the window (Will default to current_admin_site.site_title if absent or None)
+    "site_title": "Sales CRM",
+
+    # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
+    "site_header": "Sales CRM",
+    "site_brand": "Sales CRM",
+    "welcome_sign": "Welcome to Sales CRM",
+    "copyright": "Sales CRM",
+    "show_ui_builder": True,
+    "changeform_format": "horizontal_tabs",
+}
+JAZZMIN_UI_TWEAKS = {
+    "navbar_small_text": False,
+    "footer_small_text": False,
+    "body_small_text": True,
+    "brand_small_text": False,
+    "brand_colour": False,
+    "accent": "accent-primary",
+    "navbar": "navbar-dark",
+    "no_navbar_border": True,
+    "navbar_fixed": False,
+    "layout_boxed": False,
+    "footer_fixed": False,
+    "sidebar_fixed": False,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_small_text": False,
+    "sidebar_disable_expand": False,
+    "sidebar_nav_child_indent": False,
+    "sidebar_nav_compact_style": True,
+    "sidebar_nav_legacy_style": False,
+    "sidebar_nav_flat_style": False,
+    "theme": "default",
+    "dark_mode_theme": None,
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    }
+}

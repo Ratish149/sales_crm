@@ -12,6 +12,68 @@ import resend
 from django.template.loader import render_to_string
 from dotenv import load_dotenv
 from tenants.models import Client, Domain
+from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from allauth.utils import valid_email_or_none
+from django.http import JsonResponse
+from allauth.account.views import PasswordResetView
+
+load_dotenv()
+
+resend.api_key = os.getenv("RESEND_API_KEY")
+
+
+class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
+    def populate_user(self, request, sociallogin, data):
+        """
+        Hook that can be used to further populate the user instance.
+
+        For convenience, we populate several common fields.
+
+        Note that the user instance being populated represents a
+        suggested User instance that represents the social user that is
+        in the process of being logged in.
+
+        The User instance need not be completely valid and conflict
+        free. For example, verifying whether or not the username
+        already exists, is not a responsibility.
+        """
+        email = data.get("email")
+        store_name = data.get("store_name")
+        username = data.get("username", email)
+        user = sociallogin.user
+        user_username(user, username)
+        user_email(user, valid_email_or_none(email) or "")
+        user_field(user, "store_name", store_name)
+
+        user = user.save()
+        if store_name:
+            store_profile, _ = StoreProfile.objects.get_or_create(user=user)
+            schema_name = store_name
+
+            # Check if schema name already exists
+            if Client.objects.filter(schema_name=schema_name).exists():
+                raise ValidationError(
+                    f"Store name '{store_name}' is already taken. Please choose a different name."
+                )
+
+            # Prevent schema from being a reserved word
+            if schema_name in ['public', 'default', 'postgres']:
+                schema_name = f"{schema_name}-user{user.id}"
+
+            # Create tenant (Client)
+            tenant = Client.objects.create(
+                schema_name=schema_name,
+                name=store_name,
+                owner=user,
+            )
+
+            # Create domain for the tenant
+            domain = Domain.objects.create(
+                domain=f"{schema_name}.127.0.0.1.nip.io:8000",
+                tenant=tenant,
+                is_primary=True,
+            )
+        return user
 
 
 class CustomHeadlessAdapter(DefaultHeadlessAdapter):
@@ -126,30 +188,31 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             )
         return user
 
-
-load_dotenv()
-
-resend.api_key = os.getenv("RESEND_API_KEY")
-
-
-class ResendEmailAdapter(DefaultAccountAdapter):
     def send_mail(self, template_prefix, email, context):
         try:
             print("context", context)
-            html_body = render_to_string(
-                "account/email/email_confirmation_message.html", context)
-            test_email = "sikchhu.baliyo@gmail.com"
+            print("template_prefix", template_prefix)
+            if template_prefix == "account/email/password_reset_key":
+                html_body = render_to_string(
+                    "account/email/password_reset_message.html", context)
+                subject = "Password Reset Requested"
+                print("password reset email")
+            else:
+                html_body = render_to_string(
+                    "account/email/email_confirmation_message.html", context)
+                subject = "Sales CRM - Email Verification"
+                print("email verification email")
+            # test_email = "sikchhu.baliyo@gmail.com"
             # For testing, send to the verified email address
             # In production, you would verify your domain and use your own domain
 
             params = {
                 "from": "onboarding@resend.dev",
-                "to": [test_email],  # Send to verified email for testing
-                "subject": "Sales CRM - Email Verification",
+                "to": [email],  # Send to verified email for testing
+                "subject": subject,
                 "html": html_body,
             }
-            print(f"Sending email to: {test_email} (original: {email})")
-            print(f"Email context: {context}")
+
             response = resend.Emails.send(params)
             print(f"Email sent successfully: {response}")
 
@@ -157,3 +220,11 @@ class ResendEmailAdapter(DefaultAccountAdapter):
             print(f"Error sending email: {e}")
             # Fallback to default email sending if Resend fails
             super().send_mail(template_prefix, email, context)
+
+    def respond_email_verification_sent(self, request, user):
+        return JsonResponse({
+            "status": 200,
+            "data": {
+                "message": "Verification mail sent successfully"
+            }
+        }, status=200)
