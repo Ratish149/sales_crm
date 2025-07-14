@@ -5,6 +5,9 @@ from rest_framework import status
 from .models import CustomUser
 from allauth.account.utils import send_email_confirmation
 from django.core.exceptions import ObjectDoesNotExist
+from allauth.account.views import SignupView as AllauthSignupView
+from django.http import JsonResponse
+
 # Create your views here.
 
 
