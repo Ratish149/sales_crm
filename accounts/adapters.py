@@ -38,16 +38,22 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         already exists, is not a responsibility.
         """
         email = data.get("email")
-        store_name = data.get("store_name")
+        store_name = data.get("store_name").lower()
         username = data.get("username", email)
         user = sociallogin.user
         user_username(user, username)
         user_email(user, valid_email_or_none(email) or "")
-        user_field(user, "store_name", store_name)
 
-        user = user.save()
         if store_name:
-            store_profile, _ = StoreProfile.objects.get_or_create(user=user)
+            store_profile, created = StoreProfile.objects.get_or_create(
+                store_name=store_name)
+            user.store = store_profile
+            if created:
+                user.role = "owner"
+            else:
+                user.role = "viewer"
+            user.save()
+
             schema_name = store_name
 
             # Check if schema name already exists
@@ -69,10 +75,12 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
             # Create domain for the tenant
             domain = Domain.objects.create(
-                domain=f"{schema_name}.127.0.0.1.nip.io:8000",
+                domain=f"{schema_name}.127.0.0.1.nip.io",
                 tenant=tenant,
                 is_primary=True,
             )
+        else:
+            user.save()
         return user
 
 
@@ -104,11 +112,15 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 has_profile = hasattr(user, 'store_profile')
 
         username = user_username(user)
+        client = Client.objects.get(owner=user)
+        domain = Domain.objects.get(tenant=client)
         try:
             refresh = RefreshToken.for_user(user)
             refresh['email'] = user.email
-            refresh['store_name'] = user.store_name
+            refresh['store_name'] = user.store.store_name
             refresh['has_profile'] = has_profile
+            refresh['role'] = user.role
+            refresh['domain'] = domain.domain
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
         except Exception as e:
@@ -138,7 +150,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         print("data", data)
         # Default to learner if not specified
         email = data.get("email")
-        store_name = data.get("store_name", "")
+        store_name = data.get("store_name", "").lower()
         # Use email as username if not provided
         username = data.get("username", email)
         user_email(user, email)
@@ -154,38 +166,42 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         self.populate_username(request, user)
 
         if commit:
-            # Save the user first
             user.save()
 
-            # Now create the store profile with the saved user
             if store_name:
-                store_profile, _ = StoreProfile.objects.get_or_create(
-                    user=user)
-               # In your CustomAccountAdapter.save_user method, add this check:
-            schema_name = store_name
+                store_profile, created = StoreProfile.objects.get_or_create(
+                    store_name=store_name)
+                user.store = store_profile
+                if created:
+                    user.role = "owner"
+                else:
+                    user.role = "viewer"
+                user.save()
 
-            # Check if schema name already exists
-            if Client.objects.filter(schema_name=schema_name).exists():
-                raise ValidationError(
-                    f"Store name '{store_name}' is already taken. Please choose a different name.")
+                schema_name = store_name
 
-            # Prevent schema from being a reserved word
-            if schema_name in ['public', 'default', 'postgres']:
-                schema_name = f"{schema_name}-user{user.id}"
+                # Check if schema name already exists
+                if Client.objects.filter(schema_name=schema_name).exists():
+                    raise ValidationError(
+                        f"Store name '{store_name}' is already taken. Please choose a different name.")
 
-                # Create tenant (Client)
-            tenant = Client.objects.create(
-                schema_name=schema_name,
-                name=store_name,
-                owner=user,
-            )
+                # Prevent schema from being a reserved word
+                if schema_name in ['public', 'default', 'postgres']:
+                    schema_name = f"{schema_name}-user{user.id}"
 
-            # Create domain for the tenant
-            domain = Domain.objects.create(
-                domain=f"{schema_name}.127.0.0.1.nip.io:8000",
-                tenant=tenant,
-                is_primary=True,
-            )
+                    # Create tenant (Client)
+                tenant = Client.objects.create(
+                    schema_name=schema_name,
+                    name=store_name,
+                    owner=user,
+                )
+
+                # Create domain for the tenant
+                domain = Domain.objects.create(
+                    domain=f"{schema_name}.127.0.0.1.nip.io",
+                    tenant=tenant,
+                    is_primary=True,
+                )
         return user
 
     def send_mail(self, template_prefix, email, context):
@@ -207,7 +223,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             # In production, you would verify your domain and use your own domain
 
             params = {
-                "from": "onboarding@resend.dev",
+                "from": "sales@baliyoventures.com",
                 "to": [email],  # Send to verified email for testing
                 "subject": subject,
                 "html": html_body,
