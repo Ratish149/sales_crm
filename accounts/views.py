@@ -1,9 +1,9 @@
-from .serializers import AcceptInvitationSerializer, InvitationSerializer
+from .serializers import AcceptInvitationSerializer, InvitationSerializer, StoreProfileSerializer
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import CustomUser
+from .models import CustomUser, StoreProfile
 from allauth.account.utils import send_email_confirmation
 import os
 import resend
@@ -69,3 +69,38 @@ class AcceptInvitationView(APIView):
             user = serializer.save()
             return Response({'detail': 'User created successfully.'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class StoreProfileView(generics.ListCreateAPIView):
+    serializer_class = StoreProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        store_profile = serializer.save()
+        # Assign the created store to the user if not already set
+        if not request.user.store:
+            request.user.store = store_profile
+            request.user.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class StoreProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = StoreProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        store_profile = StoreProfile.objects.filter(
+            id=self.request.user.store_id).first()
+        if not store_profile:
+            raise Response({"detail": "Store profile not found."},
+                           status=status.HTTP_404_NOT_FOUND)
+        return store_profile
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        # Optionally, ensure the user's store is updated if needed
+        if self.request.user.store_id != instance.id:
+            self.request.user.store = instance
+            self.request.user.save()

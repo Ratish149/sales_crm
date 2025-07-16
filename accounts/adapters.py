@@ -108,12 +108,18 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
             # Check if user has a profile created
             has_profile = False
-            if user:
-                has_profile = hasattr(user, 'store_profile')
+            if user and getattr(user, 'store', None) is not None:
+                has_profile = True
 
         username = user_username(user)
         client = Client.objects.get(owner=user)
         domain = Domain.objects.get(tenant=client)
+        store_profile = StoreProfile.objects.get(id=user.store.id)
+        has_profile_completed = False
+        if not store_profile.logo or not store_profile.store_number or not store_profile.store_address or not store_profile.business_category:
+            has_profile_completed = False
+        else:
+            has_profile_completed = True
         try:
             refresh = RefreshToken.for_user(user)
             refresh['email'] = user.email
@@ -121,6 +127,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh['has_profile'] = has_profile
             refresh['role'] = user.role
             refresh['domain'] = domain.domain
+            refresh['has_profile_completed'] = has_profile_completed
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
         except Exception as e:

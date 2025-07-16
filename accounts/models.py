@@ -7,9 +7,18 @@ import uuid
 
 
 class StoreProfile(models.Model):
-    store_name = models.CharField(max_length=255, null=True, blank=True)
+    store_name = models.CharField(max_length=255)
     store_address = models.CharField(max_length=255, null=True, blank=True)
     store_number = models.CharField(max_length=255, null=True, blank=True)
+    logo = models.URLField(null=True, blank=True)
+    business_category = models.CharField(max_length=255, null=True, blank=True)
+    facebook_url = models.CharField(max_length=255, null=True, blank=True)
+    whatsapp_number = models.CharField(max_length=255, null=True, blank=True)
+    instagram_url = models.CharField(max_length=255, null=True, blank=True)
+    twitter_url = models.CharField(max_length=255, null=True, blank=True)
+    tiktok_url = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.store_name or f"Store {self.id}"
