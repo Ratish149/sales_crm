@@ -63,10 +63,13 @@ SHARED_APPS = [
 ]
 
 TENANT_APPS = [
-    'store',
+    'django.contrib.contenttypes',
+    'django.contrib.auth',
+    'website'
 ]
 
-INSTALLED_APPS = SHARED_APPS + TENANT_APPS
+INSTALLED_APPS = list(SHARED_APPS) + \
+    [app for app in TENANT_APPS if app not in SHARED_APPS]
 
 SITE_ID = 1
 
@@ -117,16 +120,35 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
-        "NAME": "sales_crm",
+        "NAME": "nopdora",
         "USER": "ratish",   # or "postgres"
         "PASSWORD": "123",
         "HOST": "localhost",
         "PORT": "5433",
+        'OPTIONS': {
+            'options': '-c search_path=public'  # important for first migration
+        }
+    }
+} """
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'nepdora',
+        'USER': 'ratish',
+        'PASSWORD': 'ratish123',
+        'HOST': 'localhost',
+        'PORT': '',
+        'OPTIONS': {
+            'options': '-c search_path=public'
+        }
     }
 }
+
+
 DATABASE_ROUTERS = (
     'django_tenants.routers.TenantSyncRouter',
 )

@@ -28,8 +28,8 @@ urlpatterns = [
     path("_allauth/", include("allauth.headless.urls")),
     # Regular Allauth for email confirmation and other features
     path("accounts/", include("allauth.account.urls")),
-    path('api/', include('store.urls')),
     path('api/', include('accounts.urls')),
+    path('api/', include('website.urls')),
 
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
