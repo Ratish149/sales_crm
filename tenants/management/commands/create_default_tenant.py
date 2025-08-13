@@ -30,7 +30,7 @@ class Command(BaseCommand):
 
             # Create a domain for the tenant
             domain = Domain.objects.create(
-                domain='127.0.0.1',
+                domain='68.183.94.199',
                 tenant=default_tenant,
                 is_primary=True
             )
