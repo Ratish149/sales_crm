@@ -4,6 +4,7 @@ from tenants.models import Client, Domain
 from django.contrib.auth import get_user_model
 
 
+
 class Command(BaseCommand):
     help = 'Creates a default tenant with domain 127.0.0.1'
 
@@ -22,14 +23,14 @@ class Command(BaseCommand):
                 superuser = User.objects.filter(is_superuser=True).first()
 
             # Create a default tenant
-            default_tenant = Client.objects.create(
+            default_tenant, created = Client.objects.get_or_create(
                 name='Default Tenant',
                 schema_name='public',
                 owner=superuser
             )
 
             # Create a domain for the tenant
-            domain = Domain.objects.create(
+            domain, created = Domain.objects.get_or_create(
                 domain='nepdora.baliyoventures.com',
                 tenant=default_tenant,
                 is_primary=True
