@@ -63,11 +63,12 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
 class StoreProfileSerializer(serializers.ModelSerializer):
     logo_file = serializers.FileField(write_only=True, required=False)
+    document_file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = StoreProfile
         fields = ['id', 'store_name', 'store_address', 'store_number', 'logo_file', 'logo',
-                  'business_category', 'facebook_url', 'instagram_url', 'twitter_url', 'tiktok_url', 'whatsapp_number']
+                  'business_category', 'facebook_url', 'instagram_url', 'twitter_url', 'tiktok_url', 'whatsapp_number', 'document_url', 'document_file']
         read_only_fields = ['logo']
 
     def create(self, validated_data):
@@ -94,6 +95,16 @@ class StoreProfileSerializer(serializers.ModelSerializer):
                 resource_type="image"
             )
             validated_data['logo'] = upload_result['secure_url']
+        document_file = validated_data.pop('document_file', None)
+        if document_file:
+            upload_result = cloudinary.uploader.upload(
+                document_file,
+                folder=f"kyc_documents",
+                public_id=f"kyc_document_{instance.store_name}",
+                overwrite=True,
+                resource_type="raw"
+            )
+            validated_data['document_url'] = upload_result['secure_url']
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

@@ -136,9 +136,16 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:8000',
+    'http://127.0.0.1:8001',
     'http://localhost:3000',
+    'https://browser-classic-kind-bracelets.trycloudflare.com',
 ]
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000/']
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:8000',
+    'http://127.0.0.1:8001',
+    'http://localhost:3000',
+    'https://browser-classic-kind-bracelets.trycloudflare.com',
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -202,7 +209,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For developm
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
 
 # Django Allauth settings
-ACCOUNT_SIGNUP_FIELDS = ['store_name', 'email*', 'password1']
+ACCOUNT_SIGNUP_FIELDS = ['store_name', 'email*', 'password1', 'phone']
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_LOGIN_METHODS = {'email', 'username'}
 # Skip verification for social accounts
@@ -221,6 +228,10 @@ ACCOUNT_PASSWORD_MIN_LENGTH = 8
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
 ACCOUNT_EMAIL_SUBJECT_PREFIX = '[Sales CRM]'
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 2
+ACCOUNT_SIGNUP_PHONE_REQUIRED = True
+ACCOUNT_SIGNUP_REQUIRE_VERIFIED_PHONE = False
+ACCOUNT_REQUIRE_VERIFIED_PHONE = False
+
 
 ACCOUNT_HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
 ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
@@ -229,6 +240,11 @@ SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
 HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
 
 FETCH_USER_INFO = True
+
+SESSION_COOKIE_SAMESITE = None  # Very important for cross-site cookies
+SESSION_COOKIE_DOMAIN = None  # Let browser decide
+SESSION_COOKIE_SECURE = False    # Must be True in production with HTTPS
+CSRF_COOKIE_SECURE = False
 
 SOCIALACCOUNT_PROVIDERS = {
     'google': {

@@ -17,6 +17,7 @@ class StoreProfile(models.Model):
     instagram_url = models.CharField(max_length=255, null=True, blank=True)
     twitter_url = models.CharField(max_length=255, null=True, blank=True)
     tiktok_url = models.CharField(max_length=255, null=True, blank=True)
+    document_url = models.URLField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -36,6 +37,7 @@ class CustomUser(AbstractUser):
         max_length=10, choices=ROLE_CHOICES, default='viewer')
     store = models.ForeignKey(
         StoreProfile, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
+    phone_number=models.CharField(max_length=255,null=True,blank=True)
 
     def __str__(self):
         return self.email

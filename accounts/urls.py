@@ -1,7 +1,9 @@
 from django.urls import path
-from .views import ChangePasswordView, ResendEmailVerificationView, InvitationCreateView, AcceptInvitationView, StoreProfileView, StoreProfileDetailView
+from .views import ChangePasswordView, ResendEmailVerificationView, InvitationCreateView, AcceptInvitationView, StoreProfileView, StoreProfileDetailView, CustomSignupView, CustomVerifyEmailView
 
 urlpatterns = [
+    path('signup/', CustomSignupView.as_view(), name='signup'),
+    path('verify-email/', CustomVerifyEmailView.as_view(), name='verify-email'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('resend-verification/', ResendEmailVerificationView.as_view(),
          name='resend-email-verification'),
@@ -12,4 +14,6 @@ urlpatterns = [
     path('store-profile/', StoreProfileView.as_view(), name='store-profile'),
     path('store-profile/me/', StoreProfileDetailView.as_view(),
          name='store-profile-detail'),
+
+
 ]

@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from typing import Dict, Any
 from allauth.account.utils import user_display, user_username, user_field, user_email
 from allauth.account.models import EmailAddress
-from accounts.models import CustomUser, StoreProfile
+from accounts.models import StoreProfile
 import re
 import os
 import resend
@@ -15,7 +15,6 @@ from tenants.models import Client, Domain
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.utils import valid_email_or_none
 from django.http import JsonResponse
-from allauth.account.views import PasswordResetView
 
 load_dotenv()
 
@@ -40,9 +39,11 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         email = data.get("email")
         store_name = data.get("store_name").lower()
         username = data.get("username", email)
+        phone_number = data.get("phone")
         user = sociallogin.user
         user_username(user, username)
         user_email(user, valid_email_or_none(email) or "")
+        user_field(user, "phone_number", phone_number)
 
         if store_name:
             store_profile, created = StoreProfile.objects.get_or_create(
@@ -126,6 +127,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh['store_name'] = user.store.store_name
             refresh['has_profile'] = has_profile
             refresh['role'] = user.role
+            refresh['phone_number'] = user.phone_number
             refresh['domain'] = domain.domain
             refresh['has_profile_completed'] = has_profile_completed
             ret["access_token"] = str(refresh.access_token)
@@ -139,6 +141,13 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
 
 class CustomAccountAdapter(DefaultAccountAdapter):
+
+    def get_phone(self, user):
+        """
+        Return (phone_number, verified) tuple to satisfy Allauth's expectations.
+        Always mark as verified since we don't require phone verification.
+        """
+        return getattr(user, 'phone_number', None), True
 
     def save_user(self, request, user, form, commit=True):
         """
@@ -185,7 +194,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                     user.role = "viewer"
                 user.save()
 
-                schema_name = store_name
+                schema_name = store_name.slugify()
 
                 # Check if schema name already exists
                 if Client.objects.filter(schema_name=schema_name).exists():
@@ -245,9 +254,17 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             super().send_mail(template_prefix, email, context)
 
     def respond_email_verification_sent(self, request, user):
+        # Force session creation (even if not logged in yet)
+        request.session.save()
+        sessionid = request.session.session_key
+
+        # Optionally log the user in here (if you want immediate session)
+        # login(request, user)
+
         return JsonResponse({
             "status": 200,
             "data": {
-                "message": "Verification mail sent successfully"
+                "message": "Verification mail sent successfully",
+                "sessionid": sessionid
             }
         }, status=200)

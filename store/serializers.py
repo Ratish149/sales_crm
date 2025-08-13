@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Store
+from .models import SiteModel
 
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Store
+        model = SiteModel
         fields = '__all__'
