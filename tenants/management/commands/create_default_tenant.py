@@ -13,9 +13,9 @@ class Command(BaseCommand):
             User = get_user_model()
             if not User.objects.exists():
                 superuser = User.objects.create_superuser(
-                    email='admin@admin.com',
+                    email='baliyo@admin.com',
                     password='123',
-                    username='admin'
+                    username='baliyo'
                 )
             else:
                 # Use the first superuser if one exists
@@ -30,7 +30,7 @@ class Command(BaseCommand):
 
             # Create a domain for the tenant
             domain = Domain.objects.create(
-                domain='68.183.94.199',
+                domain='nepdora.baliyoventures.com',
                 tenant=default_tenant,
                 is_primary=True
             )
