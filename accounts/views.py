@@ -28,6 +28,8 @@ from django.utils.text import slugify
 load_dotenv()
 # Create your views here.
 
+backend_url = os.getenv("BACKEND_URL")
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomSignupView(APIView):
@@ -90,7 +92,7 @@ class CustomSignupView(APIView):
                 owner=user,
             )
             domain = Domain.objects.create(
-                domain=f"{storeName}.127.0.0.1.nip.io",
+                domain=f"{storeName}.{backend_url}",
                 tenant=tenant,
                 is_primary=True,
             )
