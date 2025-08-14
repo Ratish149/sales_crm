@@ -12,6 +12,9 @@ class WebsiteListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
+    def get_queryset(self):
+        return Website.objects.filter(user=self.request.user)
+
 
 class WebsiteRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Website.objects.all()
