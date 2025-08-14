@@ -137,7 +137,7 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': 'nepdora',
+        'NAME': 'nepdora_db',
         'USER': 'ratish',
         'PASSWORD': 'ratish123',
         'HOST': 'localhost',
