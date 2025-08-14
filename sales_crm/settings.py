@@ -123,7 +123,7 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
 """ DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
-        "NAME": "nopdora",
+        "NAME": "builder",
         "USER": "ratish",   # or "postgres"
         "PASSWORD": "123",
         "HOST": "localhost",
