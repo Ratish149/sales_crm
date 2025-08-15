@@ -29,7 +29,6 @@ class OrderSerializer(serializers.ModelSerializer):
         order = Order.objects.create(**validated_data)
         for item_data in items_data:
             OrderItem.objects.create(order=order, **item_data)
-        order.calculate_total()
         return order
 
     def update(self, instance, validated_data):
@@ -42,5 +41,4 @@ class OrderSerializer(serializers.ModelSerializer):
             instance.items.all().delete()
             for item_data in items_data:
                 OrderItem.objects.create(order=instance, **item_data)
-            instance.calculate_total()
         return instance
