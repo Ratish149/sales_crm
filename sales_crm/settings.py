@@ -249,8 +249,8 @@ ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = False
 ACCOUNT_LOGOUT_REDIRECT_URL = '/'
-ACCOUNT_LOGIN_REDIRECT_URL = 'http://localhost:3000/api/auth/callback/google'
-# ACCOUNT_LOGIN_REDIRECT_URL = 'https://www.sikchu.com/api/auth/callback/google'
+# ACCOUNT_LOGIN_REDIRECT_URL = 'http://localhost:3000/api/auth/callback/google'
+ACCOUNT_LOGIN_REDIRECT_URL = 'https://www.nepdora.com/api/auth/callback/google'
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https' if not DEBUG else 'http'
 ACCOUNT_PASSWORD_MIN_LENGTH = 8
 ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
@@ -291,15 +291,28 @@ SOCIALACCOUNT_PROVIDERS = {
     }
 }
 
+# HEADLESS_FRONTEND_URLS = {
+#     "account_confirm_email": "http://localhost:3000/account/verify-email/{key}",
+#     # Key placeholders are automatically populated. You are free to adjust this
+#     # to your own needs, e.g.
+#     #
+#     # "https://app.project.org/account/email/verify-email?token={key}",
+#     "account_reset_password": "http://localhost:3000/account/password/reset",
+#     "account_reset_password_from_key": "http://localhost:3000/account/password/reset/key/{key}/",
+#     "account_signup": "http://localhost:3000/account/signup",
+#     # Fallback in case the state containing the `next` URL is lost and the handshake
+#     # with the third-party provider fails.
+# }
+
 HEADLESS_FRONTEND_URLS = {
-    "account_confirm_email": "http://localhost:3000/account/verify-email/{key}",
+    "account_confirm_email": "https://www.nepdora.com/account/verify-email/{key}",
     # Key placeholders are automatically populated. You are free to adjust this
     # to your own needs, e.g.
     #
     # "https://app.project.org/account/email/verify-email?token={key}",
-    "account_reset_password": "http://localhost:3000/account/password/reset",
-    "account_reset_password_from_key": "http://localhost:3000/account/password/reset/key/{key}/",
-    "account_signup": "http://localhost:3000/account/signup",
+    "account_reset_password": "https://www.nepdora.com/account/password/reset",
+    "account_reset_password_from_key": "https://www.nepdora.com/account/password/reset/key/{key}/",
+    "account_signup": "https://www.nepdora.com/account/signup",
     # Fallback in case the state containing the `next` URL is lost and the handshake
     # with the third-party provider fails.
 }

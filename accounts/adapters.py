@@ -21,6 +21,7 @@ load_dotenv()
 resend.api_key = os.getenv("RESEND_API_KEY")
 backend_url = os.getenv("BACKEND_URL")
 
+
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
         """
@@ -214,7 +215,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
 
                 # Create domain for the tenant
                 domain = Domain.objects.create(
-                    domain=f"{schema_name}.127.0.0.1.nip.io",
+                    domain=f"{schema_name}.{backend_url}",
                     tenant=tenant,
                     is_primary=True,
                 )
@@ -239,7 +240,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             # In production, you would verify your domain and use your own domain
 
             params = {
-                "from": "sales@baliyoventures.com",
+                "from": "nepdora@baliyoventures.com",
                 "to": [email],  # Send to verified email for testing
                 "subject": subject,
                 "html": html_body,
