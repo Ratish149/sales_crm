@@ -123,6 +123,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         else:
             has_profile_completed = True
         try:
+            sub_domain = slugify(user.store.store_name)
             refresh = RefreshToken.for_user(user)
             refresh['email'] = user.email
             refresh['store_name'] = user.store.store_name
@@ -130,7 +131,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh['role'] = user.role
             refresh['phone_number'] = user.phone_number
             refresh['domain'] = domain.domain
-            refresh['frontend_url'] = user.frontend_url or ""
+            refresh['sub_domain'] = sub_domain or ""
             refresh['has_profile_completed'] = has_profile_completed
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)

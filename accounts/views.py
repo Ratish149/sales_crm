@@ -112,7 +112,7 @@ class CustomSignupView(APIView):
                     user.frontend_url = frontend_url
                     user.save()
                     store_profile, created = StoreProfile.objects.get_or_create(
-                        store_name=storeName)
+                        store_name=store_name)
                     user.store = store_profile
                     user.role = "owner" if created else "viewer"
                     user.save()
