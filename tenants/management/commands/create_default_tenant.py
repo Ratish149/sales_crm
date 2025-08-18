@@ -4,7 +4,6 @@ from tenants.models import Client, Domain
 from django.contrib.auth import get_user_model
 
 
-
 class Command(BaseCommand):
     help = 'Creates a default tenant with domain 127.0.0.1'
 
@@ -31,7 +30,7 @@ class Command(BaseCommand):
 
             # Create a domain for the tenant
             domain, created = Domain.objects.get_or_create(
-                domain='nepdora.baliyoventures.com',
+                domain='127.0.0.1',
                 tenant=default_tenant,
                 is_primary=True
             )

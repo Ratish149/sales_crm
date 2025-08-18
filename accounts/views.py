@@ -25,6 +25,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from allauth.account.utils import user_email, user_username, user_field
 from django.http import JsonResponse
 from django.utils.text import slugify
+from utils.error_handler import bad_request, server_error, not_found
+from django.db.models import Q
 load_dotenv()
 # Create your views here.
 
@@ -38,8 +40,14 @@ class CustomSignupView(APIView):
         # Parse request data
         try:
             data = json.loads(request.body)
-        except Exception:
+        except json.JSONDecodeError:
             data = request.data
+        except Exception as e:
+            return bad_request(
+                message="Invalid request data",
+                code=status.HTTP_400_BAD_REQUEST,
+                params={"error": str(e)}
+            )
 
         email = data.get("email")
         store_name = data.get("store_name", "").lower()
@@ -47,77 +55,118 @@ class CustomSignupView(APIView):
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
 
+        # Validate required fields
+        if not email:
+            return bad_request("Email is required", status.HTTP_400_BAD_REQUEST)
+
+        if not password:
+            return bad_request("Password is required", status.HTTP_400_BAD_REQUEST)
+
+        # Check if username/email already exists
+        if CustomUser.objects.filter(Q(username=username) | Q(email=email)).exists():
+            return bad_request(
+                message="A user with this email/username already exists. Please use a different email or try logging in.",
+                code=status.HTTP_400_BAD_REQUEST
+            )
+
         # Validate unique store_name schema
         if store_name:
             if Client.objects.filter(schema_name=store_name).exists():
-                return Response(
-                    {"error": f"Store name '{store_name}' is already taken."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                return bad_request(
+                    message=f"Store name '{store_name}' is already taken.",
+                    code=status.HTTP_400_BAD_REQUEST
                 )
             if store_name in ['public', 'default', 'postgres']:
-                return Response(
-                    {"error": f"Store name '{store_name}' is reserved."},
-                    status=status.HTTP_400_BAD_REQUEST,
+                return bad_request(
+                    message=f"Store name '{store_name}' is reserved.",
+                    code=status.HTTP_400_BAD_REQUEST
                 )
 
-        # Create user instance (not saved yet)
-        user_model = CustomUser
-        user = user_model()
-
-        user_email(user, email)
-        user_username(user, username)
-        user_field(user, "store_name", store_name)
-        user_field(user, "phone_number", phone_number)
-
-        if password:
-            user.set_password(password)
-        else:
-            user.set_unusable_password()
-
-        # Save user
-        user.save()
-        storeName = slugify(store_name)
-
-        # Create StoreProfile & Tenant
-        if storeName:
-            store_profile, created = StoreProfile.objects.get_or_create(
-                store_name=storeName)
-            user.store = store_profile
-            user.role = "owner" if created else "viewer"
-            user.save()
-
-            tenant = Client.objects.create(
-                schema_name=storeName,
-                name=storeName,
-                owner=user,
-            )
-            domain = Domain.objects.create(
-                domain=f"{storeName}.{backend_url}",
-                tenant=tenant,
-                is_primary=True,
-            )
-
-        # Generate JWT tokens
         try:
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
-            refresh_token = str(refresh)
+            # Create user instance (not saved yet)
+            user_model = CustomUser
+            user = user_model()
+
+            user_email(user, email)
+            user_username(user, username)
+            user_field(user, "store_name", store_name)
+            user_field(user, "phone_number", phone_number)
+
+            if password:
+                user.set_password(password)
+            else:
+                user.set_unusable_password()
+
+            # Save user
+            user.save()
+            storeName = slugify(store_name)
+
+            # Create StoreProfile & Tenant
+            if storeName:
+                try:
+                    store_profile, created = StoreProfile.objects.get_or_create(
+                        store_name=storeName)
+                    user.store = store_profile
+                    user.role = "owner" if created else "viewer"
+                    user.save()
+
+                    tenant = Client.objects.create(
+                        schema_name=storeName,
+                        name=storeName,
+                        owner=user,
+                    )
+                    domain = Domain.objects.create(
+                        domain=f"{storeName}.{backend_url}",
+                        tenant=tenant,
+                        is_primary=True,
+                    )
+                except Exception as e:
+                    # Clean up user if tenant creation fails
+                    user.delete()
+                    return server_error(
+                        message="Failed to create store profile",
+                        code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        params={"error": str(e)}
+                    )
+
+            # Generate JWT tokens
+            try:
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
+            except Exception as e:
+                return server_error(
+                    message="Token creation failed",
+                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    params={"error": str(e)}
+                )
+
+            # Send verification email
+            try:
+                send_email_confirmation(request, user)
+            except Exception as e:
+                # Log the error but don't fail the signup
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to send verification email: {str(e)}")
+
+            # Return success response
+            return Response({
+                "id": user.id,
+                "email": email,
+                "username": username,
+                "store_name": store_name,
+                "role": user.role,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+            }, status=status.HTTP_201_CREATED)
+
         except Exception as e:
-            return Response({"error": f"Token creation failed: {str(e)}"}, status=500)
-
-        # Send verification email - optionally use adapter here or custom logic
-        send_email_confirmation(request, user)
-
-        # Return custom response including tokens and user info
-        return Response({
-            "id": user.id,
-            "email": email,
-            "username": username,
-            "store_name": store_name,
-            "role": user.role,
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-        }, status=201)
+            return server_error(
+                message="An unexpected error occurred during signup",
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                params={"error": str(e)}
+            )
 
 
 class CustomVerifyEmailView(APIView):
@@ -131,7 +180,10 @@ class CustomVerifyEmailView(APIView):
             'key') or request.headers.get('x-email-verification-key') or request.data.get('key')
 
         if not key:
-            return Response({"error": "Verification key is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return bad_request(
+                message="Verification key is required.",
+                code=status.HTTP_400_BAD_REQUEST
+            )
 
         # Try to find EmailConfirmation by key (DB or HMAC)
         email_confirmation = EmailConfirmationHMAC.from_key(key)
@@ -140,11 +192,25 @@ class CustomVerifyEmailView(APIView):
                 email_confirmation = EmailConfirmation.objects.get(
                     key=key.lower())
             except EmailConfirmation.DoesNotExist:
-                return Response({"error": "Invalid verification key."}, status=status.HTTP_400_BAD_REQUEST)
+                return not_found(
+                    message="Invalid verification key.",
+                    code=status.HTTP_404_NOT_FOUND
+                )
 
-        # Confirm email
-        email_confirmation.confirm(request)
-        return Response({"message": "Email verified successfully."}, status=status.HTTP_200_OK)
+        try:
+            # Confirm email
+            email_confirmation.confirm(request)
+            return Response({
+                "message": "Email verified successfully.",
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return server_error(
+                message="Failed to verify email",
+                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                params={"error": str(e)}
+            )
 
 
 class ChangePasswordView(APIView):

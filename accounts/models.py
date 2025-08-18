@@ -37,7 +37,14 @@ class CustomUser(AbstractUser):
         max_length=10, choices=ROLE_CHOICES, default='viewer')
     store = models.ForeignKey(
         StoreProfile, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
-    phone_number=models.CharField(max_length=255,null=True,blank=True)
+    phone_number = models.CharField(max_length=255, null=True, blank=True)
+
+    def delete(self, *args, **kwargs):
+        store = self.store
+        super().delete(*args, **kwargs)
+        # After user is deleted, check if store has any users left
+        if store and not store.users.exists():
+            store.delete()
 
     def __str__(self):
         return self.email

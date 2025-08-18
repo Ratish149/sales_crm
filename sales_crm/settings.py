@@ -232,6 +232,8 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    'EXCEPTION_HANDLER': 'sales_crm.utils.error_handler.custom_exception_handler',
+
 }
 
 # Email configuration for development
