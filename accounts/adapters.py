@@ -250,18 +250,15 @@ class CustomAccountAdapter(DefaultAccountAdapter):
 
     def send_mail(self, template_prefix, email, context):
         try:
-            print("context", context)
-            print("template_prefix", template_prefix)
+
             if template_prefix == "account/email/password_reset_key":
                 html_body = render_to_string(
                     "account/email/password_reset_message.html", context)
                 subject = "Password Reset Requested"
-                print("password reset email")
             else:
                 html_body = render_to_string(
                     "account/email/email_confirmation_message.html", context)
                 subject = "Sales CRM - Email Verification"
-                print("email verification email")
             # test_email = "sikchhu.baliyo@gmail.com"
             # For testing, send to the verified email address
             # In production, you would verify your domain and use your own domain
@@ -274,10 +271,8 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             }
 
             response = resend.Emails.send(params)
-            print(f"Email sent successfully: {response}")
 
         except Exception as e:
-            print(f"Error sending email: {e}")
             # Fallback to default email sending if Resend fails
             super().send_mail(template_prefix, email, context)
 
