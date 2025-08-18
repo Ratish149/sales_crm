@@ -109,7 +109,8 @@ class CustomSignupView(APIView):
             if storeName:
                 try:
                     frontend_url = f"{storeName}.{frontendUrl}"
-                    user_field(user, "frontend_url", frontend_url)
+                    user.frontend_url = frontend_url
+                    user.save()
                     store_profile, created = StoreProfile.objects.get_or_create(
                         store_name=storeName)
                     user.store = store_profile
