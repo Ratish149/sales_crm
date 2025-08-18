@@ -15,7 +15,7 @@ from tenants.models import Client, Domain
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.utils import valid_email_or_none
 from django.http import JsonResponse
-
+from django.utils.text import slugify
 load_dotenv()
 
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -93,52 +93,77 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
     def serialize_user(self, user) -> Dict[str, Any]:
         """
-        Returns the basic user data. Note that this data is also exposed in
-        partly authenticated scenario's (e.g. password reset, email
-        verification).
+        Returns the basic user data along with JWT tokens and store info.
         """
-
         ret = {
             "display": user_display(user),
             "has_usable_password": user.has_usable_password(),
         }
-        if user.pk:
-            ret["id"] = user.pk
-            email = EmailAddress.objects.get_primary_email(user)
-            if email:
-                ret["email"] = email
-
-            # Check if user has a profile created
-            has_profile = False
-            if user and getattr(user, 'store', None) is not None:
-                has_profile = True
 
         username = user_username(user)
-        client = Client.objects.get(owner=user)
-        domain = Domain.objects.get(tenant=client)
-        store_profile = StoreProfile.objects.get(id=user.store.id)
+        ret["username"] = username
+
+        # Check if user has a store/profile
+        has_profile = getattr(user, "store", None) is not None
+        ret["has_profile"] = has_profile
+
+        # Initialize extra variables
+        domain_name = ""
+        sub_domain = ""
+        role = ""
+        phone_number = ""
+        store_name = ""
         has_profile_completed = False
-        if not store_profile.logo or not store_profile.store_number or not store_profile.store_address or not store_profile.business_category:
-            has_profile_completed = False
-        else:
-            has_profile_completed = True
+
+        if has_profile:
+            store_profile = user.store
+            store_name = store_profile.store_name
+            role = user.role
+            phone_number = user.phone_number
+            sub_domain = slugify(store_profile.store_name)
+
+            # Check profile completion
+            has_profile_completed = all([
+                store_profile.logo,
+                store_profile.store_number,
+                store_profile.store_address,
+                store_profile.business_category
+            ])
+
+            # Get tenant and domain safely
+            try:
+                client = Client.objects.get(owner=user)
+                domain = Domain.objects.get(tenant=client)
+                domain_name = domain.domain
+            except Client.DoesNotExist:
+                client = None
+            except Domain.DoesNotExist:
+                domain = None
+
+        # Generate JWT tokens
         try:
-            sub_domain = slugify(user.store.store_name)
             refresh = RefreshToken.for_user(user)
             refresh['email'] = user.email
-            refresh['store_name'] = user.store.store_name
+            refresh['store_name'] = store_name
             refresh['has_profile'] = has_profile
-            refresh['role'] = user.role
-            refresh['phone_number'] = user.phone_number
-            refresh['domain'] = domain.domain
-            refresh['sub_domain'] = sub_domain or ""
+            refresh['role'] = role
+            refresh['phone_number'] = phone_number
+            refresh['domain'] = domain_name
+            refresh['sub_domain'] = sub_domain
             refresh['has_profile_completed'] = has_profile_completed
+
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
         except Exception as e:
             print(f"Error creating token: {e}")
-        if username:
-            ret["username"] = username
+
+        # Add store-related info
+        ret.update({
+            "store_name": store_name,
+            "role": role,
+            "phone_number": phone_number,
+            "has_profile_completed": has_profile_completed,
+        })
 
         return ret
 

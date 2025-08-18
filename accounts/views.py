@@ -135,17 +135,6 @@ class CustomSignupView(APIView):
                         params={"error": str(e)}
                     )
 
-            # Generate JWT tokens
-            try:
-                refresh = RefreshToken.for_user(user)
-                access_token = str(refresh.access_token)
-                refresh_token = str(refresh)
-            except Exception as e:
-                return server_error(
-                    message="Token creation failed",
-                    params={"error": str(e)}
-                )
-
             # Send verification email
             try:
                 send_email_confirmation(request, user)
@@ -162,8 +151,6 @@ class CustomSignupView(APIView):
                 "username": username,
                 "store_name": store_name,
                 "role": user.role,
-                "access_token": access_token,
-                "refresh_token": refresh_token,
             }, status=status.HTTP_201_CREATED)
 
         except Exception as e:
