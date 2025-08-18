@@ -25,7 +25,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from allauth.account.utils import user_email, user_username, user_field
 from django.http import JsonResponse
 from django.utils.text import slugify
-from utils.error_handler import bad_request, server_error, not_found
+from utils.error_handler import (
+    bad_request, server_error, not_found, duplicate_entry,
+    validation_error, ErrorCode, ErrorMessage
+)
 from django.db.models import Q
 load_dotenv()
 # Create your views here.
@@ -45,7 +48,7 @@ class CustomSignupView(APIView):
         except Exception as e:
             return bad_request(
                 message="Invalid request data",
-                code=status.HTTP_400_BAD_REQUEST,
+                code=ErrorCode.BAD_REQUEST,
                 params={"error": str(e)}
             )
 
@@ -57,29 +60,29 @@ class CustomSignupView(APIView):
 
         # Validate required fields
         if not email:
-            return bad_request("Email is required", status.HTTP_400_BAD_REQUEST)
+            return bad_request("Email is required")
 
         if not password:
-            return bad_request("Password is required", status.HTTP_400_BAD_REQUEST)
+            return bad_request("Password is required")
 
         # Check if username/email already exists
         if CustomUser.objects.filter(Q(username=username) | Q(email=email)).exists():
-            return bad_request(
+            return duplicate_entry(
                 message="A user with this email/username already exists. Please use a different email or try logging in.",
-                code=status.HTTP_400_BAD_REQUEST
+                params={"email": email}
             )
 
         # Validate unique store_name schema
         if store_name:
             if Client.objects.filter(schema_name=store_name).exists():
-                return bad_request(
+                return validation_error(
                     message=f"Store name '{store_name}' is already taken.",
-                    code=status.HTTP_400_BAD_REQUEST
+                    params={"store_name": "This store name is already taken"}
                 )
             if store_name in ['public', 'default', 'postgres']:
-                return bad_request(
+                return validation_error(
                     message=f"Store name '{store_name}' is reserved.",
-                    code=status.HTTP_400_BAD_REQUEST
+                    params={"store_name": "This store name is reserved"}
                 )
 
         try:
@@ -125,7 +128,6 @@ class CustomSignupView(APIView):
                     user.delete()
                     return server_error(
                         message="Failed to create store profile",
-                        code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         params={"error": str(e)}
                     )
 
@@ -137,7 +139,6 @@ class CustomSignupView(APIView):
             except Exception as e:
                 return server_error(
                     message="Token creation failed",
-                    code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     params={"error": str(e)}
                 )
 
@@ -164,7 +165,6 @@ class CustomSignupView(APIView):
         except Exception as e:
             return server_error(
                 message="An unexpected error occurred during signup",
-                code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 params={"error": str(e)}
             )
 
