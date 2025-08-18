@@ -38,6 +38,7 @@ class CustomUser(AbstractUser):
     store = models.ForeignKey(
         StoreProfile, on_delete=models.CASCADE, null=True, blank=True, related_name='users')
     phone_number = models.CharField(max_length=255, null=True, blank=True)
+    frontend_url = models.CharField(max_length=255, null=True, blank=True)
 
     def delete(self, *args, **kwargs):
         store = self.store

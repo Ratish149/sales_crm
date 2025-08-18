@@ -34,6 +34,7 @@ load_dotenv()
 # Create your views here.
 
 backend_url = os.getenv("BACKEND_URL")
+frontendUrl = os.getenv("FRONTEND_URL")
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -73,17 +74,6 @@ class CustomSignupView(APIView):
             )
 
         # Validate unique store_name schema
-        if store_name:
-            if Client.objects.filter(schema_name=store_name).exists():
-                return validation_error(
-                    message=f"Store name '{store_name}' is already taken.",
-                    params={"store_name": "This store name is already taken"}
-                )
-            if store_name in ['public', 'default', 'postgres']:
-                return validation_error(
-                    message=f"Store name '{store_name}' is reserved.",
-                    params={"store_name": "This store name is reserved"}
-                )
 
         try:
             # Create user instance (not saved yet)
@@ -103,10 +93,23 @@ class CustomSignupView(APIView):
             # Save user
             user.save()
             storeName = slugify(store_name)
+            if store_name:
+                if Client.objects.filter(schema_name=store_name).exists():
+                    return validation_error(
+                        message=f"Store name '{store_name}' is already taken.",
+                        params={"store_name": "This store name is already taken"}
+                    )
+                if store_name in ['public', 'default', 'postgres']:
+                    return validation_error(
+                        message=f"Store name '{store_name}' is reserved.",
+                        params={"store_name": "This store name is reserved"}
+                    )
 
             # Create StoreProfile & Tenant
             if storeName:
                 try:
+                    frontend_url = f"{storeName}.{frontendUrl}"
+                    user_field(user, "frontend_url", frontend_url)
                     store_profile, created = StoreProfile.objects.get_or_create(
                         store_name=storeName)
                     user.store = store_profile

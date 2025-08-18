@@ -130,6 +130,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh['role'] = user.role
             refresh['phone_number'] = user.phone_number
             refresh['domain'] = domain.domain
+            refresh['frontend_url'] = user.frontend_url or ""
             refresh['has_profile_completed'] = has_profile_completed
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
