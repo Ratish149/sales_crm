@@ -11,7 +11,7 @@ from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import CustomUser, StoreProfile
+from .models import CustomUser, StoreProfile, Invitation
 from allauth.account.utils import send_email_confirmation
 import os
 import resend
@@ -25,11 +25,14 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from allauth.account.utils import user_email, user_username, user_field
 from django.http import JsonResponse
 from django.utils.text import slugify
-from utils.error_handler import (
+from sales_crm.utils.error_handler import (
     bad_request, server_error, not_found, duplicate_entry,
     validation_error, ErrorCode, ErrorMessage
 )
 from django.db.models import Q
+from rest_framework.exceptions import PermissionDenied
+from rest_framework import serializers
+from uuid import uuid4
 load_dotenv()
 # Create your views here.
 
@@ -112,8 +115,8 @@ class CustomSignupView(APIView):
                     user.frontend_url = frontend_url
                     user.save()
                     store_profile, created = StoreProfile.objects.get_or_create(
+                        owner=user,
                         store_name=store_name)
-                    user.store = store_profile
                     user.role = "owner" if created else "viewer"
                     user.save()
 
@@ -224,14 +227,53 @@ class ResendEmailVerificationView(APIView):
         return Response({"detail": "Already verified or not authenticated."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class InvitationCreateView(generics.CreateAPIView):
+class InvitationCreateView(generics.ListCreateAPIView):
     serializer_class = InvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        return Invitation.objects.filter(invited_by=self.request.user)
+
     def perform_create(self, serializer):
+        # Get the store that the current user is inviting to
+        # Assuming user can only own one store for now
+        store = self.request.user.owned_stores.first()
+
+        if not store:
+            raise serializers.ValidationError(
+                "You don't own any store to invite users to.")
+
+        # Check if the user has permission to invite (only owner and admin can invite)
+        if not (self.request.user.role in ['owner', 'admin'] and store.owner == self.request.user):
+            raise PermissionDenied(
+                "You don't have permission to invite users to this store.")
+
+        email = serializer.validated_data['email']
+        role = serializer.validated_data['role']
+
+        # Check if user is already a member
+        existing_user = CustomUser.objects.filter(email=email).first()
+        if existing_user and store.users.filter(id=existing_user.id).exists():
+            raise serializers.ValidationError(
+                "This user is already a member of this store.")
+
+        # Check for existing invitation
+        if Invitation.objects.filter(email=email, store=store, accepted=False).exists():
+            raise serializers.ValidationError(
+                "An invitation has already been sent to this email.")
+        # Create the invitation
+        invitation = serializer.save(
+            store=store,
+            invited_by=self.request.user,
+            role=role
+        )
+
+        # Send invitation email
+        self._send_invitation_email(invitation)
+
+    def _send_invitation_email(self, invitation):
 
         resend.api_key = os.getenv("RESEND_API_KEY")
-        invitation = serializer.save()
         FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         invite_url = f"{FRONTEND_URL}/user/invite/{invitation.token}"
         # Prepare email content using a template
@@ -248,9 +290,51 @@ class InvitationCreateView(generics.CreateAPIView):
         }
         try:
             response = resend.Emails.send(params)
-            print(f"Invitation email sent successfully: {response}")
         except Exception as e:
-            print(f"Error sending invitation email: {e}")
+            return server_error(
+                message="Failed to send invitation email",
+                params={"error": str(e)}
+            )
+
+
+class ResendInvitationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, invitation_id):
+        try:
+            invitation = Invitation.objects.get(
+                id=invitation_id,
+                store__users=request.user,  # Only allow resending if user has access to the store
+                accepted=False
+            )
+
+            # Check permission - only store owner or admin can resend invitations
+            if not (request.user.role in ['owner', 'admin'] and request.user in invitation.store.users.all()):
+                raise PermissionDenied(
+                    "You don't have permission to resend this invitation.")
+
+            # Update the token and save
+            invitation.token = uuid4()
+            invitation.save()
+
+            # Send the invitation email
+            InvitationCreateView._send_invitation_email(self, invitation)
+
+            return Response(
+                {"detail": "Invitation resent successfully."},
+                status=status.HTTP_200_OK
+            )
+
+        except Invitation.DoesNotExist:
+            return Response(
+                {"detail": "Invitation not found or already accepted."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class AcceptInvitationView(APIView):
@@ -281,17 +365,36 @@ class StoreProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = StoreProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        # Users can only see stores they are members of
+        return StoreProfile.objects.filter(owner=self.request.user)
+
     def get_object(self):
-        store_profile = StoreProfile.objects.filter(
-            id=self.request.user.store_id).first()
-        if not store_profile:
-            raise Response({"detail": "Store profile not found."},
-                           status=status.HTTP_404_NOT_FOUND)
-        return store_profile
+        # Get the store for the current user (assuming one store per user for now)
+        store = self.request.user.owned_stores.first()
+        if not store:
+            store = self.request.user.stores.first()
+
+        if not store:
+            raise Http404("No store found for this user.")
+
+        # Check if user has permission to view this store
+        if not self.request.user in store.users.all() and not self.request.user == store.owner:
+            raise PermissionDenied(
+                "You don't have permission to access this store.")
+
+        return store
 
     def perform_update(self, serializer):
-        instance = serializer.save()
-        # Optionally, ensure the user's store is updated if needed
-        if self.request.user.store_id != instance.id:
-            self.request.user.store = instance
-            self.request.user.save()
+        # Only allow the store owner to update the store
+        if self.request.user != serializer.instance.owner:
+            raise PermissionDenied(
+                "Only the store owner can update store details.")
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        # Only allow the store owner to delete the store
+        if self.request.user != instance.owner:
+            raise PermissionDenied(
+                "Only the store owner can delete the store.")
+        instance.delete()

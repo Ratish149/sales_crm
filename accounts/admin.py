@@ -4,9 +4,16 @@ from .models import CustomUser, StoreProfile, Invitation
 # Register your models here.
 
 
+class StoreProfileTabularInline(admin.TabularInline):
+    model = StoreProfile
+    tab = True
+    extra = 0
+
+
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
     list_display = ('email', 'role', 'is_staff')
+    inlines = [StoreProfileTabularInline]
 
 
 @admin.register(StoreProfile)

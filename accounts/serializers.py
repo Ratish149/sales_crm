@@ -3,10 +3,12 @@ from .models import Invitation, CustomUser, StoreProfile
 import cloudinary
 import cloudinary.uploader
 import os
+from dotenv import load_dotenv
+load_dotenv()
 
-CLOUDINARY_CLOUD_NAME = "dlqqwdj0o"
-CLOUDINARY_API_KEY = "191929385875364"
-CLOUDINARY_API_SECRET = "zsPz35zRKIoFHrC1tEQFhe3_Z9U"
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 cloudinary.config(
     cloud_name=CLOUDINARY_CLOUD_NAME,
@@ -27,41 +29,57 @@ class InvitationSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):
             validated_data['invited_by'] = request.user
-            validated_data['store'] = request.user.store
         return super().create(validated_data)
 
 
 class AcceptInvitationSerializer(serializers.Serializer):
     token = serializers.UUIDField()
     password = serializers.CharField(write_only=True, min_length=8)
+    first_name = serializers.CharField(required=False, allow_blank=True)
+    last_name = serializers.CharField(required=False, allow_blank=True)
+    phone_number = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, data):
         try:
             invitation = Invitation.objects.get(
-                token=data['token'], accepted=False)
+                token=data['token'],
+                accepted=False
+            )
+            # Check if user with this email already exists
+            if CustomUser.objects.filter(email=invitation.email).exists():
+                raise serializers.ValidationError(
+                    "A user with this email already exists. Please log in instead."
+                )
+            data['invitation'] = invitation
+            return data
         except Invitation.DoesNotExist:
             raise serializers.ValidationError(
-                "Invalid or expired invitation token.")
-        data['invitation'] = invitation
-        return data
+                "Invalid or expired invitation token."
+            )
 
     def create(self, validated_data):
         invitation = validated_data['invitation']
         password = validated_data['password']
+
         # Create the user
         user = CustomUser.objects.create_user(
             email=invitation.email,
             password=password,
             role=invitation.role,
-            store=invitation.store,
-            username=invitation.email  # or generate a username
+            username=invitation.email,
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            phone_number=validated_data.get('phone_number', '')
         )
-        invitation.accepted = True
-        invitation.save()
+
+        # Accept the invitation (this will add user to store and handle roles)
+        invitation.accept(user)
+
         return user
 
 
 class StoreProfileSerializer(serializers.ModelSerializer):
+
     logo_file = serializers.FileField(write_only=True, required=False)
     document_file = serializers.FileField(write_only=True, required=False)
 

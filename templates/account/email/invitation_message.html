@@ -1,12 +1,276 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Invitation Email</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Oxygen, Ubuntu, Cantarell, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        background-color: #f8fafc;
+        padding: 40px 20px;
+      }
+
+      .email-container {
+        max-width: 600px;
+        margin: 0 auto;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      }
+
+      .header {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        padding: 30px;
+        text-align: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .header h1 {
+        color: white;
+        font-size: 28px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+      }
+
+      .header p {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 16px;
+        font-weight: 300;
+      }
+
+      .content {
+        background: white;
+        padding: 50px 40px;
+      }
+
+      .greeting {
+        font-size: 18px;
+        color: #2d3748;
+        margin-bottom: 30px;
+        font-weight: 500;
+      }
+
+      .invitation-card {
+        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 30px;
+        margin: 30px 0;
+        text-align: center;
+        position: relative;
+      }
+
+      .invitation-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 12px 12px 0 0;
+      }
+
+      .store-name {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1a202c;
+        margin-bottom: 8px;
+        letter-spacing: -0.3px;
+      }
+
+      .role {
+        font-size: 18px;
+        color: #667eea;
+        font-weight: 600;
+        margin-bottom: 20px;
+      }
+
+      .invite-description {
+        color: #4a5568;
+        font-size: 16px;
+        margin-bottom: 30px;
+        line-height: 1.7;
+      }
+
+      .cta-button {
+        display: inline-block;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        padding: 16px 40px;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        margin: 20px 0;
+      }
+
+      .cta-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+      }
+
+      .fallback-url {
+        background: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px;
+        margin: 30px 0;
+      }
+
+      .fallback-url h4 {
+        color: #2d3748;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .url-text {
+        color: #4a5568;
+        font-size: 14px;
+        word-break: break-all;
+        background: white;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+      }
+
+      .footer {
+        text-align: center;
+        padding: 30px 40px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+      }
+
+      .signature {
+        color: #718096;
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+
+      .team-name {
+        font-weight: 600;
+        color: #4a5568;
+      }
+
+      .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+        margin: 25px 0;
+      }
+
+      .security-note {
+        font-size: 12px;
+        color: #a0aec0;
+        line-height: 1.5;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      @media (max-width: 600px) {
+        .email-container {
+          border-radius: 0;
+          margin: -40px -20px;
+        }
+
+        .content {
+          padding: 30px 25px;
+        }
+
+        .invitation-card {
+          padding: 25px 20px;
+        }
+
+        .header {
+          padding: 25px 20px;
+        }
+
+        .header h1 {
+          font-size: 24px;
+        }
+
+        .store-name {
+          font-size: 20px;
+        }
+
+        .cta-button {
+          padding: 14px 30px;
+          font-size: 15px;
+        }
+      }
+    </style>
+  </head>
   <body>
-    <p>Hello,</p>
-    <p>You have been invited to join <b>{{ store_name }}</b> as <b>{{ role }}</b>.</p>
-    <p>To accept the invitation, please click the link below:</p>
-    <p><a href="{{ invite_url }}">Accept Invitation</a></p>
-    <p>If the button above does not work, copy and paste this URL into your browser:</p>
-    <p>{{ invite_url }}</p>
-    <br>
-    <p>Thank you,<br>Sales CRM Team</p>
+    <div class="email-container">
+      <div class="header">
+        <h1>You're Invited!</h1>
+        <p>Join our team and start collaborating</p>
+      </div>
+
+      <div class="content">
+        <div class="greeting">Hello there,</div>
+
+        <div class="invitation-card">
+          <div class="store-name">{{ store_name }}</div>
+          <div class="role">{{ role }}</div>
+          <div class="invite-description">
+            You've been invited to join our team! We're excited to have you
+            collaborate with us and contribute to our success.
+          </div>
+          <a href="{{ invite_url }}" class="cta-button">Accept Invitation</a>
+        </div>
+
+        <div class="fallback-url">
+          <h4>Having trouble with the button?</h4>
+          <div class="url-text">{{ invite_url }}</div>
+        </div>
+
+        <div class="divider"></div>
+
+        <p
+          style="
+            color: #718096;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.6;
+          "
+        >
+          This invitation was sent to you because someone added your email
+          address to <strong>{{ store_name }}</strong>. If you believe this was
+          sent in error, you can safely ignore this email.
+        </p>
+      </div>
+
+      <div class="footer">
+        <div class="signature">
+          Best regards,<br />
+          <span class="team-name">Nepdora Team</span>
+        </div>
+
+        <div class="security-note">
+          This is an automated message from our secure system. Please do not
+          reply to this email.
+        </div>
+      </div>
+    </div>
   </body>
-</html> 
+</html>
