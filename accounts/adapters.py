@@ -116,7 +116,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         has_profile_completed = False
 
         if has_profile:
-            store_profile = user.store
+            store_profile = StoreProfile.objects.get(users__in=user)
             store_name = store_profile.store_name
             role = user.role
             phone_number = user.phone_number
