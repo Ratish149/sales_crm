@@ -103,36 +103,45 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         username = user_username(user)
         ret["username"] = username
 
-        # Check if user has a store/profile
-        has_profile = getattr(user, "store", None) is not None
+        # Check if user has a store/profile through direct assignment or many-to-many
+        has_direct_store = getattr(user, "store", None) is not None
+        has_related_stores = user.stores.exists()
+        has_profile = has_direct_store or has_related_stores
         ret["has_profile"] = has_profile
 
         # Initialize extra variables
         domain_name = ""
         sub_domain = ""
         role = ""
-        phone_number = ""
+        phone_number = user.phone_number or ""
         store_name = ""
         has_profile_completed = False
+        owner = None
 
         if has_profile:
-            store_profile = StoreProfile.objects.get(users__in=user)
-            store_name = store_profile.store_name
-            role = user.role
-            phone_number = user.phone_number
-            sub_domain = slugify(store_profile.store_name)
+            # Try to get store profile from direct relationship first, then from many-to-many
+            store_profile = StoreProfile.objects.filter(users=user).first()
+            if not store_profile and hasattr(user, 'store'):
+                store_profile = user.store
 
-            # Check profile completion
-            has_profile_completed = all([
-                store_profile.logo,
-                store_profile.store_number,
-                store_profile.store_address,
-                store_profile.business_category
-            ])
+            if store_profile:
+                store_name = store_profile.store_name
+                owner = store_profile.owner
+                # Get role from user's role field
+                role = user.role
+                # Get subdomain from store name if available
+                sub_domain = slugify(store_name) if store_name else ""
+                # Check profile completion if we have a store profile
+                has_profile_completed = all([
+                    store_profile.logo,
+                    store_profile.store_number,
+                    store_profile.store_address,
+                    store_profile.business_category
+                ])
 
             # Get tenant and domain safely
             try:
-                client = Client.objects.get(owner=user)
+                client = Client.objects.get(owner=owner)
                 domain = Domain.objects.get(tenant=client)
                 domain_name = domain.domain
             except Client.DoesNotExist:
