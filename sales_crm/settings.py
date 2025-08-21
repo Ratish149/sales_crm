@@ -60,15 +60,16 @@ SHARED_APPS = [
     'corsheaders',
     'drf_spectacular',
     'accounts',
-    'website'
 
 ]
 
 TENANT_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.auth',
+    'website',
     'product',
-    'order'
+    'order',
+
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + \

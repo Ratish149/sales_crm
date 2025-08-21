@@ -1,8 +1,14 @@
 from django.urls import path
-from .views import WebsiteListCreateView, WebsiteRetrieveUpdateDestroyView
+from .views import PageComponentListCreateView, PageComponentByTypeView, PageListCreateView, PageRetrieveUpdateDestroyView, NavbarView, FooterView
 
 urlpatterns = [
-    path('website/', WebsiteListCreateView.as_view(), name='website-list-create'),
-    path('website/<int:pk>/', WebsiteRetrieveUpdateDestroyView.as_view(),
-         name='website-retrieve-update-destroy'),
+    path("pages/", PageListCreateView.as_view(), name="pages"),
+    path("pages/<int:page_id>/",
+         PageRetrieveUpdateDestroyView.as_view(), name="page"),
+    path("pages/<slug:slug>/components/",
+         PageComponentListCreateView.as_view(), name="page-components"),
+    path("pages/<slug:slug>/components/<int:id>/",
+         PageComponentByTypeView.as_view(), name="component-by-type"),
+    path("navbar/", NavbarView.as_view(), name="navbar"),
+    path("footer/", FooterView.as_view(), name="footer"),
 ]
