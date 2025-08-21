@@ -22,7 +22,7 @@ class PageComponent(models.Model):
     component_type = models.CharField(max_length=255, null=True, blank=True)
     component_id = models.CharField(max_length=255)
     data = models.JSONField(null=True, blank=True)
-    order = models.IntegerField(default=0)
+    order = models.IntegerField(default=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
