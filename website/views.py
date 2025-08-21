@@ -25,7 +25,7 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
     serializer_class = PageSerializer
     queryset = Page.objects.all()
-    
+    lookup_field = 'slug'
 
 
 class NavbarView(generics.GenericAPIView):
