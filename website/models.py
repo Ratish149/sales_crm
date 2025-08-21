@@ -8,6 +8,9 @@ class Page(models.Model):
     slug = models.SlugField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ('title',)
+
     def __str__(self):
         return self.title
 
