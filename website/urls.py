@@ -3,7 +3,7 @@ from .views import PageComponentListCreateView, PageComponentByTypeView, PageLis
 
 urlpatterns = [
     path("pages/", PageListCreateView.as_view(), name="pages"),
-    path("pages/<int:page_id>/",
+    path("pages/<int:pk>/",
          PageRetrieveUpdateDestroyView.as_view(), name="page"),
     path("pages/<slug:slug>/components/",
          PageComponentListCreateView.as_view(), name="page-components"),
