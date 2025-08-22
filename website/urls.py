@@ -7,7 +7,7 @@ urlpatterns = [
          PageRetrieveUpdateDestroyView.as_view(), name="page"),
     path("pages/<slug:slug>/components/",
          PageComponentListCreateView.as_view(), name="page-components"),
-    path("pages/<slug:slug>/components/<int:component_id>/",
+    path("pages/<slug:slug>/components/<str:component_id>/",
          PageComponentByTypeView.as_view(), name="component-by-type"),
     path("navbar/", NavbarView.as_view(), name="navbar"),
     path("footer/", FooterView.as_view(), name="footer"),
