@@ -152,8 +152,8 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         slug = self.kwargs["slug"]
-        id = self.kwargs["id"]
-        return get_object_or_404(PageComponent, page__slug=slug, id=id)
+        component_id = self.kwargs["component_id"]
+        return get_object_or_404(PageComponent, page__slug=slug, component_id=component_id)
 
     def partial_update(self, request, *args, **kwargs):
         """
