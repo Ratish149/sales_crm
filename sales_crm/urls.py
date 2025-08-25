@@ -32,11 +32,13 @@ urlpatterns = [
     path('api/', include('website.urls')),
     path('api/', include('product.urls')),
     path('api/', include('order.urls')),
+    path('api/', include('blog.urls')),
 
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema')),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema')),
+
 ]
 
 if settings.DEBUG:

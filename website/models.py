@@ -31,7 +31,6 @@ class PageComponent(models.Model):
 
     class Meta:
         ordering = ['order']
-        unique_together = ('page', 'component_type')
 
     def __str__(self):
         return f"{self.component_type} ({self.component_id})"
