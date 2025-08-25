@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics, filters
 from .models import Product, ProductImage, SubCategory, Category
-from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer
+from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer, SubCategoryDetailSerializer
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as django_filters
 
@@ -31,11 +31,21 @@ class SubCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = SubCategorySerializer
     pagination_class = CustomPagination
 
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return SubCategorySerializer
+        return SubCategoryDetailSerializer
+
 
 class SubCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
     lookup_field = 'slug'
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return SubCategorySerializer
+        return SubCategoryDetailSerializer
 
 
 class ProductImageListCreateView(generics.ListCreateAPIView):

@@ -38,6 +38,14 @@ class SubCategorySmallSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'description', 'image']
 
 
+class SubCategoryDetailSerializer(serializers.ModelSerializer):
+    category = CategorySmallSerializer(read_only=True)
+
+    class Meta:
+        model = SubCategory
+        fields = ['id', 'name', 'slug', 'description', 'image', 'category']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSmallSerializer(
         many=True, read_only=True)

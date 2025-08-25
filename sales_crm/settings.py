@@ -13,6 +13,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
+
+USE_SPACES = False
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -139,8 +145,8 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
             'options': '-c search_path=public'  # important for first migration
         }
     }
-} """
-
+}
+ """
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
@@ -220,10 +226,6 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
-
-
-MEDIA_URL = '/media/'
-MEDIA_ROOT = Path(BASE_DIR, 'media')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -417,3 +419,37 @@ TINYMCE_DEFAULT_CONFIG = {
     }""",
     "content_style": "body { font-family:Roboto,Helvetica,Arial,sans-serif; font-size:14px }",
 }
+
+if USE_SPACES:
+    # settings
+    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+
+    # Endpoint should be just region, NOT bucket + region
+    AWS_S3_ENDPOINT_URL = "https://blr1.digitaloceanspaces.com"
+
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+
+    # ✅ Correct custom domain (bucket + region)
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.blr1.digitaloceanspaces.com"
+
+    # Static + Media
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    DEFAULT_FILE_STORAGE = 'sales_crm.storage_backends.PublicMediaStorage'
+
+    # Public media path inside your bucket
+    PUBLIC_MEDIA_LOCATION = 'public/media'
+
+    # ✅ Correct media URL
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
+
+else:
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = Path(BASE_DIR, 'media')
