@@ -11,9 +11,11 @@ class Order(models.Model):
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
     ]
-    order_number = models.CharField(max_length=20, unique=True, default="")
+    order_number = models.CharField(
+        max_length=20, unique=True, default="", null=True, blank=True)
     customer_name = models.CharField(max_length=100)
-    customer_email = models.EmailField()
+    customer_email = models.EmailField(null=True, blank=True)
+    customer_phone = models.CharField(max_length=15, null=True, blank=True)
     customer_address = models.CharField(max_length=255)
     shipping_address = models.CharField(max_length=255)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)

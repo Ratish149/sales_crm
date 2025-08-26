@@ -145,8 +145,8 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
             'options': '-c search_path=public'  # important for first migration
         }
     }
-}
- """
+} """
+
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
