@@ -36,6 +36,7 @@ from rest_framework.exceptions import (
     Throttled,
     MethodNotAllowed
 )
+from django.conf import settings
 import logging
 
 # Set up logging
