@@ -71,6 +71,14 @@ class ProductSerializer(serializers.ModelSerializer):
             ProductImage.objects.create(product=product, image=image_data)
         return product
 
+    def update(self, instance, validated_data):
+        images_data = validated_data.pop('images', [])
+        instance = super().update(instance, validated_data)
+        instance.images.all().delete()
+        for image_data in images_data:
+            ProductImage.objects.create(product=instance, image=image_data)
+        return instance
+
 
 class ProductSmallSerializer(serializers.ModelSerializer):
     sub_category = SubCategorySmallSerializer(read_only=True)
@@ -81,7 +89,9 @@ class ProductSmallSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'price', 'market_price', 'stock', 'thumbnail_image', 'thumbnail_alt_description',
                   'category', 'sub_category', 'is_popular', 'is_featured', 'created_at', 'updated_at']
 
+
 class ProductOnlySerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['id', 'name', 'slug', 'price', 'market_price', 'thumbnail_image', 'thumbnail_alt_description']
+        fields = ['id', 'name', 'slug', 'price', 'market_price',
+                  'thumbnail_image', 'thumbnail_alt_description']
