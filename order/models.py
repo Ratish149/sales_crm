@@ -28,9 +28,12 @@ class Order(models.Model):
         return f"{self.customer_name} - {self.status}"
 
     def save(self, *args, **kwargs):
-        if not self.order_number:
+        if not self.id:  # first save (no ID yet)
+            super().save(*args, **kwargs)
             self.order_number = self.generate_order_number()
-        super().save(*args, **kwargs)
+            super().save(update_fields=["order_number"])
+        else:
+            super().save(*args, **kwargs)
 
     def generate_order_number(self):
         return f"ORD-{self.id:06d}"

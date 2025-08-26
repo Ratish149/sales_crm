@@ -78,9 +78,8 @@ class ErrorCode:
     DATA_ERROR = 5004
     INTEGRITY_ERROR = 5005
 
+
 # Error Message Constants
-
-
 class ErrorMessage:
     # 4xx Messages
     BAD_REQUEST = "Invalid request"
@@ -395,7 +394,55 @@ def get_error_details(exception: Exception) -> Tuple[int, int, str, Dict[str, An
         error_message = str(getattr(exception, 'detail', exception))
         return (status_code, error_code, error_message, error_params)
 
-    # Configuration Errors (should not happen in production)
+    # Python built-in errors (logic/runtime issues)
+    if isinstance(exception, TypeError):
+        return (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            f"Type error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, ValueError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Value error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, AttributeError):
+        return (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            f"Attribute error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, KeyError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Missing key: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, IndexError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Index error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, ZeroDivisionError):
+        return (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            "Division by zero",
+            error_params
+        )
+
     if isinstance(exception, ImproperlyConfigured):
         logger.error(f"Configuration error: {exception}")
         return (
@@ -519,7 +566,6 @@ def custom_exception_handler(exc: Exception, context: Dict[str, Any]) -> Respons
     """
 
     # Handle database-related exceptions before calling DRF's exception handler
-    # as DRF doesn't handle these by default
     database_exceptions = (
         IntegrityError, OperationalError, ProgrammingError,
         DataError, DatabaseError, InternalError, NotSupportedError,
