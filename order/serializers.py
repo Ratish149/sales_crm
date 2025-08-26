@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Order, OrderItem
 from product.models import Product
+from product.serializers import ProductOnlySerializer
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -13,9 +14,17 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ['id', 'product_id', 'quantity', 'price']
 
 
+class OrderItemDetailSerializer(serializers.ModelSerializer):
+    product = ProductOnlySerializer(read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = ['id', 'product', 'quantity', 'price']
+
+
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
-    order_items = OrderItemSerializer(
+    order_items = OrderItemDetailSerializer(
         source='items', many=True, read_only=True)
 
     class Meta:

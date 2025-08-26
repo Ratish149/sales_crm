@@ -80,3 +80,8 @@ class ProductSmallSerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'slug', 'price', 'market_price', 'stock', 'thumbnail_image', 'thumbnail_alt_description',
                   'category', 'sub_category', 'is_popular', 'is_featured', 'created_at', 'updated_at']
+
+class ProductOnlySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'name', 'slug', 'price', 'market_price', 'thumbnail_image', 'thumbnail_alt_description']
