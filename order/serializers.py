@@ -21,7 +21,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'customer_name', 'customer_phone', 'customer_email',
             'customer_address', 'shipping_address',
-            'total_amount', 'order_number', 'order_status', 'created_at', 'updated_at', 'items'
+            'total_amount', 'order_number', 'status', 'created_at', 'updated_at', 'items'
         ]
 
     def create(self, validated_data):
