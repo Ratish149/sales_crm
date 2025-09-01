@@ -18,6 +18,9 @@ class Blog(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        unique_together = ('title', 'slug')
+
     def __str__(self):
         return self.title
 
