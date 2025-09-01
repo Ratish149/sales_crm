@@ -188,79 +188,6 @@ def get_error_details(exception: Exception) -> Tuple[int, int, str, Dict[str, An
             error_params
         )
 
-    # Python Built-in Exceptions
-    if isinstance(exception, (NameError, AttributeError, ImportError, TypeError, ValueError, KeyError)):
-        error_type = exception.__class__.__name__
-        error_msg = str(exception)
-        suggestion = ""
-
-        # Common error patterns and their solutions
-        if isinstance(exception, NameError):
-            if "name 'timezone' is not defined" in error_msg:
-                suggestion = "Please add: from django.utils import timezone"
-            elif "name 'request' is not defined" in error_msg:
-                suggestion = "Make sure your view method includes 'self' and 'request' parameters"
-            elif any(x in error_msg for x in ['QuerySet', 'objects']):
-                suggestion = "Make sure you're importing the correct model class"
-            else:
-                suggestion = f"Check if all variables and functions are properly defined. Undefined name: {error_msg}"
-
-        elif isinstance(exception, AttributeError):
-            if "'NoneType' object has no attribute" in error_msg:
-                suggestion = "You're trying to access an attribute on None. Check if the object is properly initialized."
-            elif "'str' object has no attribute" in error_msg:
-                suggestion = "You're trying to access a string method or attribute that doesn't exist. Check the method name and string content."
-            else:
-                suggestion = f"Check if the attribute exists on the object. Error: {error_msg}"
-
-        elif isinstance(exception, ImportError):
-            if "No module named" in error_msg:
-                module = error_msg.split("'")[1]
-                suggestion = f"Module '{module}' is not installed. Try: pip install {module.split('.')[0]}"
-            else:
-                suggestion = f"There was an error importing a module. {error_msg}"
-
-        elif isinstance(exception, TypeError):
-            if "missing 1 required positional argument: 'self'" in error_msg:
-                suggestion = "You're calling an instance method without an instance. Did you forget to instantiate the class?"
-            elif "takes X positional arguments but Y were given" in error_msg:
-                suggestion = "Check the number of arguments in your function/method call"
-            else:
-                suggestion = f"Type mismatch or incorrect function call. {error_msg}"
-
-        elif isinstance(exception, ValueError):
-            suggestion = f"Invalid value provided. {error_msg}"
-
-        elif isinstance(exception, KeyError):
-            suggestion = f"The key '{error_msg}' was not found in the dictionary. Available keys might be different than expected."
-
-        # Add debug information
-        error_params['debug'] = {
-            'type': error_type,
-            'message': error_msg,
-            'suggestion': suggestion,
-            'exception': error_type
-        }
-
-        # Format the final error message
-        if settings.DEBUG:
-            error_message = f"{error_type}: {error_msg}"
-            if suggestion:
-                error_message += f"\nSuggestion: {suggestion}"
-        else:
-            error_message = "An error occurred while processing your request"
-            if isinstance(exception, (NameError, ImportError, AttributeError)):
-                error_message = "There was a problem with the application configuration"
-            elif isinstance(exception, (TypeError, ValueError, KeyError)):
-                error_message = "Invalid data or request format"
-
-        return (
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            ErrorCode.INTERNAL_SERVER_ERROR,
-            error_message,
-            error_params if settings.DEBUG else {}
-        )
-
     # Database Exceptions
     if isinstance(exception, IntegrityError):
         error_message = ErrorMessage.DUPLICATE_ENTRY
@@ -468,6 +395,46 @@ def get_error_details(exception: Exception) -> Tuple[int, int, str, Dict[str, An
         return (status_code, error_code, error_message, error_params)
 
     # Python built-in errors (logic/runtime issues)
+    if isinstance(exception, TypeError):
+        return (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            f"Type error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, ValueError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Value error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, AttributeError):
+        return (
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ErrorCode.INTERNAL_SERVER_ERROR,
+            f"Attribute error: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, KeyError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Missing key: {str(exception)}",
+            error_params
+        )
+
+    if isinstance(exception, IndexError):
+        return (
+            status.HTTP_400_BAD_REQUEST,
+            ErrorCode.BAD_REQUEST,
+            f"Index error: {str(exception)}",
+            error_params
+        )
+
     if isinstance(exception, ZeroDivisionError):
         return (
             status.HTTP_500_INTERNAL_SERVER_ERROR,
