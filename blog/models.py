@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from sales_crm.storage_backends import PublicMediaStorage
 # Create your models here.
 
 
@@ -8,7 +9,7 @@ class Blog(models.Model):
     slug = models.CharField(max_length=255, null=True, blank=True)
     content = models.TextField()
     thumbnail_image = models.FileField(
-        upload_to='blog/images/', null=True, blank=True)
+        upload_to='blog/images/', null=True, blank=True, storage=PublicMediaStorage())
     thumbnail_image_alt_description = models.CharField(
         max_length=255, blank=True, null=True)
     time_to_read = models.CharField(max_length=255, null=True, blank=True)

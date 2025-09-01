@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from sales_crm.storage_backends import PublicMediaStorage
 # Create your models here.
 
 
@@ -8,7 +9,7 @@ class Category(models.Model):
     slug = models.SlugField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     image = models.FileField(
-        upload_to='category_images', null=True, blank=True)
+        upload_to='category_images', null=True, blank=True, storage=PublicMediaStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -27,7 +28,7 @@ class SubCategory(models.Model):
     slug = models.SlugField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     image = models.FileField(
-        upload_to='sub_category_images', null=True, blank=True)
+        upload_to='sub_category_images', null=True, blank=True, storage=PublicMediaStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,7 +43,8 @@ class SubCategory(models.Model):
 class ProductImage(models.Model):
     product = models.ForeignKey(
         'Product', on_delete=models.CASCADE, null=True, blank=True, related_name='images')
-    image = models.FileField(upload_to='product_images')
+    image = models.FileField(upload_to='product_images',
+                             storage=PublicMediaStorage())
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -56,7 +58,7 @@ class Product(models.Model):
         max_digits=10, decimal_places=2, null=True, blank=True)
     stock = models.IntegerField()
     thumbnail_image = models.FileField(
-        upload_to='product_images', null=True, blank=True)
+        upload_to='product_images', null=True, blank=True, storage=PublicMediaStorage())
     thumbnail_alt_description = models.CharField(
         max_length=100, null=True, blank=True)
     category = models.ForeignKey(
