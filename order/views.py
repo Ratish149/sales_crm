@@ -2,6 +2,8 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from .models import Order
 from .serializers import OrderSerializer
+from rest_framework.views import APIView
+
 
 # List and Create Orders
 from rest_framework.pagination import PageNumberPagination
@@ -26,3 +28,31 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
 class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+
+
+class DashboardStatsView(APIView):
+    def get(self, request):
+        now = timezone.now()
+
+        total_orders = Order.objects.count()
+        total_orders_this_month = Order.objects.filter(
+            created_at__year=now.year,
+            created_at__month=now.month
+        ).count()
+
+        total_revenue = Order.objects.aggregate(
+            Sum('total_amount')
+        )['total_amount__sum'] or 0
+
+        revenue_this_month = Order.objects.filter(
+            created_at__year=now.year,
+            created_at__month=now.month
+        ).aggregate(Sum('total_amount'))['total_amount__sum'] or 0
+
+        return Response({
+            "total_orders": total_orders,
+            "total_orders_this_month": total_orders_this_month,
+            "total_revenue": total_revenue,
+            "revenue_this_month": revenue_this_month,
+
+        })
