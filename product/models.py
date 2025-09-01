@@ -44,7 +44,7 @@ class ProductImage(models.Model):
     product = models.ForeignKey(
         'Product', on_delete=models.CASCADE, null=True, blank=True, related_name='images')
     image = models.FileField(upload_to='product_images',
-                             storage=PublicMediaStorage(), validators=[file_size])
+                             storage=PublicMediaStorage(), validators=[file_size], null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
