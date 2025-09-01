@@ -150,9 +150,9 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': 'nepdora_db',
-        'USER': 'ratish',
-        'PASSWORD': 'ratish123',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
         'HOST': 'localhost',
         'PORT': '',
         'OPTIONS': {
