@@ -33,7 +33,6 @@ urlpatterns = [
     path('api/', include('product.urls')),
     path('api/', include('order.urls')),
     path('api/', include('blog.urls')),
-    path('api/', include('issue.urls')),
     path('api/', include('whatsapp.urls')),
     path('api/', include('issue_tracking.urls')),
 

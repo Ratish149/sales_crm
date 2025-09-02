@@ -67,7 +67,6 @@ SHARED_APPS = [
     'drf_spectacular',
     'accounts',
     'tinymce',
-    'issue',
 
 ]
 
