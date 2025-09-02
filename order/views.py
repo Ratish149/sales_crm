@@ -9,6 +9,8 @@ from django.db.models import Sum
 
 # List and Create Orders
 from rest_framework.pagination import PageNumberPagination
+from rest_framework import filters
+from django_filters import rest_framework as django_filters
 
 # Create your views here.
 
@@ -19,10 +21,41 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class OrderFilter(django_filters.FilterSet):
+    status = django_filters.CharFilter(
+        field_name='status', lookup_expr='icontains')
+    date_from = django_filters.DateFilter(
+        field_name='created_at', lookup_expr='gte')
+    date_to = django_filters.DateFilter(
+        field_name='created_at', lookup_expr='lte')
+
+    class Meta:
+        model = Order
+        fields = ['status', 'date_from', 'date_to']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        date_from = self.data.get('date_from')
+        date_to = self.data.get('date_to')
+
+        # If only date_from is provided, override the filter to get that exact date
+        if date_from and not date_to:
+            self.filters['date_from'].lookup_expr = 'date'  # exact date
+            # Optional: remove date_to filter if you want
+            if 'date_to' in self.filters:
+                del self.filters['date_to']
+
+
 class OrderListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Order.objects.all()
+    queryset = Order.objects.all().order_by('-created_at')
     serializer_class = OrderSerializer
     pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter,
+                       filters.OrderingFilter, django_filters.DjangoFilterBackend]
+    search_fields = ['customer_name', 'customer_phone']
+    ordering_fields = ['created_at', 'total_amount']
+    filterset_class = OrderFilter
 
 # Retrieve, Update, Delete single Order
 
