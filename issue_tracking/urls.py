@@ -11,4 +11,3 @@ urlpatterns = [
     path('issue-category/<int:pk>/', IssueCategoryRetrieveUpdateDestroyAPIView.as_view(),
          name='issue-category-retrieve-update-destroy'),
 ]
-    

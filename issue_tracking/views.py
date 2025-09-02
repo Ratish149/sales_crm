@@ -1,8 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics
 from .models import IssueCategory, Issue
-from .serializers import IssueCategorySerializer, IssueSerializer
-from issue_tracking import serializers
+from .serializers import IssueCategorySerializer, IssueSerializer, IssueSerializer2
 # Create your views here.
 
 
@@ -22,6 +21,11 @@ class IssueListCreateAPIView(generics.ListCreateAPIView):
 
     def create(self, request, *args, **kwargs):
         serializer.save(reported_by=self.request.user)
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return IssueSerializer2
+        return super().get_serializer_class()
 
 
 class IssueRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
