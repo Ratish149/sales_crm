@@ -53,7 +53,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter,
                        filters.OrderingFilter, django_filters.DjangoFilterBackend]
-    search_fields = ['customer_name', 'customer_phone']
+    search_fields = ['customer_name', 'order_number', 'customer_phone']
     ordering_fields = ['created_at', 'total_amount']
     filterset_class = OrderFilter
 
