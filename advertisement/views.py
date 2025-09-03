@@ -1,4 +1,6 @@
-from django.shortcuts import render
+from rest_framework import generics
+from .models import PopUp
+from .serializers import PopUpSerializer
 
 # Create your views here.
 
