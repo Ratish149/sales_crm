@@ -79,7 +79,8 @@ TENANT_APPS = [
     'blog',
     'whatsapp',
     'issue_tracking',
-    'advertisement'
+    'advertisement',
+    'contact'
 
 ]
 
