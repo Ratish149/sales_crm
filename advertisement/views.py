@@ -26,6 +26,7 @@ class PopUpRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class PopUpFormCreateView(generics.ListCreateAPIView):
     queryset = PopUpForm.objects.all()
     serializer_class = PopUpFormSerializer
+    pagination_class = CustomPagination
 
 
 class PopUpFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
