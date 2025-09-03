@@ -15,7 +15,6 @@ class CustomPagination(PageNumberPagination):
 class PopUpCreateView(generics.ListCreateAPIView):
     queryset = PopUp.objects.all()
     serializer_class = PopUpSerializer
-    pagination_class = CustomPagination
 
 
 class PopUpRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
