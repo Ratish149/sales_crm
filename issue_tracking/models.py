@@ -19,6 +19,7 @@ class Issue(models.Model):
         ('high', 'High'),
     )
     STATUS_CHOICES = (
+        ('pending', 'Pending'),
         ('open', 'Open'),
         ('in_progress', 'In Progress'),
         ('closed', 'Closed'),
