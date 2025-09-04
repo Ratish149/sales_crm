@@ -157,11 +157,13 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'email', 'role', 'stores')
+        fields = ("id", "email", "role", "stores")
 
     def get_stores(self, user):
-        # Get all stores the user is associated with
-        stores = user.stores.all()
+        # Both owned and joined stores are already prefetched in queryset
+        stores = list(user.stores.all()) + list(user.owned_stores.all())
+        # Remove duplicates if any
+        stores = list({store.id: store for store in stores}.values())
         serializer = StoreUserSerializer(
-            stores, many=True, context={'user': user})
+            stores, many=True, context={"user": user})
         return serializer.data

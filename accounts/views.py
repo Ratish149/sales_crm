@@ -401,5 +401,11 @@ class StoreProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class UserWithStoresListAPIView(generics.ListAPIView):
-    queryset = CustomUser.objects.all()
     serializer_class = UserWithStoresSerializer
+
+    def get_queryset(self):
+        return (
+            CustomUser.objects.all()
+            .prefetch_related("stores")       # prefetch many-to-many stores
+            .prefetch_related("owned_stores")  # prefetch owned stores
+        )
