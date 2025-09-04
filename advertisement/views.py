@@ -1,6 +1,6 @@
 from rest_framework import generics
-from .models import PopUp, PopUpForm
-from .serializers import PopUpSerializer, PopUpFormSerializer
+from .models import PopUp, PopUpForm, Banner, BannerImage
+from .serializers import PopUpSerializer, PopUpFormSerializer, BannerImageSerializer, BannerSerializer
 
 # Create your views here.
 from rest_framework.pagination import PageNumberPagination
@@ -31,3 +31,23 @@ class PopUpFormCreateView(generics.ListCreateAPIView):
 class PopUpFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PopUpForm.objects.all()
     serializer_class = PopUpFormSerializer
+
+
+class BannerImageListCreateView(generics.ListCreateAPIView):
+    queryset = BannerImage.objects.all()
+    serializer_class = BannerImageSerializer
+
+
+class BannerImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BannerImage.objects.all()
+    serializer_class = BannerImageSerializer
+
+
+class BannerListCreateView(generics.ListCreateAPIView):
+    queryset = Banner.objects.all()
+    serializer_class = BannerSerializer
+
+
+class BannerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Banner.objects.all()
+    serializer_class = BannerSerializer
