@@ -133,3 +133,35 @@ class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'email', 'role', 'phone_number']
+
+
+class StoreUserSerializer(serializers.ModelSerializer):
+    role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StoreProfile
+        fields = ('id', 'store_name', 'store_address', 'store_number', 'role')
+
+    def get_role(self, store):
+        user = self.context.get('user')
+        if not user:
+            return None
+        if store.owner == user:
+            return 'owner'
+        # If user is in the users M2M but not owner, return their role
+        return user.role if user in store.users.all() else None
+
+
+class UserWithStoresSerializer(serializers.ModelSerializer):
+    stores = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'email', 'role', 'stores')
+
+    def get_stores(self, user):
+        # Get all stores the user is associated with
+        stores = user.stores.all()
+        serializer = StoreUserSerializer(
+            stores, many=True, context={'user': user})
+        return serializer.data

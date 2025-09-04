@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth import login
 from allauth.account import app_settings as allauth_settings
 from allauth.account.utils import get_adapter, setup_user_email
-from .serializers import AcceptInvitationSerializer, InvitationSerializer, StoreProfileSerializer
+from .serializers import AcceptInvitationSerializer, InvitationSerializer, StoreProfileSerializer, UserWithStoresSerializer
 from rest_framework import generics, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -398,3 +398,8 @@ class StoreProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied(
                 "Only the store owner can delete the store.")
         instance.delete()
+
+
+class UserWithStoresListAPIView(generics.ListAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserWithStoresSerializer
