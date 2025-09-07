@@ -80,7 +80,10 @@ TENANT_APPS = [
     'whatsapp',
     'issue_tracking',
     'advertisement',
-    'contact'
+    'contact',
+    'testimonial',
+    'faq',
+    'team',
 
 ]
 
