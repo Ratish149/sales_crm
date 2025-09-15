@@ -13,4 +13,3 @@ class PageComponentSerializer(serializers.ModelSerializer):
         model = PageComponent
         fields = ["id", "component_id",
                   "component_type", "data", "order", "page"]
-        read_only_fields = ["page", "order"]
