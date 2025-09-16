@@ -12,6 +12,6 @@ urlpatterns = [
     path("navbar/", NavbarView.as_view(), name="navbar"),
     path("footer/", FooterView.as_view(), name="footer"),
     path("theme/", ThemeListCreateView.as_view(), name="themes"),
-    path("theme/<int:theme_id>/",
+    path("theme/<int:pk>/",
          ThemeRetrieveUpdateDestroyView.as_view(), name="theme"),
 ]
