@@ -3,6 +3,12 @@ from django.utils.text import slugify
 # Create your models here.
 
 
+class Theme(models.Model):
+    data = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+
+
 class Page(models.Model):
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, blank=True, null=True)

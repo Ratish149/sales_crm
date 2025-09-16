@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Page, PageComponent
+from .models import Page, PageComponent, Theme
+
+
+class ThemeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Theme
+        fields = ["id", "data"]
 
 
 class PageSerializer(serializers.ModelSerializer):

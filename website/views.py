@@ -1,9 +1,27 @@
 from django.shortcuts import get_object_or_404
-from .models import Page, PageComponent
-from .serializers import PageComponentSerializer, PageSerializer
+from .models import Page, PageComponent, Theme
+from .serializers import PageComponentSerializer, PageSerializer, ThemeSerializer
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
+
+
+class ThemeListCreateView(generics.ListCreateAPIView):
+    """
+    List all themes OR add a new theme.
+    URL: /api/themes/
+    """
+    serializer_class = ThemeSerializer
+    queryset = Theme.objects.all()
+
+
+class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a single theme.
+    URL: /api/themes/<theme_id>/
+    """
+    serializer_class = ThemeSerializer
+    queryset = Theme.objects.all()
 
 
 class PageListCreateView(generics.ListCreateAPIView):
