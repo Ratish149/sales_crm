@@ -1,6 +1,6 @@
 from rest_framework import generics
-from .models import Contact
-from .serializers import ContactSerializer
+from .models import Contact, NewsLetter
+from .serializers import ContactSerializer, NewsLetterSerializer
 
 # Create your views here.
 from rest_framework.pagination import PageNumberPagination
@@ -21,3 +21,14 @@ class ContactCreateView(generics.ListCreateAPIView):
 class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
+
+
+class NewsLetterCreateView(generics.ListCreateAPIView):
+    queryset = NewsLetter.objects.all()
+    serializer_class = NewsLetterSerializer
+    pagination_class = CustomPagination
+
+
+class NewsLetterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = NewsLetter.objects.all()
+    serializer_class = NewsLetterSerializer
