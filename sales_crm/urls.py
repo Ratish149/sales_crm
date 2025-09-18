@@ -42,6 +42,7 @@ urlpatterns = [
     path('api/', include('testimonial.urls')),
     path('api/', include('faq.urls')),
     path('api/', include('youtube.urls')),
+    path('api/', include('customer.urls')),
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema')),

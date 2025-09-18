@@ -85,6 +85,7 @@ TENANT_APPS = [
     'faq',
     'team',
     'youtube',
+    'customer',
 
 ]
 
