@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ProductListCreateView, ProductRetrieveUpdateDestroyView, SubCategoryListCreateView, SubCategoryRetrieveUpdateDestroyView, CategoryListCreateView, CategoryRetrieveUpdateDestroyView, ProductImageListCreateView, ProductImageRetrieveUpdateDestroyView, ProductReviewView, ProductReviewRetrieveUpdateDestroyView
+from .views import ProductListCreateView, ProductRetrieveUpdateDestroyView, SubCategoryListCreateView, SubCategoryRetrieveUpdateDestroyView, CategoryListCreateView, CategoryRetrieveUpdateDestroyView, ProductImageListCreateView, ProductImageRetrieveUpdateDestroyView, ProductReviewView, ProductReviewRetrieveUpdateDestroyView, WishlistListCreateView, WishlistRetrieveUpdateDestroyView
 
 urlpatterns = [
     path('product/', ProductListCreateView.as_view(), name='product-list-create'),
@@ -21,4 +21,8 @@ urlpatterns = [
          name='product-review-list-create'),
     path('product-review/<int:id>/', ProductReviewRetrieveUpdateDestroyView.as_view(),
          name='product-review-retrieve-update-destroy'),
+    path('wishlist/', WishlistListCreateView.as_view(),
+         name='wishlist-list-create'),
+    path('wishlist/<int:id>/', WishlistRetrieveUpdateDestroyView.as_view(),
+         name='wishlist-retrieve-update-destroy'),
 ]

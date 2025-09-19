@@ -1,8 +1,7 @@
 from customer.utils import get_customer_from_request
-from django.shortcuts import render
 from rest_framework import generics, filters
-from .models import Product, ProductImage, SubCategory, Category, ProductReview
-from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer, SubCategoryDetailSerializer, ProductReviewSerializer, ProductReviewDetailSerializer
+from .models import Product, ProductImage, SubCategory, Category, ProductReview, Wishlist
+from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer, SubCategoryDetailSerializer, ProductReviewSerializer, ProductReviewDetailSerializer, WishlistSerializer
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as django_filters
 
@@ -136,3 +135,49 @@ class ProductReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     ).select_related('product', 'user')
     serializer_class = ProductReviewSerializer
     lookup_field = 'id'
+
+
+class WishlistListCreateView(generics.ListCreateAPIView):
+    queryset = Wishlist.objects.only(
+        'id', 'user', 'product', 'created_at', 'updated_at'
+    ).select_related(
+        'user',
+        'product'
+    )
+    serializer_class = WishlistSerializer
+
+    def get_queryset(self):
+        user = get_customer_from_request(self.request)
+        return Wishlist.objects.filter(user=user)
+
+    def perform_create(self, serializer):
+        user = get_customer_from_request(self.request)
+        serializer.save(user=user)
+
+
+class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Wishlist.objects.only(
+        'id', 'user', 'product', 'created_at', 'updated_at'
+    ).select_related(
+        'user',
+        'product'
+    )
+    serializer_class = WishlistSerializer
+
+    def get_object(self):
+        try:
+            user = get_customer_from_request(self.request)
+            return Wishlist.objects.get(user=user)
+        except Wishlist.DoesNotExist:
+            raise Http404("Wishlist not found")
+
+    def delete(self, request, *args, **kwargs):
+        try:
+            id = self.kwargs.get('id')
+            user = get_customer_from_request(self.request)
+            wishlist = Wishlist.objects.get(
+                user=user, id=id)
+            wishlist.delete()
+            return Response({"message": "Product removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
+        except Wishlist.DoesNotExist:
+            raise Http404("Wishlist not found")

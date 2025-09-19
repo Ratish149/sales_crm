@@ -75,6 +75,7 @@ class MyOrderListAPIView(generics.ListAPIView):
     search_fields = ['customer_name', 'order_number', 'customer_phone']
     ordering_fields = ['created_at', 'total_amount']
     filterset_class = OrderFilter
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         customer = get_customer_from_request(self.request)
@@ -127,6 +128,6 @@ class MyOrderStatusView(APIView):
             return Response({"error": "Customer not found"}, status=404)
         user_orders = Order.objects.filter(customer=customer)
         status_counts = {}
-        for status, _ in Order.STATUS_CHOICES:
+        for status, _ in Order.ORDER_STATUS:
             status_counts[status] = user_orders.filter(status=status).count()
         return Response(status_counts)

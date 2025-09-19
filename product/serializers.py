@@ -1,6 +1,6 @@
 from customer.serializers import CustomerSerializer
 from rest_framework import serializers
-from .models import Product, ProductImage, SubCategory, Category, ProductReview
+from .models import Product, ProductImage, SubCategory, Category, ProductReview, Wishlist
 from django.db.models import Avg
 
 
@@ -131,3 +131,17 @@ class ProductReviewDetailSerializer(serializers.ModelSerializer):
         model = ProductReview
         fields = ['id', 'product', 'user', 'review',
                   'rating', 'created_at']
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product = ProductSmallSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        write_only=True,
+        source='product'
+    )
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'user', 'product',
+                  'product_id', 'created_at', 'updated_at']
