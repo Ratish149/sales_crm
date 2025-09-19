@@ -116,3 +116,17 @@ class DashboardStatsView(APIView):
             "revenue_this_month": revenue_this_month,
 
         })
+
+
+class MyOrderStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        customer = get_customer_from_request(request)
+        if not customer:
+            return Response({"error": "Customer not found"}, status=404)
+        user_orders = Order.objects.filter(customer=customer)
+        status_counts = {}
+        for status, _ in Order.STATUS_CHOICES:
+            status_counts[status] = user_orders.filter(status=status).count()
+        return Response(status_counts)
