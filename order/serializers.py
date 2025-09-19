@@ -58,14 +58,13 @@ class OrderSerializer(serializers.ModelSerializer):
         items_data = validated_data.pop('items', [])
 
         if not request or not request.user.is_authenticated:
-            raise serializers.ValidationError(
-                "Authentication required to place an order")
+            validated_data['customer'] = None
 
         # Try to find a Customer with the same email as the User
          # Decode JWT manually
         customer = get_customer_from_request(self.context['request'])
-
-        validated_data['customer'] = customer
+        if customer:
+            validated_data['customer'] = customer
 
         order = Order.objects.create(**validated_data)
 

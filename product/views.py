@@ -1,7 +1,8 @@
+from customer.utils import get_customer_from_request
 from django.shortcuts import render
 from rest_framework import generics, filters
-from .models import Product, ProductImage, SubCategory, Category
-from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer, SubCategoryDetailSerializer
+from .models import Product, ProductImage, SubCategory, Category, ProductReview
+from .serializers import ProductSerializer, ProductSmallSerializer, ProductImageSerializer, SubCategorySerializer, CategorySerializer, SubCategoryDetailSerializer, ProductReviewSerializer, ProductReviewDetailSerializer
 from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as django_filters
 
@@ -88,3 +89,50 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     lookup_field = 'slug'
+
+
+class ProductReviewFilter(django_filters.FilterSet):
+    rating = django_filters.NumberFilter(
+        field_name='rating', lookup_expr='exact')
+
+    class Meta:
+        model = ProductReview
+        fields = ['rating']
+
+
+class ProductReviewView(generics.ListCreateAPIView):
+    queryset = ProductReview.objects.only(
+        'id', 'product', 'user', 'review', 'rating', 'created_at'
+    ).select_related('product', 'user').order_by('-created_at')
+    serializer_class = ProductReviewSerializer
+    pagination_class = CustomPagination
+    filter_backends = [django_filters.DjangoFilterBackend,]
+    filterset_class = ProductReviewFilter
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return ProductReviewDetailSerializer
+        return ProductReviewSerializer
+
+    def get_queryset(self):
+        slug = self.request.query_params.get('slug')
+        try:
+            product = Product.objects.only('id').get(slug=slug)
+            return ProductReview.objects.filter(product=product)
+        except Product.DoesNotExist:
+            return ProductReview.objects.all()
+
+    def perform_create(self, serializer):
+        if not self.request.user.is_authenticated:
+            raise serializers.ValidationError(
+                'User must be authenticated to create a review.')
+        user = get_customer_from_request(self.request)
+        serializer.save(user=user)
+
+
+class ProductReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ProductReview.objects.only(
+        'id', 'product', 'user', 'review', 'rating', 'created_at', 'updated_at'
+    ).select_related('product', 'user')
+    serializer_class = ProductReviewSerializer
+    lookup_field = 'id'

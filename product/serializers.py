@@ -1,5 +1,7 @@
+from customer.serializers import CustomerSerializer
 from rest_framework import serializers
-from .models import Product, ProductImage, SubCategory, Category
+from .models import Product, ProductImage, SubCategory, Category, ProductReview
+from django.db.models import Avg
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -83,11 +85,20 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductSmallSerializer(serializers.ModelSerializer):
     sub_category = SubCategorySmallSerializer(read_only=True)
     category = CategorySmallSerializer(read_only=True)
+    reviews_count = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+
+    def get_reviews_count(self, obj):
+        return ProductReview.objects.only('id').filter(product=obj).count()
+
+    def get_average_rating(self, obj):
+        return ProductReview.objects.only('id').filter(product=obj).aggregate(
+            avg_rating=Avg('rating'))['avg_rating'] or 0
 
     class Meta:
         model = Product
         fields = ['id', 'name', 'slug', 'price', 'market_price', 'stock', 'thumbnail_image', 'thumbnail_alt_description',
-                  'category', 'sub_category', 'is_popular', 'is_featured', 'created_at', 'updated_at']
+                  'category', 'sub_category', 'is_popular', 'is_featured', 'created_at', 'updated_at', 'average_rating', 'reviews_count']
 
 
 class ProductOnlySerializer(serializers.ModelSerializer):
@@ -95,3 +106,28 @@ class ProductOnlySerializer(serializers.ModelSerializer):
         model = Product
         fields = ['id', 'name', 'slug', 'price', 'market_price',
                   'thumbnail_image', 'thumbnail_alt_description']
+
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        write_only=True,
+        source='product'
+    )
+    product = ProductSmallSerializer(read_only=True)
+    user = CustomerSerializer(read_only=True)
+
+    class Meta:
+        model = ProductReview
+        fields = ['id', 'product_id', 'user_id', 'product', 'user', 'review',
+                  'rating', 'created_at', 'updated_at']
+
+
+class ProductReviewDetailSerializer(serializers.ModelSerializer):
+    product = ProductSmallSerializer(read_only=True)
+    user = CustomerSerializer(read_only=True)
+
+    class Meta:
+        model = ProductReview
+        fields = ['id', 'product', 'user', 'review',
+                  'rating', 'created_at']

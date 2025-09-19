@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.text import slugify
 from sales_crm.storage_backends import PublicMediaStorage
 from sales_crm.utils.file_size_validator import file_size
+from customer.models import Customer
 
 
 class Category(models.Model):
@@ -88,3 +89,15 @@ class Product(models.Model):
             models.Index(fields=['is_featured']),
 
         ]
+
+
+class ProductReview(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    user = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    review = models.TextField()
+    rating = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name}"
