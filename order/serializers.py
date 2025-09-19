@@ -2,6 +2,10 @@ from rest_framework import serializers
 from .models import Order, OrderItem
 from product.models import Product
 from product.serializers import ProductOnlySerializer
+from customer.models import Customer
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from customer.utils import get_customer_from_request
+from customer.serializers import CustomerSerializer
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -26,11 +30,14 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(
         source='items', many=True, read_only=True)
+    customer_details = CustomerSerializer(source='customer', read_only=True)
 
     class Meta:
         model = Order
         fields = [
             'id',
+            'customer',
+            'customer_details',
             'order_number',
             'customer_name',
             'customer_email',
@@ -47,7 +54,19 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['order_number', 'created_at', 'updated_at']
 
     def create(self, validated_data):
+        request = self.context.get('request')
         items_data = validated_data.pop('items', [])
+
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError(
+                "Authentication required to place an order")
+
+        # Try to find a Customer with the same email as the User
+         # Decode JWT manually
+        customer = get_customer_from_request(self.context['request'])
+
+        validated_data['customer'] = customer
+
         order = Order.objects.create(**validated_data)
 
         # Now create order items
@@ -55,3 +74,27 @@ class OrderSerializer(serializers.ModelSerializer):
             OrderItem.objects.create(order=order, **item_data)
 
         return order
+
+
+class OrderListSerializer(serializers.ModelSerializer):
+    order_items = OrderItemDetailSerializer(
+        source='items', many=True, read_only=True)
+    customer_details = CustomerSerializer(source='customer', read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id',
+            'customer_details',
+            'order_number',
+            'customer_name',
+            'customer_email',
+            'customer_phone',
+            'customer_address',
+            'shipping_address',
+            'total_amount',
+            'status',
+            'order_items',
+            'created_at',
+            'updated_at',
+        ]

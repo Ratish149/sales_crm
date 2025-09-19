@@ -1,11 +1,14 @@
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from .models import Order
-from .serializers import OrderSerializer
+from .serializers import OrderSerializer, OrderListSerializer
 from rest_framework.views import APIView
 from django.utils import timezone
 from rest_framework.response import Response
 from django.db.models import Sum
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from customer.utils import get_customer_from_request
 
 # List and Create Orders
 from rest_framework.pagination import PageNumberPagination
@@ -56,6 +59,28 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     search_fields = ['customer_name', 'order_number', 'customer_phone']
     ordering_fields = ['created_at', 'total_amount']
     filterset_class = OrderFilter
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return OrderListSerializer
+        return OrderSerializer
+
+
+class MyOrderListAPIView(generics.ListAPIView):
+    queryset = Order.objects.all().order_by('-created_at')
+    serializer_class = OrderListSerializer
+    pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter,
+                       filters.OrderingFilter, django_filters.DjangoFilterBackend]
+    search_fields = ['customer_name', 'order_number', 'customer_phone']
+    ordering_fields = ['created_at', 'total_amount']
+    filterset_class = OrderFilter
+
+    def get_queryset(self):
+        customer = get_customer_from_request(self.request)
+        if customer:
+            return Order.objects.filter(customer=customer)
+        return Order.objects.none()
 
 # Retrieve, Update, Delete single Order
 

@@ -11,6 +11,8 @@ class Order(models.Model):
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
     ]
+    customer = models.ForeignKey(
+        'customer.Customer', on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     order_number = models.CharField(
         max_length=20, unique=True, default="", null=True, blank=True)
     customer_name = models.CharField(max_length=100)

@@ -18,3 +18,9 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
 class CustomerLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'address']
