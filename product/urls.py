@@ -1,15 +1,16 @@
 from django.urls import path
+
 from .views import (
-    ProductListCreateView,
-    ProductRetrieveUpdateDestroyView,
-    SubCategoryListCreateView,
-    SubCategoryRetrieveUpdateDestroyView,
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
-    ProductReviewView,
+    ProductListCreateView,
+    ProductRetrieveUpdateDestroyView,
     ProductReviewRetrieveUpdateDestroyView,
+    ProductReviewView,
+    SubCategoryListCreateView,
+    SubCategoryRetrieveUpdateDestroyView,
     WishlistListCreateView,
     WishlistRetrieveUpdateDestroyView,
 )

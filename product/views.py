@@ -1,6 +1,7 @@
 from django_filters import rest_framework as django_filters
-from rest_framework import filters, generics, serializers
+from rest_framework import filters, generics, serializers, status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
 
 from customer.utils import get_customer_from_request
 
@@ -189,13 +190,17 @@ class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         "id", "user", "product", "created_at", "updated_at"
     ).select_related("user", "product")
     serializer_class = WishlistSerializer
+    lookup_field = "id"
 
     def get_object(self):
         try:
             user = get_customer_from_request(self.request)
             return Wishlist.objects.get(user=user)
         except Wishlist.DoesNotExist:
-            raise Http404("Wishlist not found")
+            return Response(
+                {"message": "Wishlist not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
     def delete(self, request, *args, **kwargs):
         try:
@@ -208,4 +213,7 @@ class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                 status=status.HTTP_204_NO_CONTENT,
             )
         except Wishlist.DoesNotExist:
-            raise Http404("Wishlist not found")
+            return Response(
+                {"message": "Wishlist not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
