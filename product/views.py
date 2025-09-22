@@ -177,6 +177,10 @@ class WishlistListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         user = get_customer_from_request(self.request)
+        if not user:
+            raise serializers.ValidationError(
+                "User must be authenticated to add to wishlist."
+            )
         serializer.save(user=user)
 
 
