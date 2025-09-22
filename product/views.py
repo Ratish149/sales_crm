@@ -1,5 +1,5 @@
 from django_filters import rest_framework as django_filters
-from rest_framework import filters, generics
+from rest_framework import filters, generics, serializers
 from rest_framework.pagination import PageNumberPagination
 
 from customer.utils import get_customer_from_request
