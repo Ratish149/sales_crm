@@ -145,6 +145,8 @@ class ProductSmallSerializer(serializers.ModelSerializer):
 
     def get_is_wishlist(self, obj):
         user = get_customer_from_request(self.context["request"])
+        if not user:
+            return False
         return Wishlist.objects.filter(user=user, product=obj).exists()
 
     class Meta:
