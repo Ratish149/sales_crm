@@ -34,7 +34,7 @@ urlpatterns = [
         name="portfolio_tags_list_create",
     ),
     path(
-        "portfolio/tags/<int:pk>/",
+        "portfolio/tag/<int:pk>/",
         PortfolioTagsRetrieveUpdateDestroyAPIView.as_view(),
         name="portfolio_tags_retrieve_update_destroy",
     ),
