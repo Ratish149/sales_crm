@@ -1,5 +1,6 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics
+from rest_framework.pagination import PageNumberPagination
 
 from .models import Portfolio, PortfolioCategory, PortfolioTags
 from .serializers import (
@@ -9,6 +10,13 @@ from .serializers import (
     PortfolioSerializer,
     PortfolioTagsSerializer,
 )
+
+
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
 
 # Create your views here.
 
@@ -50,6 +58,7 @@ class PortfolioListCreateAPIView(generics.ListCreateAPIView):
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = PortfolioFilterSet
     search_fields = ["title"]
+    pagination_class = CustomPagination
 
     def get_serializer_class(self):
         if self.request.method == "GET":

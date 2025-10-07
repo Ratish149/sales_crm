@@ -2,8 +2,8 @@
 from rest_framework import generics, filters
 from .models import Blog, Tags
 from .serializers import BlogSerializer, TagsSerializer
-from rest_framework.pagination import PageNumberPagination
 from django_filters import rest_framework as django_filters
+from rest_framework.pagination import PageNumberPagination
 
 
 class CustomPagination(PageNumberPagination):
