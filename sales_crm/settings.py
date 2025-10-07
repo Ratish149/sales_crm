@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
-from pathlib import Path
 import os
 from datetime import timedelta
+from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,12 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-g7&n*5lth6bcg)0ui*row++lezc3fzd^-s$)ler+##o!adrcpj'
+SECRET_KEY = "django-insecure-g7&n*5lth6bcg)0ui*row++lezc3fzd^-s$)ler+##o!adrcpj"
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -42,94 +43,92 @@ TENANT_MODEL = "tenants.Client"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
 
 SHARED_APPS = [
-    'django_tenants',
+    "django_tenants",
     # 'unfold',
-    'jazzmin',
-    'tenants',
-    'allauth',
-    'allauth.account',
-    'allauth.socialaccount',
-    'allauth.headless',
-    'allauth.socialaccount.providers.google',
-    'allauth.usersessions',
-    'django.contrib.admin',
-
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'django.contrib.sites',  # Required for allauth
-    'rest_framework',
-    'rest_framework_simplejwt',
-    'django_filters',
-    'corsheaders',
-    'drf_spectacular',
-    'accounts',
-    'tinymce',
-
+    "jazzmin",
+    "tenants",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.headless",
+    "allauth.socialaccount.providers.google",
+    "allauth.usersessions",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "django.contrib.sites",  # Required for allauth
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "django_filters",
+    "corsheaders",
+    "drf_spectacular",
+    "accounts",
+    "tinymce",
 ]
 
 TENANT_APPS = [
-    'django.contrib.contenttypes',
-    'django.contrib.auth',
-    'website',
-    'product',
-    'order',
-    'blog',
-    'whatsapp',
-    'issue_tracking',
-    'advertisement',
-    'contact',
-    'testimonial',
-    'faq',
-    'team',
-    'youtube',
-    'customer',
-
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
+    "website",
+    "product",
+    "order",
+    "blog",
+    "whatsapp",
+    "issue_tracking",
+    "advertisement",
+    "contact",
+    "testimonial",
+    "faq",
+    "team",
+    "youtube",
+    "customer",
+    "portfolio",
 ]
 
-INSTALLED_APPS = list(SHARED_APPS) + \
-    [app for app in TENANT_APPS if app not in SHARED_APPS]
+INSTALLED_APPS = list(SHARED_APPS) + [
+    app for app in TENANT_APPS if app not in SHARED_APPS
+]
 
 SITE_ID = 1
 
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'sales_crm.middleware.CSRFExemptForAllauthHeadless',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "sales_crm.middleware.CSRFExemptForAllauthHeadless",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
-AUTH_USER_MODEL = 'accounts.CustomUser'
-ROOT_URLCONF = 'sales_crm.urls'
+AUTH_USER_MODEL = "accounts.CustomUser"
+ROOT_URLCONF = "sales_crm.urls"
 
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [os.path.join(BASE_DIR, "templates")],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'sales_crm.wsgi.application'
+WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 
 # Database
@@ -146,51 +145,47 @@ WSGI_APPLICATION = 'sales_crm.wsgi.application'
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
-        "USER": "ratish",   # or "postgres"
+        "USER": "ratish",  # or "postgres"
         "PASSWORD": "123",
         "HOST": "localhost",
         "PORT": "5433",
-        'OPTIONS': {
-            'options': '-c search_path=public'  # important for first migration
-        }
+        "OPTIONS": {
+            "options": "-c search_path=public"  # important for first migration
+        },
     }
 } """
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '',
-        'OPTIONS': {
-            'options': '-c search_path=public'
-        }
+    "default": {
+        "ENGINE": "django_tenants.postgresql_backend",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": "localhost",
+        "PORT": "",
+        "OPTIONS": {"options": "-c search_path=public"},
     }
 }
 
 
-DATABASE_ROUTERS = (
-    'django_tenants.routers.TenantSyncRouter',
-)
+DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
-    'http://127.0.0.1:8000',
-    'http://127.0.0.1:8001',
-    'http://localhost:3000',
-    'https://www.nepdora.com',
-    'https://browser-classic-kind-bracelets.trycloudflare.com',
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
+    "http://localhost:3000",
+    "https://www.nepdora.com",
+    "https://browser-classic-kind-bracelets.trycloudflare.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1:8000',
-    'http://127.0.0.1:8001',
-    'http://localhost:3000',
-    'https://www.nepdora.com',
-    'https://browser-classic-kind-bracelets.trycloudflare.com',
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
+    "http://localhost:3000",
+    "https://www.nepdora.com",
+    "https://browser-classic-kind-bracelets.trycloudflare.com",
 ]
 
 # Password validation
@@ -198,16 +193,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -215,9 +210,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -239,7 +234,7 @@ STATICFILES_DIRS = [
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 REST_FRAMEWORK = {
@@ -247,33 +242,32 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
-    'EXCEPTION_HANDLER': 'sales_crm.utils.error_handler.custom_exception_handler',
-
+    "EXCEPTION_HANDLER": "sales_crm.utils.error_handler.custom_exception_handler",
 }
 
 # Email configuration for development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"  # For development
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'  # For production
 
 # Django Allauth settings
-ACCOUNT_SIGNUP_FIELDS = ['store_name', 'email*', 'password1', 'phone']
+ACCOUNT_SIGNUP_FIELDS = ["store_name", "email*", "password1", "phone"]
 ACCOUNT_UNIQUE_EMAIL = True
-ACCOUNT_LOGIN_METHODS = {'email', 'username'}
+ACCOUNT_LOGIN_METHODS = {"email", "username"}
 # Skip verification for social accounts
 SOCIALACCOUNT_EMAIL_VERIFICATION = "none"
 # ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 # ACCOUNT_USERNAME_REQUIRED = False
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_LOGOUT_ON_PASSWORD_CHANGE = False
-ACCOUNT_LOGOUT_REDIRECT_URL = '/'
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 # ACCOUNT_LOGIN_REDIRECT_URL = 'http://localhost:3000/api/auth/callback/google'
-ACCOUNT_LOGIN_REDIRECT_URL = 'https://www.nepdora.com/api/auth/callback/google'
-ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'https' if not DEBUG else 'http'
+ACCOUNT_LOGIN_REDIRECT_URL = "https://www.nepdora.com/api/auth/callback/google"
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if not DEBUG else "http"
 ACCOUNT_PASSWORD_MIN_LENGTH = 8
-ACCOUNT_USER_MODEL_EMAIL_FIELD = 'email'
-ACCOUNT_EMAIL_SUBJECT_PREFIX = '[Sales CRM]'
+ACCOUNT_USER_MODEL_EMAIL_FIELD = "email"
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Sales CRM]"
 ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 2
 ACCOUNT_SIGNUP_PHONE_REQUIRED = True
 ACCOUNT_SIGNUP_REQUIRE_VERIFIED_PHONE = False
@@ -281,8 +275,8 @@ ACCOUNT_REQUIRE_VERIFIED_PHONE = False
 
 
 ACCOUNT_HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
-ACCOUNT_ADAPTER = 'accounts.adapters.CustomAccountAdapter'
-SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
+ACCOUNT_ADAPTER = "accounts.adapters.CustomAccountAdapter"
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.CustomSocialAccountAdapter"
 
 HEADLESS_ADAPTER = "accounts.adapters.CustomHeadlessAdapter"
 
@@ -290,23 +284,23 @@ FETCH_USER_INFO = True
 
 SESSION_COOKIE_SAMESITE = None  # Very important for cross-site cookies
 SESSION_COOKIE_DOMAIN = None  # Let browser decide
-SESSION_COOKIE_SECURE = False    # Must be True in production with HTTPS
+SESSION_COOKIE_SECURE = False  # Must be True in production with HTTPS
 CSRF_COOKIE_SECURE = False
 
 SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'APP': {
-            'client_id': os.getenv('GOOGLE_CLIENT_ID'),
-            'secret': os.getenv('GOOGLE_CLIENT_SECRET'),
-            'key': ''
+    "google": {
+        "APP": {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "key": "",
         },
-        'SCOPE': [
-            'profile',
-            'email',
+        "SCOPE": [
+            "profile",
+            "email",
         ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
     }
 }
 
@@ -339,13 +333,12 @@ HEADLESS_FRONTEND_URLS = {
 AUTHENTICATION_BACKENDS = (
     "allauth.account.auth_backends.AuthenticationBackend",
     "rest_framework.authentication.TokenAuthentication",
-    "rest_framework_simplejwt.authentication.JWTAuthentication"
+    "rest_framework_simplejwt.authentication.JWTAuthentication",
 )
 
 JAZZMIN_SETTINGS = {
     # title of the window (Will default to current_admin_site.site_title if absent or None)
     "site_title": "Sales CRM",
-
     # Title on the login screen (19 chars max) (defaults to current_admin_site.site_header if absent or None)
     "site_header": "Sales CRM",
     "site_brand": "Sales CRM",
@@ -382,8 +375,8 @@ JAZZMIN_UI_TWEAKS = {
         "info": "btn-info",
         "warning": "btn-warning",
         "danger": "btn-danger",
-        "success": "btn-success"
-    }
+        "success": "btn-success",
+    },
 }
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=30),
@@ -395,7 +388,7 @@ TINYMCE_DEFAULT_CONFIG = {
     "width": "560",
     "entity_encoding": "raw",
     "menubar": "file edit view insert format tools table help",
-    "plugins": 'print preview paste importcss searchreplace autolink autosave save code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap emoticons quickbars',
+    "plugins": "print preview paste importcss searchreplace autolink autosave save code visualblocks visualchars fullscreen image link media template codesample table charmap hr pagebreak nonbreaking anchor toc insertdatetime advlist lists wordcount imagetools textpattern noneditable help charmap emoticons quickbars",
     "toolbar": "fullscreen preview | undo redo | bold italic forecolor backcolor | formatselect | image link | "
     "alignleft aligncenter alignright alignjustify | outdent indent |  numlist bullist checklist | fontsizeselect "
     "emoticons | ",
@@ -431,35 +424,35 @@ TINYMCE_DEFAULT_CONFIG = {
 
 if USE_SPACES:
     # settings
-    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 
     # Endpoint should be just region, NOT bucket + region
     AWS_S3_ENDPOINT_URL = "https://blr1.digitaloceanspaces.com"
 
     AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
+        "CacheControl": "max-age=86400",
     }
-    AWS_DEFAULT_ACL = 'public-read'
+    AWS_DEFAULT_ACL = "public-read"
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
-    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_S3_SIGNATURE_VERSION = "s3v4"
 
     # ✅ Correct custom domain (bucket + region)
     AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.blr1.digitaloceanspaces.com"
 
     # Static + Media
-    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    DEFAULT_FILE_STORAGE = 'sales_crm.storage_backends.PublicMediaStorage'
+    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    DEFAULT_FILE_STORAGE = "sales_crm.storage_backends.PublicMediaStorage"
 
     # Public media path inside your bucket
-    PUBLIC_MEDIA_LOCATION = 'public/media'
+    PUBLIC_MEDIA_LOCATION = "public/media"
 
     # ✅ Correct media URL
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
 
 else:
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = Path(BASE_DIR, 'media')
+    DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = Path(BASE_DIR, "media")
