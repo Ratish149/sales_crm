@@ -29,12 +29,12 @@ urlpatterns = [
         name="portfolio_retrieve_update_destroy",
     ),
     path(
-        "portfolio/tags/",
+        "portfolio-tags/",
         PortfolioTagsListCreateAPIView.as_view(),
         name="portfolio_tags_list_create",
     ),
     path(
-        "portfolio/tag/<int:pk>/",
+        "portfolio-tags/<int:pk>/",
         PortfolioTagsRetrieveUpdateDestroyAPIView.as_view(),
         name="portfolio_tags_retrieve_update_destroy",
     ),
