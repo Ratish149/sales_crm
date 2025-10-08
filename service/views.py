@@ -22,3 +22,4 @@ class ServiceListCreateView(generics.ListCreateAPIView):
 class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
+    lookup_field = "slug"
