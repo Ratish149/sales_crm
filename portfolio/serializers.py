@@ -50,6 +50,8 @@ class PortfolioListSerializer(PortfolioSerializer):
             "thumbnail_image_alt_description",
             "category",
             "tags",
+            "project_url",
+            "github_url",
             "meta_title",
             "meta_description",
             "created_at",
