@@ -1,8 +1,10 @@
 from django.urls import path
 
 from .views import (
+    BulkProductUploadView,
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
+    DownloadProductSampleTemplateView,
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
     ProductListCreateView,
@@ -63,5 +65,15 @@ urlpatterns = [
         "wishlist/<int:id>/",
         WishlistRetrieveUpdateDestroyView.as_view(),
         name="wishlist-retrieve-update-destroy",
+    ),
+    path(
+        "download-template/",
+        DownloadProductSampleTemplateView.as_view(),
+        name="download-product-template",
+    ),
+    path(
+        "bulk-upload/",
+        BulkProductUploadView.as_view(),
+        name="bulk-product-upload",
     ),
 ]

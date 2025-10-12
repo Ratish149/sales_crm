@@ -6,7 +6,10 @@ from .models import (
     Category,
     Product,
     ProductImage,
+    ProductOption,
+    ProductOptionValue,
     ProductReview,
+    ProductVariant,
     SubCategory,
     Wishlist,
 )
@@ -16,14 +19,14 @@ from .models import (
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
+    list_display = ("name", "description", "id")
     search_fields = ("name",)
     list_per_page = 25
 
 
 @admin.register(SubCategory)
 class SubCategoryAdmin(admin.ModelAdmin):
-    list_display = ("name", "description")
+    list_display = ("name", "description", "id")
     search_fields = ("name",)
     list_per_page = 25
 
@@ -44,6 +47,27 @@ class ProductAdmin(admin.ModelAdmin):
     list_per_page = 25
     inlines = [ProductImageInline]
     formfield_overrides = {models.TextField: {"widget": TinyMCE()}}
+
+
+@admin.register(ProductOption)
+class ProductOptionAdmin(admin.ModelAdmin):
+    list_display = ("product", "name")
+    search_fields = ("product", "name")
+    list_per_page = 25
+
+
+@admin.register(ProductOptionValue)
+class ProductOptionValueAdmin(admin.ModelAdmin):
+    list_display = ("option", "value")
+    search_fields = ("option", "value")
+    list_per_page = 25
+
+
+@admin.register(ProductVariant)
+class ProductVariantAdmin(admin.ModelAdmin):
+    list_display = ("product", "price", "stock")
+    search_fields = ("product", "price", "stock")
+    list_per_page = 25
 
 
 @admin.register(ProductReview)

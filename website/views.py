@@ -1,9 +1,9 @@
 from django.shortcuts import get_object_or_404
+from rest_framework import generics, status
+from rest_framework.response import Response
+
 from .models import Page, PageComponent, Theme
 from .serializers import PageComponentSerializer, PageSerializer, ThemeSerializer
-from rest_framework import generics
-from rest_framework.response import Response
-from rest_framework import status
 
 
 class ThemeListCreateView(generics.ListCreateAPIView):
@@ -11,6 +11,7 @@ class ThemeListCreateView(generics.ListCreateAPIView):
     List all themes OR add a new theme.
     URL: /api/themes/
     """
+
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
 
@@ -20,6 +21,7 @@ class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     Retrieve, update, or delete a single theme.
     URL: /api/themes/<theme_id>/
     """
+
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
 
@@ -29,6 +31,7 @@ class PageListCreateView(generics.ListCreateAPIView):
     List all pages OR add a new page.
     URL: /api/pages/
     """
+
     serializer_class = PageSerializer
     queryset = Page.objects.all()
 
@@ -41,9 +44,10 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     Retrieve, update, or delete a single page.
     URL: /api/pages/<page_id>/
     """
+
     serializer_class = PageSerializer
     queryset = Page.objects.all()
-    lookup_field = 'slug'
+    lookup_field = "slug"
 
 
 class NavbarView(generics.GenericAPIView):
@@ -58,12 +62,16 @@ class NavbarView(generics.GenericAPIView):
         if obj:
             serializer = self.get_serializer(obj)
             return Response(serializer.data)
-        return Response({"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     # POST -> create navbar
     def post(self, request, *args, **kwargs):
         if self.get_object():
-            return Response({"detail": "Navbar already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Navbar already exists"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -74,7 +82,9 @@ class NavbarView(generics.GenericAPIView):
     def patch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         new_data = request.data.get("data", {})
         if new_data:
@@ -91,7 +101,9 @@ class NavbarView(generics.GenericAPIView):
     def delete(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -108,11 +120,15 @@ class FooterView(generics.GenericAPIView):
         if obj:
             serializer = self.get_serializer(obj)
             return Response(serializer.data)
-        return Response({"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(
+            {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
+        )
 
     def post(self, request, *args, **kwargs):
         if self.get_object():
-            return Response({"detail": "Footer already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Footer already exists"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -122,7 +138,9 @@ class FooterView(generics.GenericAPIView):
     def patch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         new_data = request.data.get("data", {})
         if new_data:
@@ -138,7 +156,9 @@ class FooterView(generics.GenericAPIView):
     def delete(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
+            )
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -148,11 +168,14 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     List all components for a page OR add a new component.
     URL: /api/pages/<page_id>/components/
     """
+
     serializer_class = PageComponentSerializer
 
     def get_queryset(self):
         slug = self.kwargs["slug"]
-        return PageComponent.objects.filter(page__slug=slug).exclude(component_type__in=["navbar", "footer"])
+        return PageComponent.objects.filter(page__slug=slug).exclude(
+            component_type__in=["navbar", "footer"]
+        )
 
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
@@ -166,12 +189,15 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
     Retrieve, update, or delete a single component by type (e.g. navbar, hero).
     URL: /api/pages/<page_id>/components/<type>/
     """
+
     serializer_class = PageComponentSerializer
 
     def get_object(self):
         slug = self.kwargs["slug"]
         component_id = self.kwargs["component_id"]
-        return get_object_or_404(PageComponent, page__slug=slug, component_id=component_id)
+        return get_object_or_404(
+            PageComponent, page__slug=slug, component_id=component_id
+        )
 
     def partial_update(self, request, *args, **kwargs):
         """

@@ -8,7 +8,10 @@ from .models import (
     Category,
     Product,
     ProductImage,
+    ProductOption,
+    ProductOptionValue,
     ProductReview,
+    ProductVariant,
     SubCategory,
     Wishlist,
 )
@@ -58,10 +61,54 @@ class SubCategoryDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "description", "image", "category"]
 
 
+class ProductOptionValueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductOptionValue
+        fields = [
+            "id",
+            "value",
+        ]
+
+
+class ProductOptionSerializer(serializers.ModelSerializer):
+    values = ProductOptionValueSerializer(
+        many=True, read_only=True, source="productoptionvalue_set"
+    )
+
+    class Meta:
+        model = ProductOption
+        fields = ["id", "name", "values"]
+
+
+class ProductVariantWriteSerializer(serializers.Serializer):
+    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    stock = serializers.IntegerField(default=0)
+    image = serializers.FileField(required=False, allow_null=True)
+    options = serializers.DictField(child=serializers.CharField(), required=False)
+
+
+class CategorySmallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name"]
+
+
+class ProductVariantReadSerializer(serializers.ModelSerializer):
+    option_values = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductVariant
+        fields = ["id", "price", "stock", "image", "option_values"]
+
+    def get_option_values(self, obj):
+        # Get all option values for this variant
+        return {v.option.name: v.value for v in obj.option_values.all()}
+
+
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSmallSerializer(many=True, read_only=True)
-    sub_category = SubCategorySmallSerializer(read_only=True)
     category = CategorySmallSerializer(read_only=True)
+    sub_category = SubCategorySmallSerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.all(),
         source="category",
@@ -77,12 +124,14 @@ class ProductSerializer(serializers.ModelSerializer):
         required=False,
     )
     image_files = serializers.ListField(
-        child=serializers.FileField(),
-        source="images",
-        write_only=True,
-        required=False,
-        allow_empty=True,
+        child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
+
+    variants = ProductVariantWriteSerializer(many=True, write_only=True, required=False)
+    variants_read = ProductVariantReadSerializer(
+        source="variants", many=True, read_only=True
+    )
+    options = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = Product
@@ -93,9 +142,10 @@ class ProductSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "market_price",
+            "track_stock",
             "stock",
+            "weight",
             "thumbnail_image",
-            "images",
             "thumbnail_alt_description",
             "category",
             "sub_category",
@@ -103,25 +153,98 @@ class ProductSerializer(serializers.ModelSerializer):
             "sub_category_id",
             "is_popular",
             "is_featured",
+            "status",
+            "meta_title",
+            "meta_description",
+            "images",
+            "image_files",
+            "options",
+            "variants",
+            "variants_read",
             "created_at",
             "updated_at",
-            "image_files",
         ]
+        extra_kwargs = {"slug": {"read_only": True}}
+
+    def get_options(self, obj):
+        """Get all options with their values for the product"""
+        options = obj.productoption_set.prefetch_related("productoptionvalue_set").all()
+        options_data = []
+
+        for option in options:
+            values = option.productoptionvalue_set.all()
+            options_data.append(
+                {
+                    "id": option.id,
+                    "name": option.name,
+                    "values": ProductOptionValueSerializer(values, many=True).data,
+                }
+            )
+
+        return options_data
 
     def create(self, validated_data):
-        # Changed from 'image_files' to 'images' to match the source
-        images_data = validated_data.pop("images", [])
+        image_files = validated_data.pop("image_files", [])
+        variants_data = validated_data.pop("variants", [])
+
         product = Product.objects.create(**validated_data)
-        for image_data in images_data:
-            ProductImage.objects.create(product=product, image=image_data)
+
+        # Create images
+        for img in image_files:
+            ProductImage.objects.create(product=product, image=img)
+
+        # Create variants
+        for variant_data in variants_data:
+            options = variant_data.pop("options", {})
+
+            variant = ProductVariant.objects.create(product=product, **variant_data)
+
+            option_value_ids = []
+            for option_name, value_name in options.items():
+                option, _ = ProductOption.objects.get_or_create(
+                    product=product, name=option_name
+                )
+                value, _ = ProductOptionValue.objects.get_or_create(
+                    option=option, value=value_name
+                )
+                option_value_ids.append(value.id)
+
+            variant.option_values.set(option_value_ids)
+
         return product
 
     def update(self, instance, validated_data):
-        images_data = validated_data.pop("images", [])
+        image_files = validated_data.pop("image_files", None)
+        variants_data = validated_data.pop("variants", None)
+
         instance = super().update(instance, validated_data)
-        instance.images.all().delete()
-        for image_data in images_data:
-            ProductImage.objects.create(product=instance, image=image_data)
+
+        if image_files is not None:
+            instance.images.all().delete()
+            for img in image_files:
+                ProductImage.objects.create(product=instance, image=img)
+
+        if variants_data is not None:
+            instance.variants.all().delete()
+            for variant_data in variants_data:
+                options = variant_data.pop("options", {})
+
+                variant = ProductVariant.objects.create(
+                    product=instance, **variant_data
+                )
+
+                option_value_ids = []
+                for option_name, value_name in options.items():
+                    option, _ = ProductOption.objects.get_or_create(
+                        product=instance, name=option_name
+                    )
+                    value, _ = ProductOptionValue.objects.get_or_create(
+                        option=option, value=value_name
+                    )
+                    option_value_ids.append(value.id)
+
+                variant.option_values.set(option_value_ids)
+
         return instance
 
 
@@ -226,3 +349,7 @@ class WishlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wishlist
         fields = ["id", "user", "product", "product_id", "created_at", "updated_at"]
+
+
+class BulkUploadSerializer(serializers.Serializer):
+    file = serializers.FileField()

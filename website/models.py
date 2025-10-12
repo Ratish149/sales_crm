@@ -1,12 +1,12 @@
 from django.db import models
 from django.utils.text import slugify
+
 # Create your models here.
 
 
 class Theme(models.Model):
     data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
 
 
 class Page(models.Model):
@@ -15,7 +15,7 @@ class Page(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('title',)
+        unique_together = ("title",)
 
     def __str__(self):
         return self.title
@@ -27,7 +27,8 @@ class Page(models.Model):
 
 class PageComponent(models.Model):
     page = models.ForeignKey(
-        Page, on_delete=models.CASCADE, related_name='components', null=True, blank=True)
+        Page, on_delete=models.CASCADE, related_name="components", null=True, blank=True
+    )
     component_type = models.CharField(max_length=255, null=True, blank=True)
     component_id = models.CharField(max_length=255)
     data = models.JSONField(null=True, blank=True)
@@ -36,7 +37,7 @@ class PageComponent(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['order']
+        ordering = ["order"]
 
     def __str__(self):
         return f"{self.component_type} ({self.component_id})"
