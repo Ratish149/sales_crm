@@ -100,32 +100,44 @@ class PagePublishView(APIView):
 # -------------------- NAVBAR & FOOTER --------------------
 class NavbarView(generics.GenericAPIView):
     serializer_class = PageComponentSerializer
+    component_type = "navbar"
 
     def get_object(self):
         status_param = self.request.query_params.get("status")
         qs = PageComponent.objects.filter(component_type="navbar")
-        if status_param != "preview":
+        if status_param == "preview":
+            # Show all navbars when preview is requested
+            pass
+        else:
+            # Default behavior: show only published navbars
             qs = qs.filter(status="published")
         return qs.first()
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Navbar not found"}, status=404)
+            component_type = getattr(self, "component_type", "navbar")
+            return Response(
+                {"detail": f"{component_type.title()} not found"}, status=404
+            )
         return Response(self.get_serializer(obj).data)
 
     def post(self, request, *args, **kwargs):
         if self.get_object():
-            return Response({"detail": "Navbar already exists"}, status=400)
+            return Response(
+                {"detail": f"{self.component_type.title()} already exists"}, status=400
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        serializer.save(component_type="navbar", status="draft")
+        serializer.save(component_type=self.component_type, status="draft")
         return Response(serializer.data, status=201)
 
     def patch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response({"detail": "Navbar not found"}, status=404)
+            return Response(
+                {"detail": f"{self.component_type.title()} not found"}, status=404
+            )
         obj = get_or_create_draft(obj)
         new_data = request.data.get("data", {})
         if new_data:
@@ -145,10 +157,16 @@ class NavbarView(generics.GenericAPIView):
 
 
 class FooterView(NavbarView):
+    component_type = "footer"
+
     def get_object(self):
         status_param = self.request.query_params.get("status")
         qs = PageComponent.objects.filter(component_type="footer")
-        if status_param != "preview":
+        if status_param == "preview":
+            # Show all footers when preview is requested
+            pass
+        else:
+            # Default behavior: show only published footers
             qs = qs.filter(status="published")
         return qs.first()
 
