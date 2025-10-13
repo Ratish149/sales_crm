@@ -103,22 +103,29 @@ class NavbarView(generics.GenericAPIView):
     component_type = "navbar"
 
     def get_object(self):
+        """
+        Returns the draft if it exists, otherwise returns the published one.
+        """
         status_param = self.request.query_params.get("status")
-        qs = PageComponent.objects.filter(component_type="navbar")
-        if status_param == "preview":
-            # Show all navbars when preview is requested
-            pass
-        else:
-            # Default behavior: show only published navbars
+        qs = PageComponent.objects.filter(component_type=self.component_type)
+
+        if status_param != "preview":
             qs = qs.filter(status="published")
         return qs.first()
+
+    def get_draft(self, obj):
+        """
+        Always returns a draft version for editing.
+        If obj is published, creates a new draft.
+        If obj is already draft, returns it.
+        """
+        return get_or_create_draft(obj)
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            component_type = getattr(self, "component_type", "navbar")
             return Response(
-                {"detail": f"{component_type.title()} not found"}, status=404
+                {"detail": f"{self.component_type.title()} not found"}, status=404
             )
         return Response(self.get_serializer(obj).data)
 
@@ -138,13 +145,18 @@ class NavbarView(generics.GenericAPIView):
             return Response(
                 {"detail": f"{self.component_type.title()} not found"}, status=404
             )
-        obj = get_or_create_draft(obj)
+
+        # Ensure we are editing a draft
+        draft_obj = self.get_draft(obj)
+
+        # Merge data
         new_data = request.data.get("data", {})
         if new_data:
-            current_data = obj.data or {}
+            current_data = draft_obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
-        serializer = self.get_serializer(obj, data=request.data, partial=True)
+
+        serializer = self.get_serializer(draft_obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save(status="draft")
         return Response(serializer.data)
@@ -152,23 +164,14 @@ class NavbarView(generics.GenericAPIView):
     def delete(self, request, *args, **kwargs):
         obj = self.get_object()
         if obj:
-            obj.delete()
+            draft_obj = self.get_draft(obj)
+            draft_obj.delete()
         return Response(status=204)
 
 
+# -------------------- FOOTER --------------------
 class FooterView(NavbarView):
     component_type = "footer"
-
-    def get_object(self):
-        status_param = self.request.query_params.get("status")
-        qs = PageComponent.objects.filter(component_type="footer")
-        if status_param == "preview":
-            # Show all footers when preview is requested
-            pass
-        else:
-            # Default behavior: show only published footers
-            qs = qs.filter(status="published")
-        return qs.first()
 
 
 # -------------------- PAGE COMPONENTS --------------------
