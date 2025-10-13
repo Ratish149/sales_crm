@@ -39,10 +39,6 @@ class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class ThemePublishView(APIView):
-    """
-    POST /api/themes/<id>/publish/
-    """
-
     def post(self, request, id):
         theme = get_object_or_404(Theme, id=id, status="draft")
         publish_instance(theme)
@@ -80,15 +76,11 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PagePublishView(APIView):
-    """
-    POST /api/pages/<slug>/publish/
-    """
-
     @transaction.atomic
     def post(self, request, slug):
         page = get_object_or_404(Page, slug=slug, status="draft")
 
-        # Publish related components first
+        # Publish all related draft components first
         for comp in page.components.filter(status="draft"):
             publish_instance(comp)
 
@@ -134,13 +126,14 @@ class NavbarView(generics.GenericAPIView):
                 {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        obj = get_or_create_draft(obj)
+
         new_data = request.data.get("data", {})
         if new_data and isinstance(new_data, dict):
             current_data = obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
 
-        obj = get_or_create_draft(obj)
         serializer = self.get_serializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save(status="draft")
@@ -158,10 +151,6 @@ class NavbarView(generics.GenericAPIView):
 
 # -------------------- FOOTER --------------------
 class FooterView(NavbarView):
-    """
-    Same logic as Navbar, just for footer
-    """
-
     def get_object(self):
         status_param = self.request.query_params.get("status")
         if status_param == "preview":
@@ -178,7 +167,6 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         slug = self.kwargs["slug"]
         status_param = self.request.query_params.get("status")
-
         qs = PageComponent.objects.filter(page__slug=slug).exclude(
             component_type__in=["navbar", "footer"]
         )
@@ -188,7 +176,16 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
-        page = get_object_or_404(Page, slug=slug)
+        status_param = self.request.query_params.get("status")
+
+        if status_param == "preview":
+            page = (
+                Page.objects.filter(slug=slug, status="draft").first()
+                or Page.objects.filter(slug=slug, status="published").first()
+            )
+        else:
+            page = get_object_or_404(Page, slug=slug, status="published")
+
         order = serializer.validated_data.get("order", page.components.count())
         serializer.save(page=page, order=order, status="draft")
 
@@ -199,6 +196,7 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
     def get_object(self):
         slug = self.kwargs["slug"]
         component_id = self.kwargs["component_id"]
+
         comp = get_object_or_404(
             PageComponent, page__slug=slug, component_id=component_id
         )
@@ -212,10 +210,6 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PageComponentPublishView(APIView):
-    """
-    POST /api/pages/<slug>/components/<component_id>/publish/
-    """
-
     def post(self, request, slug, component_id):
         comp = get_object_or_404(
             PageComponent, page__slug=slug, component_id=component_id, status="draft"
@@ -226,24 +220,20 @@ class PageComponentPublishView(APIView):
 
 # -------------------- PUBLISH ALL --------------------
 class PublishAllView(APIView):
-    """
-    Publish all draft items at once using proper sync logic.
-    URL: /api/publish-all/
-    """
-
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         # Publish components first
         for comp in PageComponent.objects.filter(status="draft"):
             publish_instance(comp)
+
         # Then pages
         for page in Page.objects.filter(status="draft"):
             publish_instance(page)
+
         # Then themes
         for theme in Theme.objects.filter(status="draft"):
             publish_instance(theme)
 
         return Response(
-            {"detail": "All drafts published successfully"},
-            status=status.HTTP_200_OK,
+            {"detail": "All drafts published successfully"}, status=status.HTTP_200_OK
         )
