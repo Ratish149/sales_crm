@@ -107,6 +107,27 @@ class ProductVariantReadSerializer(serializers.ModelSerializer):
         return {v.option.name: v.value for v in obj.option_values.all()}
 
 
+class VariantsField(serializers.Field):
+    """Custom field to handle variants as either JSON string or list"""
+
+    def to_internal_value(self, data):
+        # If it's a string, parse it
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except json.JSONDecodeError as e:
+                raise serializers.ValidationError(f"Invalid JSON format: {str(e)}")
+
+        # Now it should be a list
+        if not isinstance(data, list):
+            raise serializers.ValidationError("Variants must be a list")
+
+        return data
+
+    def to_representation(self, value):
+        return value
+
+
 class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSmallSerializer(many=True, read_only=True)
     category = CategorySmallSerializer(read_only=True)
@@ -133,7 +154,7 @@ class ProductSerializer(serializers.ModelSerializer):
         child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
 
-    variants = serializers.JSONField(write_only=True, required=False)
+    variants = VariantsField(write_only=True, required=False)
     variants_read = ProductVariantReadSerializer(
         source="variants", many=True, read_only=True
     )
@@ -202,19 +223,7 @@ class ProductSerializer(serializers.ModelSerializer):
         # Make a copy to avoid modifying original
         data = data.copy() if hasattr(data, "copy") else dict(data)
 
-        # Parse variants if it's a JSON string
-        if "variants" in data:
-            variants_value = data.get("variants")
-            if isinstance(variants_value, str):
-                try:
-                    parsed_variants = json.loads(variants_value)
-                    data["variants"] = parsed_variants
-                    print(f"✅ Parsed variants: {len(parsed_variants)} variants found")
-                except json.JSONDecodeError as e:
-                    print(f"❌ JSON decode error: {e}")
-                    raise serializers.ValidationError(
-                        {"variants": f"Invalid JSON format: {str(e)}"}
-                    )
+        # Don't parse variants here - let the VariantsField handle it
 
         # Collect variant images from individual form fields
         variant_images = {}
