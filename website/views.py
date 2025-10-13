@@ -16,8 +16,8 @@ class ThemeListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         status_param = self.request.query_params.get("status")
-        if status_param in ["draft", "published"]:
-            qs = Theme.objects.filter(status=status_param)
+        if status_param == "preview":
+            qs = Theme.objects.all()
         else:
             qs = Theme.objects.filter(status="published")
         return qs
@@ -46,8 +46,8 @@ class PageListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         status_param = self.request.query_params.get("status")
-        if status_param in ["draft", "published"]:
-            qs = Page.objects.filter(status=status_param)
+        if status_param == "preview":
+            qs = Page.objects.all()
         else:
             qs = Page.objects.filter(status="published")
         return qs
@@ -207,8 +207,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
         qs = PageComponent.objects.filter(page__slug=slug).exclude(
             component_type__in=["navbar", "footer"]
         )
-        if status_param in ["draft", "published"]:
-            qs = qs.filter(page__status=status_param)
+        if status_param == "preview":
+            qs = qs.all()
         else:
             qs = qs.filter(page__status="published")
         return qs
