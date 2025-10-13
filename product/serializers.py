@@ -255,10 +255,6 @@ class ProductSerializer(serializers.ModelSerializer):
         # Add our collected variant images to validated data
         if self._variant_images_temp:
             validated["variant_images"] = self._variant_images_temp
-            print(
-                f"Added {len(self._variant_images_temp)} variant images to validated data"
-            )
-            print(f"Variant image keys: {list(self._variant_images_temp.keys())}")
 
         return validated
 
@@ -276,14 +272,6 @@ class ProductSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Variant at index {idx} 'options' must be a dictionary"
                 )
-            if "price" not in variant:
-                raise serializers.ValidationError(
-                    f"Variant at index {idx} is missing 'price' field"
-                )
-            if "stock" not in variant:
-                raise serializers.ValidationError(
-                    f"Variant at index {idx} is missing 'stock' field"
-                )
 
         return value
 
@@ -291,11 +279,6 @@ class ProductSerializer(serializers.ModelSerializer):
         image_files = validated_data.pop("image_files", [])
         variants_data = validated_data.pop("variants", [])
         variant_images = validated_data.pop("variant_images", {})
-
-        print("\n=== CREATE METHOD ===")
-        print(f"Received {len(variant_images)} variant images")
-        print(f"Variant image keys: {list(variant_images.keys())}")
-        print(f"Number of variants: {len(variants_data)}")
 
         # Check if product with same name exists
         name = validated_data.get("name")
@@ -318,26 +301,12 @@ class ProductSerializer(serializers.ModelSerializer):
                 options = variant_dict.pop("options", {})
                 image_key = variant_dict.pop("image", None)
 
-                print(f"\nProcessing variant {idx}:")
-                print(f"  Image key from variant data: {image_key}")
-                print(
-                    f"  Image key exists in variant_images: {image_key in variant_images if image_key else 'N/A'}"
-                )
-
                 # Handle the variant image - assign the actual file
                 if image_key and image_key in variant_images:
                     variant_dict["image"] = variant_images[image_key]
-                    print("  ✓ Assigned image file to variant")
-                else:
-                    print(
-                        f"  ✗ No image assigned (key: {image_key}, available: {list(variant_images.keys())})"
-                    )
 
                 # Create the variant with the image
                 variant = ProductVariant.objects.create(product=product, **variant_dict)
-                print(
-                    f"  Created variant with image: {variant.image.url if variant.image else 'None'}"
-                )
 
                 # Create options and values
                 option_value_ids = []
@@ -353,12 +322,8 @@ class ProductSerializer(serializers.ModelSerializer):
                 # Link option values to variant
                 variant.option_values.set(option_value_ids)
 
-            except Exception as e:
-                # Log error but continue with other variants
-                import traceback
-
-                print(f"Error creating variant {idx}: {str(e)}")
-                traceback.print_exc()
+            except Exception:
+                raise serializers.ValidationError("Failed to create variant")
                 continue
 
         return product
@@ -367,13 +332,6 @@ class ProductSerializer(serializers.ModelSerializer):
         image_files = validated_data.pop("image_files", None)
         variants_data = validated_data.pop("variants", None)
         variant_images = validated_data.pop("variant_images", None)
-
-        print("\n=== UPDATE METHOD ===")
-        print(f"Received {len(variant_images) if variant_images else 0} variant images")
-        print(
-            f"Variant image keys: {list(variant_images.keys()) if variant_images else 'None'}"
-        )
-        print(f"Number of variants: {len(variants_data) if variants_data else 0}")
 
         # Check if product with same name exists (excluding current instance)
         name = validated_data.get("name")
@@ -409,26 +367,12 @@ class ProductSerializer(serializers.ModelSerializer):
                     options = variant_dict.pop("options", {})
                     image_key = variant_dict.pop("image", None)
 
-                    print(f"\nProcessing variant {idx}:")
-                    print(f"  Image key from variant data: {image_key}")
-                    print(
-                        f"  Image key exists in variant_images: {image_key in variant_images if image_key and variant_images else 'N/A'}"
-                    )
-
                     # Handle the variant image
                     if image_key and variant_images and image_key in variant_images:
                         variant_dict["image"] = variant_images[image_key]
-                        print("  ✓ Assigned image file to variant")
-                    else:
-                        print(
-                            f"  ✗ No image assigned (key: {image_key}, available: {list(variant_images.keys()) if variant_images else 'None'})"
-                        )
 
                     variant = ProductVariant.objects.create(
                         product=instance, **variant_dict
-                    )
-                    print(
-                        f"  Created variant with image: {variant.image.url if variant.image else 'None'}"
                     )
 
                     option_value_ids = []
@@ -443,11 +387,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
                     variant.option_values.set(option_value_ids)
 
-                except Exception as e:
-                    import traceback
-
-                    print(f"Error updating variant {idx}: {str(e)}")
-                    traceback.print_exc()
+                except Exception:
+                    raise serializers.ValidationError("Failed to create variant")
                     continue
 
         return instance
