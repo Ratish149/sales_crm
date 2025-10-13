@@ -1,53 +1,52 @@
-from django.db import transaction
-from django.forms.models import model_to_dict
-
-
 def get_or_create_draft(instance):
     """
-    If the instance is published, return an existing draft or create one.
+    Returns a draft version of the instance.
+    If instance is already a draft, returns it.
     """
     if instance.status == "draft":
         return instance
-
-    # If already has draft version, return it
-    existing_draft = instance.draft_version.first()
-    if existing_draft:
-        return existing_draft
-
-    # Otherwise, clone it
-    data = model_to_dict(
-        instance, exclude=["id", "created_at", "updated_at", "published_version"]
+    if instance.published_version:
+        return instance.published_version
+    # Create a draft copy
+    clone = instance.__class__.objects.create(
+        **{
+            field.name: getattr(instance, field.name)
+            for field in instance._meta.fields
+            if field.name
+            not in ["id", "created_at", "updated_at", "published_version", "status"]
+        }
     )
-    draft = instance.__class__.objects.create(
-        **data, status="draft", published_version=instance
-    )
-    return draft
+    clone.status = "draft"
+    clone.published_version = instance
+    clone.save()
+    return clone
 
 
-@transaction.atomic
-def publish_instance(draft_instance):
+def publish_instance(instance):
     """
-    Publish the given draft instance: copy its data into the linked published version.
+    Publishes a draft instance.
+    If the instance has a published_version, it updates it.
     """
-    if draft_instance.status != "draft":
-        raise ValueError("Only draft instances can be published.")
-
-    published = draft_instance.published_version
-
-    # If no published version exists, create one
-    if not published:
-        published = draft_instance.__class__.objects.create(status="published")
-        draft_instance.published_version = published
-        draft_instance.save()
-
-    # Copy all relevant fields
-    data = model_to_dict(
-        draft_instance,
-        exclude=["id", "created_at", "updated_at", "published_version", "status"],
-    )
-    for key, value in data.items():
-        setattr(published, key, value)
-    published.status = "published"
-    published.save()
-
-    return published
+    if instance.status != "draft":
+        return instance
+    published = instance.published_version
+    if published:
+        # update the published version
+        for field in instance._meta.fields:
+            if field.name not in [
+                "id",
+                "created_at",
+                "updated_at",
+                "published_version",
+                "status",
+            ]:
+                setattr(published, field.name, getattr(instance, field.name))
+        published.save()
+    else:
+        # make this instance published
+        instance.status = "published"
+        instance.save()
+    # Link draft to published
+    instance.published_version = published or instance
+    instance.save()
+    return instance
