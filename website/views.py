@@ -1,6 +1,6 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -106,45 +106,39 @@ class NavbarView(generics.GenericAPIView):
 
     def get_object(self):
         status_param = self.request.query_params.get("status")
-
+        qs = PageComponent.objects.filter(component_type=self.component_type)
         if status_param == "preview":
-            # Try to get draft first
-            obj = PageComponent.objects.filter(
-                component_type="navbar", status="draft"
-            ).first()
-            if not obj:
-                # Fallback to published if no draft exists
-                obj = PageComponent.objects.filter(
-                    component_type="navbar", status="published"
-                ).first()
-        else:
-            obj = PageComponent.objects.filter(
-                component_type="navbar", status="published"
-            ).first()
-        return obj
+            # Return draft if exists, else published
+            draft = qs.filter(status="draft").first()
+            return draft or qs.filter(status="published").first()
+        # Default: return published
+        return qs.filter(status="published").first()
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response(
-                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Navbar not found"}, status=404)
         return Response(self.get_serializer(obj).data)
+
+    def post(self, request, *args, **kwargs):
+        if PageComponent.objects.filter(component_type=self.component_type).exists():
+            return Response({"detail": "Navbar already exists"}, status=400)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(component_type=self.component_type, status="draft")
+        return Response(serializer.data, status=201)
 
     def patch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            # If no navbar exists at all, create draft
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(component_type=self.component_type, status="draft")
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"detail": "Navbar not found"}, status=404)
 
-        # Ensure we are updating the draft
+        # If published, create a draft copy
         obj = get_or_create_draft(obj)
 
+        # Update only the `data` field or order if provided
         new_data = request.data.get("data", {})
-        if new_data:
+        if new_data and isinstance(new_data, dict):
             current_data = obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
@@ -156,59 +150,51 @@ class NavbarView(generics.GenericAPIView):
 
     def delete(self, request, *args, **kwargs):
         obj = self.get_object()
-        if not obj:
-            return Response(
-                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        obj.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if obj:
+            obj.delete()
+        return Response(status=204)
 
 
+# -------------------- FOOTER --------------------
 class FooterView(generics.GenericAPIView):
     serializer_class = PageComponentSerializer
     component_type = "footer"
 
     def get_object(self):
         status_param = self.request.query_params.get("status")
-
+        qs = PageComponent.objects.filter(component_type=self.component_type)
         if status_param == "preview":
-            # Try to get draft first
-            obj = PageComponent.objects.filter(
-                component_type="footer", status="draft"
-            ).first()
-            if not obj:
-                # Fallback to published if no draft exists
-                obj = PageComponent.objects.filter(
-                    component_type="footer", status="published"
-                ).first()
-        else:
-            obj = PageComponent.objects.filter(
-                component_type="footer", status="published"
-            ).first()
-        return obj
+            # Return draft if exists, else published
+            draft = qs.filter(status="draft").first()
+            return draft or qs.filter(status="published").first()
+        # Default: return published
+        return qs.filter(status="published").first()
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            return Response(
-                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Footer not found"}, status=404)
         return Response(self.get_serializer(obj).data)
+
+    def post(self, request, *args, **kwargs):
+        if PageComponent.objects.filter(component_type=self.component_type).exists():
+            return Response({"detail": "Footer already exists"}, status=400)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(component_type=self.component_type, status="draft")
+        return Response(serializer.data, status=201)
 
     def patch(self, request, *args, **kwargs):
         obj = self.get_object()
         if not obj:
-            # If no footer exists at all, create draft
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save(component_type=self.component_type, status="draft")
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({"detail": "Footer not found"}, status=404)
 
-        # Ensure we are updating the draft
+        # If published, create a draft copy
         obj = get_or_create_draft(obj)
 
+        # Update only the `data` field or order if provided
         new_data = request.data.get("data", {})
-        if new_data:
+        if new_data and isinstance(new_data, dict):
             current_data = obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
@@ -220,12 +206,9 @@ class FooterView(generics.GenericAPIView):
 
     def delete(self, request, *args, **kwargs):
         obj = self.get_object()
-        if not obj:
-            return Response(
-                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-        obj.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        if obj:
+            obj.delete()
+        return Response(status=204)
 
 
 # -------------------- PAGE COMPONENTS --------------------
