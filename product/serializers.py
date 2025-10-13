@@ -221,14 +221,16 @@ class ProductSerializer(serializers.ModelSerializer):
             data._mutable = True
 
         # Make a copy to avoid modifying original
-        data = data.copy() if hasattr(data, "copy") else dict(data)
+        if hasattr(data, "copy"):
+            data = data.copy()
+        else:
+            data = dict(data)
 
-        # Don't parse variants here - let the VariantsField handle it
-
-        # Collect variant images from individual form fields
+        # Collect variant images from individual form fields BEFORE validation
         variant_images = {}
         keys_to_remove = []
 
+        # First pass: collect all variant_image_* fields
         for key in list(data.keys()):
             if key.startswith("variant_image_"):
                 # Extract the index: variant_image_0 -> variant_0
@@ -236,18 +238,24 @@ class ProductSerializer(serializers.ModelSerializer):
                 variant_key = f"variant_{index}"
                 variant_images[variant_key] = data[key]
                 keys_to_remove.append(key)
-                print(f"✅ Collected variant image: {variant_key}")
 
         # Remove the individual variant_image_* fields
         for key in keys_to_remove:
             data.pop(key, None)
 
-        # Add the collected variant_images dict
+        # Add the collected variant_images dict if we found any
         if variant_images:
             data["variant_images"] = variant_images
-            print(f"✅ Total variant images collected: {len(variant_images)}")
 
-        return super().to_internal_value(data)
+        # Call parent to do normal validation
+        validated = super().to_internal_value(data)
+
+        # CRITICAL: Ensure variant_images is preserved in validated data
+        # Sometimes DictField validation can fail silently or be stripped
+        if variant_images and "variant_images" not in validated:
+            validated["variant_images"] = variant_images
+
+        return validated
 
     def validate_variants(self, value):
         """Validate variants structure"""
@@ -279,98 +287,61 @@ class ProductSerializer(serializers.ModelSerializer):
         variants_data = validated_data.pop("variants", [])
         variant_images = validated_data.pop("variant_images", {})
 
-        print("\n🔧 CREATE METHOD:")
-        print(f"  - Variants to create: {len(variants_data)}")
-        print(f"  - Variant images available: {len(variant_images)}")
-
         # Check if product with same name exists
         name = validated_data.get("name")
         if name and Product.objects.filter(name=name).exists():
             raise serializers.ValidationError("Product with this name already exists.")
 
         product = Product.objects.create(**validated_data)
-        print(f"✅ Product created: {product.id} - {product.name}")
 
         # Create images
         for img in image_files:
             ProductImage.objects.create(product=product, image=img)
-        print(f"✅ Created {len(image_files)} product images")
 
         # Create variants
-        created_variants_count = 0
         for idx, variant_data in enumerate(variants_data):
             try:
+                # Make a copy to avoid modifying the original
+                variant_dict = dict(variant_data)
+
                 # Extract options and image key
-                options = variant_data.pop("options", {})
-                image_key = variant_data.pop("image", None)
+                options = variant_dict.pop("options", {})
+                image_key = variant_dict.pop("image", None)
 
-                print(f"\n  📦 Processing variant {idx + 1}:")
-                print(f"     - Options: {options}")
-                print(f"     - Image key: {image_key}")
-                print(
-                    f"     - Price: {variant_data.get('price')}, Stock: {variant_data.get('stock')}"
-                )
-
-                # Handle the variant image
+                # Handle the variant image - assign the actual file
                 if image_key and image_key in variant_images:
-                    variant_data["image"] = variant_images[image_key]
-                    print(f"     ✅ Image found for {image_key}")
-                elif image_key:
-                    print(f"     ⚠️ Image key '{image_key}' not found in variant_images")
+                    variant_dict["image"] = variant_images[image_key]
 
-                # Create the variant
-                variant = ProductVariant.objects.create(product=product, **variant_data)
-                print(f"     ✅ Variant created: ID {variant.id}")
+                # Create the variant with the image
+                variant = ProductVariant.objects.create(product=product, **variant_dict)
 
                 # Create options and values
                 option_value_ids = []
                 for option_name, value_name in options.items():
-                    option, created = ProductOption.objects.get_or_create(
+                    option, _ = ProductOption.objects.get_or_create(
                         product=product, name=option_name
                     )
-                    if created:
-                        print(f"     ✅ Created option: {option_name}")
-
-                    value, created = ProductOptionValue.objects.get_or_create(
+                    value, _ = ProductOptionValue.objects.get_or_create(
                         option=option, value=value_name
                     )
-                    if created:
-                        print(
-                            f"     ✅ Created option value: {option_name}={value_name}"
-                        )
-
                     option_value_ids.append(value.id)
 
                 # Link option values to variant
                 variant.option_values.set(option_value_ids)
-                print(
-                    f"     ✅ Linked {len(option_value_ids)} option values to variant"
-                )
-                created_variants_count += 1
 
-            except Exception as e:
-                print(f"     ❌ Error creating variant {idx + 1}: {str(e)}")
+            except Exception:
+                # Log error but continue with other variants
                 import traceback
 
                 traceback.print_exc()
-                # Continue with other variants instead of failing completely
                 continue
 
-        print(
-            f"\n✅ Successfully created {created_variants_count}/{len(variants_data)} variants"
-        )
         return product
 
     def update(self, instance, validated_data):
         image_files = validated_data.pop("image_files", None)
         variants_data = validated_data.pop("variants", None)
         variant_images = validated_data.pop("variant_images", None)
-
-        print("\n🔧 UPDATE METHOD:")
-        print(f"  - Variants to update: {len(variants_data) if variants_data else 0}")
-        print(
-            f"  - Variant images available: {len(variant_images) if variant_images else 0}"
-        )
 
         # Check if product with same name exists (excluding current instance)
         name = validated_data.get("name")
@@ -387,13 +358,10 @@ class ProductSerializer(serializers.ModelSerializer):
             instance.images.all().delete()
             for img in image_files:
                 ProductImage.objects.create(product=instance, image=img)
-            print(f"✅ Updated {len(image_files)} product images")
 
         if variants_data is not None:
             # Delete old variants
-            old_variant_count = instance.variants.count()
             instance.variants.all().delete()
-            print(f"🗑️ Deleted {old_variant_count} old variants")
 
             # Clean up orphaned options
             for option in instance.productoption_set.all():
@@ -401,26 +369,21 @@ class ProductSerializer(serializers.ModelSerializer):
                     option.delete()
 
             # Create new variants
-            created_variants_count = 0
             for idx, variant_data in enumerate(variants_data):
                 try:
-                    options = variant_data.pop("options", {})
-                    image_key = variant_data.pop("image", None)
+                    # Make a copy
+                    variant_dict = dict(variant_data)
 
-                    print(f"\n  📦 Processing variant {idx + 1}:")
-                    print(f"     - Options: {options}")
+                    options = variant_dict.pop("options", {})
+                    image_key = variant_dict.pop("image", None)
 
                     # Handle the variant image
                     if image_key and variant_images and image_key in variant_images:
-                        variant_data["image"] = variant_images[image_key]
-                        print(f"     ✅ Image found for {image_key}")
-                    elif image_key:
-                        print(f"     ⚠️ Image key '{image_key}' not found")
+                        variant_dict["image"] = variant_images[image_key]
 
                     variant = ProductVariant.objects.create(
-                        product=instance, **variant_data
+                        product=instance, **variant_dict
                     )
-                    print(f"     ✅ Variant created: ID {variant.id}")
 
                     option_value_ids = []
                     for option_name, value_name in options.items():
@@ -433,19 +396,12 @@ class ProductSerializer(serializers.ModelSerializer):
                         option_value_ids.append(value.id)
 
                     variant.option_values.set(option_value_ids)
-                    print(f"     ✅ Linked {len(option_value_ids)} option values")
-                    created_variants_count += 1
 
-                except Exception as e:
-                    print(f"     ❌ Error creating variant {idx + 1}: {str(e)}")
+                except Exception:
                     import traceback
 
                     traceback.print_exc()
                     continue
-
-            print(
-                f"\n✅ Successfully created {created_variants_count}/{len(variants_data)} variants"
-            )
 
         return instance
 
