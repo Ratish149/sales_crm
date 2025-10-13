@@ -193,6 +193,24 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
+    def patch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        new_data = request.data.get("data", {})
+        if new_data:
+            current_data = obj.data or {}
+            current_data.update(new_data)
+            request.data["data"] = current_data
+        return super().patch(request, *args, **kwargs)
+
+    def put(self, request, *args, **kwargs):
+        obj = self.get_object()
+        new_data = request.data.get("data", {})
+        if new_data:
+            current_data = obj.data or {}
+            current_data.update(new_data)
+            request.data["data"] = current_data
+        return super().put(request, *args, **kwargs)
+
 
 class PageComponentPublishView(APIView):
     def post(self, request, slug, component_id):
