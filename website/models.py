@@ -5,11 +5,21 @@ from django.utils.text import slugify
 
 
 class Theme(models.Model):
+    STATUS = (
+        ("published", "Published"),
+        ("draft", "Draft"),
+    )
+    status = models.CharField(max_length=10, choices=STATUS, default="draft")
     data = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 
 class Page(models.Model):
+    STATUS = (
+        ("published", "Published"),
+        ("draft", "Draft"),
+    )
+    status = models.CharField(max_length=10, choices=STATUS, default="draft")
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -26,6 +36,11 @@ class Page(models.Model):
 
 
 class PageComponent(models.Model):
+    STATUS = (
+        ("published", "Published"),
+        ("draft", "Draft"),
+    )
+    status = models.CharField(max_length=10, choices=STATUS, default="draft")
     page = models.ForeignKey(
         Page, on_delete=models.CASCADE, related_name="components", null=True, blank=True
     )

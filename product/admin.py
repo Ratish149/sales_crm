@@ -42,8 +42,8 @@ class ProductImageInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "description", "price", "stock")
-    search_fields = ("name", "description")
+    list_display = ("name", "price", "stock")
+    search_fields = ["name"]
     list_per_page = 25
     inlines = [ProductImageInline]
     formfield_overrides = {models.TextField: {"widget": TinyMCE()}}

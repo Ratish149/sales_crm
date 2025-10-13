@@ -13,7 +13,17 @@ class ThemeListCreateView(generics.ListCreateAPIView):
     """
 
     serializer_class = ThemeSerializer
-    queryset = Theme.objects.all()
+
+    def get_queryset(self):
+        status_param = self.request.query_params.get("status")
+        if status_param in ["draft", "published"]:
+            qs = Theme.objects.filter(status=status_param)
+        else:
+            qs = Theme.objects.filter(status="published")
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(status="draft")
 
 
 class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -25,18 +35,25 @@ class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
 
+    def perform_update(self, serializer):
+        if "status" not in serializer.validated_data:
+            serializer.validated_data["status"] = "draft"
+        serializer.save()
+
 
 class PageListCreateView(generics.ListCreateAPIView):
-    """
-    List all pages OR add a new page.
-    URL: /api/pages/
-    """
-
     serializer_class = PageSerializer
-    queryset = Page.objects.all()
+
+    def get_queryset(self):
+        status_param = self.request.query_params.get("status")
+        if status_param in ["draft", "published"]:
+            qs = Page.objects.filter(status=status_param)
+        else:
+            qs = Page.objects.filter(status="published")
+        return qs
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(status="draft")
 
 
 class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -48,6 +65,11 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageSerializer
     queryset = Page.objects.all()
     lookup_field = "slug"
+
+    def perform_update(self, serializer):
+        if "status" not in serializer.validated_data:
+            serializer.validated_data["status"] = "draft"
+        serializer.save()
 
 
 class NavbarView(generics.GenericAPIView):
@@ -76,6 +98,8 @@ class NavbarView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(component_type="navbar")
+        serializer.instance.status = "draft"
+        serializer.instance.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # PATCH -> update navbar
@@ -91,6 +115,8 @@ class NavbarView(generics.GenericAPIView):
             current_data = obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
+        if "status" not in request.data:
+            request.data["status"] = "draft"
 
         serializer = self.get_serializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -133,6 +159,8 @@ class FooterView(generics.GenericAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(component_type="footer")
+        serializer.instance.status = "draft"
+        serializer.instance.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def patch(self, request, *args, **kwargs):
@@ -147,6 +175,8 @@ class FooterView(generics.GenericAPIView):
             current_data = obj.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
+        if "status" not in request.data:
+            request.data["status"] = "draft"
 
         serializer = self.get_serializer(obj, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -173,15 +203,21 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         slug = self.kwargs["slug"]
-        return PageComponent.objects.filter(page__slug=slug).exclude(
+        status_param = self.request.query_params.get("status")
+        qs = PageComponent.objects.filter(page__slug=slug).exclude(
             component_type__in=["navbar", "footer"]
         )
+        if status_param in ["draft", "published"]:
+            qs = qs.filter(page__status=status_param)
+        else:
+            qs = qs.filter(page__status="published")
+        return qs
 
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
         page = get_object_or_404(Page, slug=slug)
         order = serializer.validated_data.get("order", page.components.count())
-        serializer.save(page=page, order=order)
+        serializer.save(page=page, order=order, status="draft")
 
 
 class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
@@ -199,6 +235,11 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
             PageComponent, page__slug=slug, component_id=component_id
         )
 
+    def perform_update(self, serializer):
+        if "status" not in serializer.validated_data:
+            serializer.validated_data["status"] = "draft"
+        serializer.save()
+
     def partial_update(self, request, *args, **kwargs):
         """
         Allows merging JSON data instead of replacing the whole 'data' field.
@@ -211,5 +252,23 @@ class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
             current_data = instance.data or {}
             current_data.update(new_data)
             request.data["data"] = current_data
+        if "status" not in request.data:
+            request.data["status"] = "draft"
 
         return super().partial_update(request, *args, **kwargs)
+
+
+class PublishAllView(generics.GenericAPIView):
+    """
+    Publish all draft items (themes, pages, components) in one API call.
+    URL: /api/publish-all/
+    """
+
+    def post(self, request, *args, **kwargs):
+        # Publish all draft themes
+        Theme.objects.filter(status="draft").update(status="published")
+        # Publish all draft pages
+        Page.objects.filter(status="draft").update(status="published")
+        # Publish all draft components
+        PageComponent.objects.filter(status="draft").update(status="published")
+        return Response({"detail": "All draft items have been published successfully"})

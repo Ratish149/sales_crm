@@ -678,6 +678,10 @@ class BulkProductUploadView(APIView):
 
             # If we have a product name, it's either a new product or the main product row
             if product_name:
+                # Check if product already exists in database
+                if Product.objects.filter(name=product_name).exists():
+                    continue
+
                 current_product_key = product_name
 
                 # Check if product already created in this upload

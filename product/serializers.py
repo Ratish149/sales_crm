@@ -127,6 +127,10 @@ class ProductSerializer(serializers.ModelSerializer):
         child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
 
+    variant_images = serializers.DictField(
+        child=serializers.FileField(), write_only=True, required=False, allow_empty=True
+    )
+
     variants = ProductVariantWriteSerializer(many=True, write_only=True, required=False)
     variants_read = ProductVariantReadSerializer(
         source="variants", many=True, read_only=True
@@ -158,6 +162,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "meta_description",
             "images",
             "image_files",
+            "variant_images",
             "options",
             "variants",
             "variants_read",
@@ -186,6 +191,12 @@ class ProductSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         image_files = validated_data.pop("image_files", [])
         variants_data = validated_data.pop("variants", [])
+        variant_images = validated_data.pop("variant_images", {})
+
+        # Check if product with same name exists
+        name = validated_data.get("name")
+        if name and Product.objects.filter(name=name).exists():
+            raise serializers.ValidationError("Product with this name already exists.")
 
         product = Product.objects.create(**validated_data)
 
@@ -196,6 +207,9 @@ class ProductSerializer(serializers.ModelSerializer):
         # Create variants
         for variant_data in variants_data:
             options = variant_data.pop("options", {})
+            image_key = variant_data.get("image")
+            if image_key and image_key in variant_images:
+                variant_data["image"] = variant_images[image_key]
 
             variant = ProductVariant.objects.create(product=product, **variant_data)
 
@@ -216,6 +230,16 @@ class ProductSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         image_files = validated_data.pop("image_files", None)
         variants_data = validated_data.pop("variants", None)
+        variant_images = validated_data.pop("variant_images", None)
+
+        # Check if product with same name exists (excluding current instance)
+        name = validated_data.get("name")
+        if (
+            name
+            and name != instance.name
+            and Product.objects.filter(name=name).exists()
+        ):
+            raise serializers.ValidationError("Product with this name already exists.")
 
         instance = super().update(instance, validated_data)
 
@@ -228,6 +252,9 @@ class ProductSerializer(serializers.ModelSerializer):
             instance.variants.all().delete()
             for variant_data in variants_data:
                 options = variant_data.pop("options", {})
+                image_key = variant_data.get("image")
+                if image_key and variant_images and image_key in variant_images:
+                    variant_data["image"] = variant_images[image_key]
 
                 variant = ProductVariant.objects.create(
                     product=instance, **variant_data
