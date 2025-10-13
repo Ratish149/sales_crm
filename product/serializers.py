@@ -133,9 +133,7 @@ class ProductSerializer(serializers.ModelSerializer):
         child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
 
-    variants = serializers.ListField(
-        child=serializers.DictField(), write_only=True, required=False
-    )
+    variants = serializers.JSONField(write_only=True, required=False)
     variants_read = ProductVariantReadSerializer(
         source="variants", many=True, read_only=True
     )
@@ -272,6 +270,7 @@ class ProductSerializer(serializers.ModelSerializer):
         variants_data = validated_data.pop("variants", [])
         variant_images = validated_data.pop("variant_images", {})
 
+        print("\n🔧 CREATE METHOD:")
         print(f"  - Variants to create: {len(variants_data)}")
         print(f"  - Variant images available: {len(variant_images)}")
 
@@ -358,6 +357,7 @@ class ProductSerializer(serializers.ModelSerializer):
         variants_data = validated_data.pop("variants", None)
         variant_images = validated_data.pop("variant_images", None)
 
+        print("\n🔧 UPDATE METHOD:")
         print(f"  - Variants to update: {len(variants_data) if variants_data else 0}")
         print(
             f"  - Variant images available: {len(variant_images) if variant_images else 0}"
