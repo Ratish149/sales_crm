@@ -170,6 +170,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
         page = get_object_or_404(Page, slug=slug)
+
+        # Create new draft always; do not try to merge if duplicates are allowed
         order = serializer.validated_data.get("order", page.components.count())
         serializer.save(page=page, order=order, status="draft")
 

@@ -2,12 +2,17 @@ def get_or_create_draft(instance):
     """
     Returns a draft version of the instance.
     If instance is already a draft, returns it.
+    If multiple drafts exist, returns the first one.
     """
     if instance.status == "draft":
         return instance
-    if instance.published_version:
-        return instance.published_version
-    # Create a draft copy
+
+    # Return first draft if it exists
+    drafts = instance.draft_version.all() if hasattr(instance, "draft_version") else []
+    if drafts:
+        return drafts.first()
+
+    # Otherwise, create a new draft copy
     clone = instance.__class__.objects.create(
         **{
             field.name: getattr(instance, field.name)
