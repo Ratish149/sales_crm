@@ -188,6 +188,46 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return options_data
 
+    def to_internal_value(self, data):
+        """
+        Custom method to handle FormData with variant_image_* fields
+        and JSON string for variants
+        """
+        import json
+
+        # Create a mutable copy
+        if hasattr(data, "_mutable"):
+            data._mutable = True
+
+        # Parse variants if it's a JSON string
+        if "variants" in data and isinstance(data.get("variants"), str):
+            try:
+                data["variants"] = json.loads(data["variants"])
+            except json.JSONDecodeError:
+                pass
+
+        # Collect variant images from individual form fields
+        variant_images = {}
+        keys_to_remove = []
+
+        for key in list(data.keys()):
+            if key.startswith("variant_image_"):
+                # Extract the index: variant_image_0 -> variant_0
+                index = key.replace("variant_image_", "")
+                variant_key = f"variant_{index}"
+                variant_images[variant_key] = data[key]
+                keys_to_remove.append(key)
+
+        # Remove the individual variant_image_* fields
+        for key in keys_to_remove:
+            data.pop(key, None)
+
+        # Add the collected variant_images dict
+        if variant_images:
+            data["variant_images"] = variant_images
+
+        return super().to_internal_value(data)
+
     def create(self, validated_data):
         image_files = validated_data.pop("image_files", [])
         variants_data = validated_data.pop("variants", [])
@@ -207,9 +247,14 @@ class ProductSerializer(serializers.ModelSerializer):
         # Create variants
         for variant_data in variants_data:
             options = variant_data.pop("options", {})
-            image_key = variant_data.get("image")
+            image_key = variant_data.pop("image", None)
+
+            # Handle the variant image
             if image_key and image_key in variant_images:
                 variant_data["image"] = variant_images[image_key]
+            else:
+                # Remove image key if not found to avoid validation error
+                variant_data.pop("image", None)
 
             variant = ProductVariant.objects.create(product=product, **variant_data)
 
@@ -249,12 +294,24 @@ class ProductSerializer(serializers.ModelSerializer):
                 ProductImage.objects.create(product=instance, image=img)
 
         if variants_data is not None:
+            # Delete old variants and their associated option values
             instance.variants.all().delete()
+
+            # Also clean up orphaned options (options with no values)
+            for option in instance.productoption_set.all():
+                if not option.productoptionvalue_set.exists():
+                    option.delete()
+
             for variant_data in variants_data:
                 options = variant_data.pop("options", {})
-                image_key = variant_data.get("image")
+                image_key = variant_data.pop("image", None)
+
+                # Handle the variant image
                 if image_key and variant_images and image_key in variant_images:
                     variant_data["image"] = variant_images[image_key]
+                else:
+                    # Remove image key if not found
+                    variant_data.pop("image", None)
 
                 variant = ProductVariant.objects.create(
                     product=instance, **variant_data
