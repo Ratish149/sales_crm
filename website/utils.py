@@ -1,57 +1,55 @@
+# utils.py
+from django.db import transaction
+
+
 def get_or_create_draft(instance):
     """
-    Returns a draft version of the instance.
-    If instance is already a draft, returns it.
-    If multiple drafts exist, returns the first one.
+    Returns or creates a draft version of a published instance.
     """
     if instance.status == "draft":
         return instance
 
-    # Return first draft if it exists
-    drafts = instance.draft_version.all() if hasattr(instance, "draft_version") else []
-    if drafts:
-        return drafts.first()
+    model = instance.__class__
+    draft = model.objects.filter(published_version=instance).first()
+    if draft:
+        return draft
 
-    # Otherwise, create a new draft copy
-    clone = instance.__class__.objects.create(
-        **{
-            field.name: getattr(instance, field.name)
-            for field in instance._meta.fields
-            if field.name
-            not in ["id", "created_at", "updated_at", "published_version", "status"]
-        }
-    )
-    clone.status = "draft"
-    clone.published_version = instance
-    clone.save()
-    return clone
+    # Create a clone as a new draft
+    data = {
+        f.name: getattr(instance, f.name)
+        for f in model._meta.fields
+        if f.name not in ["id", "created_at", "updated_at", "published_version", "status"]
+    }
+    draft = model.objects.create(**data, status="draft", published_version=instance)
+    return draft
 
 
+@transaction.atomic
 def publish_instance(instance):
     """
-    Publishes a draft instance.
-    If the instance has a published_version, it updates it.
+    Creates or updates a published version of the given draft.
     """
     if instance.status != "draft":
         return instance
-    published = instance.published_version
-    if published:
-        # update the published version
-        for field in instance._meta.fields:
-            if field.name not in [
-                "id",
-                "created_at",
-                "updated_at",
-                "published_version",
-                "status",
-            ]:
-                setattr(published, field.name, getattr(instance, field.name))
+
+    model = instance.__class__
+    data = {
+        f.name: getattr(instance, f.name)
+        for f in model._meta.fields
+        if f.name not in ["id", "created_at", "updated_at", "published_version", "status"]
+    }
+    data["status"] = "published"
+
+    if instance.published_version:
+        # Update the linked published object
+        published = instance.published_version
+        for key, value in data.items():
+            setattr(published, key, value)
         published.save()
     else:
-        # make this instance published
-        instance.status = "published"
-        instance.save()
-    # Link draft to published
-    instance.published_version = published or instance
-    instance.save()
-    return instance
+        # Create a new published version
+        published = model.objects.create(**data)
+        instance.published_version = published
+        instance.save(update_fields=["published_version"])
+
+    return published

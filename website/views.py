@@ -1,22 +1,26 @@
+# views.py
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import Page, PageComponent, Theme
 from .serializers import PageComponentSerializer, PageSerializer, ThemeSerializer
-from .utils import get_or_create_draft, publish_instance
+from .utils import publish_instance
 
 
-# -------------------- THEME --------------------
+# ------------------------------
+# 🌈 THEME VIEWS
+# ------------------------------
 class ThemeListCreateView(generics.ListCreateAPIView):
     serializer_class = ThemeSerializer
+    queryset = Theme.objects.all()
 
     def get_queryset(self):
-        status_param = self.request.query_params.get("status")
-        if status_param == "preview":
-            return Theme.objects.all()
+        status = self.request.query_params.get("status")
+        if status == "preview":
+            return Theme.objects.filter(status="draft")
         return Theme.objects.filter(status="published")
 
     def perform_create(self, serializer):
@@ -27,40 +31,29 @@ class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
 
-    def get_object(self):
-        theme = super().get_object()
-        edit_mode = self.request.query_params.get("edit")
-        if edit_mode and theme.status == "published":
-            theme = get_or_create_draft(theme)
-        return theme
-
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
 
 class ThemePublishView(APIView):
-    def post(self, request, id):
-        theme = get_object_or_404(Theme, id=id, status="draft")
+    def post(self, request, pk):
+        theme = get_object_or_404(Theme, id=pk, status="draft")
         publish_instance(theme)
         return Response({"detail": "Theme published successfully"})
 
 
-# -------------------- PAGE --------------------
+# ------------------------------
+# 📄 PAGE VIEWS
+# ------------------------------
 class PageListCreateView(generics.ListCreateAPIView):
     serializer_class = PageSerializer
+    queryset = Page.objects.all()
 
     def get_queryset(self):
-        status_param = self.request.query_params.get("status")
-        return (
-            Page.objects.all()
-            if status_param == "preview"
-            else Page.objects.filter(status="published")
-        )
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["status"] = self.request.query_params.get("status", "live")
-        return context
+        status = self.request.query_params.get("status")
+        if status == "preview":
+            return Page.objects.filter(status="draft")
+        return Page.objects.filter(status="published")
 
     def perform_create(self, serializer):
         serializer.save(status="draft")
@@ -71,18 +64,6 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Page.objects.all()
     lookup_field = "slug"
 
-    def get_object(self):
-        page = super().get_object()
-        edit_mode = self.request.query_params.get("edit")
-        if edit_mode and page.status == "published":
-            page = get_or_create_draft(page)
-        return page
-
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context["status"] = self.request.query_params.get("status", "live")
-        return context
-
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
@@ -91,202 +72,178 @@ class PagePublishView(APIView):
     @transaction.atomic
     def post(self, request, slug):
         page = get_object_or_404(Page, slug=slug, status="draft")
+        # Publish all draft components linked to this page
         for comp in page.components.filter(status="draft"):
             publish_instance(comp)
         publish_instance(page)
         return Response({"detail": "Page and its components published successfully"})
 
 
-# -------------------- NAVBAR & FOOTER --------------------
-
-
-class NavbarView(generics.GenericAPIView):
-    serializer_class = PageComponentSerializer
-    component_type = "navbar"
-
-    def get_object(self):
-        status_param = self.request.query_params.get("status")
-        qs = PageComponent.objects.filter(component_type=self.component_type)
-        if status_param == "preview":
-            # Return draft if exists, else published
-            draft = qs.filter(status="draft").first()
-            return draft or qs.filter(status="published").first()
-        # Default: return published
-        return qs.filter(status="published").first()
-
-    def get(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not obj:
-            return Response({"detail": "Navbar not found"}, status=404)
-        return Response(self.get_serializer(obj).data)
-
-    def post(self, request, *args, **kwargs):
-        if PageComponent.objects.filter(component_type=self.component_type).exists():
-            return Response({"detail": "Navbar already exists"}, status=400)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(component_type=self.component_type, status="draft")
-        return Response(serializer.data, status=201)
-
-    def patch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not obj:
-            return Response({"detail": "Navbar not found"}, status=404)
-
-        # If published, create a draft copy
-        obj = get_or_create_draft(obj)
-
-        # Update only the `data` field or order if provided
-        new_data = request.data.get("data", {})
-        if new_data and isinstance(new_data, dict):
-            current_data = obj.data or {}
-            current_data.update(new_data)
-            request.data["data"] = current_data
-
-        serializer = self.get_serializer(obj, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(status="draft")
-        return Response(serializer.data)
-
-    def delete(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if obj:
-            obj.delete()
-        return Response(status=204)
-
-
-# -------------------- FOOTER --------------------
-class FooterView(generics.GenericAPIView):
-    serializer_class = PageComponentSerializer
-    component_type = "footer"
-
-    def get_object(self):
-        status_param = self.request.query_params.get("status")
-        qs = PageComponent.objects.filter(component_type=self.component_type)
-        if status_param == "preview":
-            # Return draft if exists, else published
-            draft = qs.filter(status="draft").first()
-            return draft or qs.filter(status="published").first()
-        # Default: return published
-        return qs.filter(status="published").first()
-
-    def get(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not obj:
-            return Response({"detail": "Footer not found"}, status=404)
-        return Response(self.get_serializer(obj).data)
-
-    def post(self, request, *args, **kwargs):
-        if PageComponent.objects.filter(component_type=self.component_type).exists():
-            return Response({"detail": "Footer already exists"}, status=400)
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(component_type=self.component_type, status="draft")
-        return Response(serializer.data, status=201)
-
-    def patch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not obj:
-            return Response({"detail": "Footer not found"}, status=404)
-
-        # If published, create a draft copy
-        obj = get_or_create_draft(obj)
-
-        # Update only the `data` field or order if provided
-        new_data = request.data.get("data", {})
-        if new_data and isinstance(new_data, dict):
-            current_data = obj.data or {}
-            current_data.update(new_data)
-            request.data["data"] = current_data
-
-        serializer = self.get_serializer(obj, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save(status="draft")
-        return Response(serializer.data)
-
-    def delete(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if obj:
-            obj.delete()
-        return Response(status=204)
-
-
-# -------------------- PAGE COMPONENTS --------------------
+# ------------------------------
+# 🧩 PAGE COMPONENT VIEWS
+# ------------------------------
 class PageComponentListCreateView(generics.ListCreateAPIView):
     serializer_class = PageComponentSerializer
 
     def get_queryset(self):
         slug = self.kwargs["slug"]
-        status_param = self.request.query_params.get("status")
-        qs = PageComponent.objects.filter(page__slug=slug).exclude(
+        page = get_object_or_404(Page, slug=slug)
+        status = self.request.query_params.get("status")
+
+        qs = PageComponent.objects.filter(page=page).exclude(
             component_type__in=["navbar", "footer"]
         )
-        if status_param != "preview":
-            qs = qs.filter(status="published")
-        return qs
+
+        if status == "preview":
+            # return only drafts
+            return qs.filter(status="draft").order_by("order")
+        return qs.filter(status="published").order_by("order")
 
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
         page = get_object_or_404(Page, slug=slug)
-
-        # Create new draft always; do not try to merge if duplicates are allowed
         order = serializer.validated_data.get("order", page.components.count())
         serializer.save(page=page, order=order, status="draft")
 
 
-class PageComponentByTypeView(generics.RetrieveUpdateDestroyAPIView):
+class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageComponentSerializer
-
-    def get_object(self):
-        slug = self.kwargs["slug"]
-        component_id = self.kwargs["component_id"]
-        comp = get_object_or_404(
-            PageComponent, page__slug=slug, component_id=component_id
-        )
-        edit_mode = self.request.query_params.get("edit")
-        if edit_mode and comp.status == "published":
-            comp = get_or_create_draft(comp)
-        return comp
+    queryset = PageComponent.objects.all()
+    lookup_field = "id"
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
-    def patch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        new_data = request.data.get("data", {})
-        if new_data:
-            current_data = obj.data or {}
-            current_data.update(new_data)
-            request.data["data"] = current_data
-        return super().patch(request, *args, **kwargs)
-
-    def put(self, request, *args, **kwargs):
-        obj = self.get_object()
-        new_data = request.data.get("data", {})
-        if new_data:
-            current_data = obj.data or {}
-            current_data.update(new_data)
-            request.data["data"] = current_data
-        return super().put(request, *args, **kwargs)
-
 
 class PageComponentPublishView(APIView):
-    def post(self, request, slug, component_id):
-        comp = get_object_or_404(
-            PageComponent, page__slug=slug, component_id=component_id, status="draft"
-        )
-        publish_instance(comp)
+    def post(self, request, id):
+        component = get_object_or_404(PageComponent, id=id, status="draft")
+        publish_instance(component)
         return Response({"detail": "Component published successfully"})
 
 
-# -------------------- PUBLISH ALL --------------------
+# ------------------------------
+# 🧭 NAVBAR VIEWS
+# ------------------------------
+
+
+class NavbarView(APIView):
+    """
+    GET:
+      /api/navbar/                 → published navbar
+      /api/navbar?status=preview   → draft navbar
+    """
+
+    def get(self, request):
+        status_param = request.query_params.get("status", "live")
+
+        qs = PageComponent.objects.filter(component_type="navbar")
+
+        if status_param == "preview":
+            navbar = qs.filter(status="draft").first()
+        else:
+            navbar = qs.filter(status="published").first()
+
+        if not navbar:
+            return Response(
+                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(PageComponentSerializer(navbar).data)
+
+
+class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Edit or delete navbar by ID.
+    PATCH /api/navbar/<id>/  → update draft navbar
+    """
+
+    serializer_class = PageComponentSerializer
+    queryset = PageComponent.objects.filter(component_type="navbar")
+
+    def perform_update(self, serializer):
+        serializer.save(status="draft")
+
+
+class NavbarPublishView(APIView):
+    """
+    POST /api/navbar/<id>/publish/
+    Publishes the navbar draft.
+    """
+
+    def post(self, request, id):
+        navbar = get_object_or_404(
+            PageComponent, id=id, component_type="navbar", status="draft"
+        )
+        publish_instance(navbar)
+        return Response({"detail": "Navbar published successfully"})
+
+
+# ------------------------------
+# 🦶 FOOTER VIEWS
+# ------------------------------
+class FooterView(APIView):
+    """
+    GET:
+      /api/footer/                → published footer
+      /api/footer?status=preview  → draft footer
+    """
+
+    def get(self, request):
+        status_param = request.query_params.get("status", "live")
+
+        qs = PageComponent.objects.filter(component_type="footer")
+
+        if status_param == "preview":
+            footer = qs.filter(status="draft").first()
+        else:
+            footer = qs.filter(status="published").first()
+
+        if not footer:
+            return Response(
+                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(PageComponentSerializer(footer).data)
+
+
+class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Edit or delete footer by ID.
+    PATCH /api/footer/<id>/  → update draft footer
+    """
+
+    serializer_class = PageComponentSerializer
+    queryset = PageComponent.objects.filter(component_type="footer")
+
+    def perform_update(self, serializer):
+        serializer.save(status="draft")
+
+
+class FooterPublishView(APIView):
+    """
+    POST /api/footer/<id>/publish/
+    Publishes the footer draft.
+    """
+
+    def post(self, request, id):
+        footer = get_object_or_404(
+            PageComponent, id=id, component_type="footer", status="draft"
+        )
+        publish_instance(footer)
+        return Response({"detail": "Footer published successfully"})
+
+
+# ------------------------------
+# 🚀 PUBLISH ALL
+# ------------------------------
 class PublishAllView(APIView):
     @transaction.atomic
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         for comp in PageComponent.objects.filter(status="draft"):
             publish_instance(comp)
         for page in Page.objects.filter(status="draft"):
             publish_instance(page)
         for theme in Theme.objects.filter(status="draft"):
             publish_instance(theme)
-        return Response({"detail": "All drafts published successfully"}, status=200)
+        return Response({"detail": "All drafts published successfully"})
