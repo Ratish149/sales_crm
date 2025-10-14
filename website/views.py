@@ -218,17 +218,9 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        incoming_data = self.request.data.get("data", self.request.data)
+        incoming_data = self.request.data  # use full payload directly
 
-        # If incoming_data is a string (sometimes from clients), try to parse it
-        if isinstance(incoming_data, str):
-            import json
-
-            try:
-                incoming_data = json.loads(incoming_data)
-            except json.JSONDecodeError:
-                incoming_data = {}
-
+        # Ensure it's a dict
         if not isinstance(incoming_data, dict):
             incoming_data = {}
 
@@ -317,17 +309,9 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        incoming_data = self.request.data.get("data", self.request.data)
+        incoming_data = self.request.data  # use full payload directly
 
-        # If incoming_data is a string (sometimes from clients), try to parse it
-        if isinstance(incoming_data, str):
-            import json
-
-            try:
-                incoming_data = json.loads(incoming_data)
-            except json.JSONDecodeError:
-                incoming_data = {}
-
+        # Ensure it's a dict
         if not isinstance(incoming_data, dict):
             incoming_data = {}
 
