@@ -151,6 +151,18 @@ class NavbarView(APIView):
 
         return Response(PageComponentSerializer(navbar).data)
 
+    def post(self, request):
+        # Always create a draft when posting
+        data = request.data.copy()
+        data["component_type"] = "navbar"
+        data["status"] = "draft"
+
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -205,6 +217,18 @@ class FooterView(APIView):
             )
 
         return Response(PageComponentSerializer(footer).data)
+
+    def post(self, request):
+        # Always create a draft when posting
+        data = request.data.copy()
+        data["component_type"] = "footer"
+        data["status"] = "draft"
+
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
