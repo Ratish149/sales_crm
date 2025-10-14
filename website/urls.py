@@ -35,12 +35,12 @@ urlpatterns = [
         name="component-list-create",
     ),
     path(
-        "pages/<slug:slug>/components/<int:component_id>/",
+        "pages/<slug:slug>/components/<str:component_id>/",
         views.PageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),
     path(
-        "pages/components/<int:id>/publish/",
+        "pages/components/<slug:id>/publish/",
         views.PageComponentPublishView.as_view(),
         name="component-publish",
     ),
