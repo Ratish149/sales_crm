@@ -90,14 +90,24 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
         page = get_object_or_404(Page, id=id)
         status = self.request.query_params.get("status")
 
-        qs = PageComponent.objects.filter(page=page).exclude(
-            component_type__in=["navbar", "footer"]
-        )
-
         if status == "preview":
+            qs = PageComponent.objects.filter(page=page).exclude(
+                component_type__in=["navbar", "footer"]
+            )
             # return only drafts
             return qs.filter(status="draft").order_by("order")
-        return qs.filter(status="published").order_by("order")
+        else:
+            if page.status == "draft" and page.published_version:
+                page = page.published_version
+                qs = PageComponent.objects.filter(page=page).exclude(
+                    component_type__in=["navbar", "footer"]
+                )
+                return qs.filter(status="published").order_by("order")
+        return (
+            PageComponent.objects.filter(page=page)
+            .exclude(component_type__in=["navbar", "footer"])
+            .order_by("order")
+        )
 
     def perform_create(self, serializer):
         id = self.kwargs["id"]
