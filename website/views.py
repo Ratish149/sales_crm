@@ -214,7 +214,10 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
 
     serializer_class = PageComponentSerializer
-    queryset = PageComponent.objects.filter(component_type="navbar")
+    queryset = PageComponent.objects.all()
+
+    def get_object(self):
+        return PageComponent.objects.get(id=self.kwargs["id"])
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -305,7 +308,9 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
 
     serializer_class = PageComponentSerializer
-    queryset = PageComponent.objects.filter(component_type="footer")
+
+    def get_object(self):
+        return PageComponent.objects.get(id=self.kwargs["id"])
 
     def perform_update(self, serializer):
         instance = self.get_object()
