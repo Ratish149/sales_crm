@@ -35,7 +35,7 @@ urlpatterns = [
         name="component-list-create",
     ),
     path(
-        "pages/components/<int:id>/",
+        "pages/<slug:slug>/components/<int:id>/",
         views.PageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),

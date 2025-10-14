@@ -125,7 +125,11 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
 class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageComponentSerializer
     queryset = PageComponent.objects.all()
-    lookup_field = "id"
+
+    def get_object(self):
+        slug = self.kwargs["slug"]
+        component_id = self.kwargs["id"]
+        return get_object_or_404(PageComponent, page__slug=slug, id=component_id)
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
