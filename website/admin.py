@@ -1,6 +1,33 @@
 from django.contrib import admin
+
 from .models import Page, PageComponent, Theme
 
-admin.site.register(Page)
-admin.site.register(PageComponent)
-admin.site.register(Theme)
+
+@admin.register(Page)
+class PageAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "slug",
+        "status",
+        "id",
+    )
+
+
+@admin.register(PageComponent)
+class PageComponentAdmin(admin.ModelAdmin):
+    list_display = (
+        "page",
+        "component_type",
+        "component_id",
+        "status",
+        "id",
+    )
+
+
+@admin.register(Theme)
+class ThemeAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "status",
+        "id",
+    )
