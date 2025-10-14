@@ -217,7 +217,27 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PageComponent.objects.filter(component_type="navbar")
 
     def perform_update(self, serializer):
-        serializer.save(status="draft")
+        instance = self.get_object()
+        incoming_data = self.request.data.get("data", {})
+
+        def recursive_merge(old, new):
+            for key, value in new.items():
+                if (
+                    key in old
+                    and isinstance(old[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    old[key] = recursive_merge(old[key], value)
+                else:
+                    old[key] = value
+            return old
+
+        if instance.data and isinstance(instance.data, dict):
+            merged_data = recursive_merge(instance.data, incoming_data)
+        else:
+            merged_data = incoming_data
+
+        serializer.save(status="draft", data=merged_data)
 
 
 class NavbarPublishView(APIView):
@@ -284,7 +304,27 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PageComponent.objects.filter(component_type="footer")
 
     def perform_update(self, serializer):
-        serializer.save(status="draft")
+        instance = self.get_object()
+        incoming_data = self.request.data.get("data", {})
+
+        def recursive_merge(old, new):
+            for key, value in new.items():
+                if (
+                    key in old
+                    and isinstance(old[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    old[key] = recursive_merge(old[key], value)
+                else:
+                    old[key] = value
+            return old
+
+        if instance.data and isinstance(instance.data, dict):
+            merged_data = recursive_merge(instance.data, incoming_data)
+        else:
+            merged_data = incoming_data
+
+        serializer.save(status="draft", data=merged_data)
 
 
 class FooterPublishView(APIView):
