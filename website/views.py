@@ -102,8 +102,24 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         slug = self.kwargs["slug"]
         page = get_object_or_404(Page, slug=slug)
-        order = serializer.validated_data.get("order", page.components.count())
+
+        # Fetch the order. Ensure it's the next available order or use the provided order.
+        order = serializer.validated_data.get("order")
+        if order is None:
+            # Default to the next available order
+            order = page.components.count()
+
+        # Check if the order is valid (positive integer and doesn't conflict)
+        if order < 0:
+            return Response(
+                {"detail": "Order cannot be negative."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Save the component with the associated page and the determined order
         serializer.save(page=page, order=order, status="draft")
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
