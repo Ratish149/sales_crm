@@ -24,10 +24,4 @@ class PageComponentAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(Theme)
-class ThemeAdmin(admin.ModelAdmin):
-    list_display = (
-        "name",
-        "status",
-        "id",
-    )
+admin.site.register(Theme)

@@ -51,8 +51,11 @@ class Page(models.Model):
         return f"{self.title} ({self.status})"
 
     def save(self, *args, **kwargs):
-        if not self.slug:
-            self.slug = slugify(self.title)
+        base_slug = slugify(self.title)
+        if self.status == "draft":
+            self.slug = f"{base_slug}-draft"
+        else:
+            self.slug = base_slug
         super().save(*args, **kwargs)
 
 

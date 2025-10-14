@@ -62,7 +62,7 @@ class PageListCreateView(generics.ListCreateAPIView):
 class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageSerializer
     queryset = Page.objects.all()
-    lookup_field = "id"
+    lookup_field = "slug"
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
@@ -70,8 +70,8 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class PagePublishView(APIView):
     @transaction.atomic
-    def post(self, request, id):
-        page = get_object_or_404(Page, id=id, status="draft")
+    def post(self, request, slug):
+        page = get_object_or_404(Page, slug=slug, status="draft")
         # Publish all draft components linked to this page
         for comp in page.components.filter(status="draft"):
             publish_instance(comp)
@@ -86,8 +86,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     serializer_class = PageComponentSerializer
 
     def get_queryset(self):
-        id = self.kwargs["id"]
-        page = get_object_or_404(Page, id=id)
+        slug = self.kwargs["slug"]
+        page = get_object_or_404(Page, slug=slug)
         status = self.request.query_params.get("status")
 
         if status == "preview":
@@ -96,13 +96,18 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
             )
             # return only drafts
             return qs.filter(status="draft").order_by("order")
-        else:
-            if page.status == "draft" and page.published_version:
-                page = page.published_version
-                qs = PageComponent.objects.filter(page=page).exclude(
-                    component_type__in=["navbar", "footer"]
-                )
-                return qs.filter(status="published").order_by("order")
+        elif page.status == "draft" and page.published_version:
+            page = page.published_version
+            qs = PageComponent.objects.filter(page=page).exclude(
+                component_type__in=["navbar", "footer"]
+            )
+            return qs.filter(status="published").order_by("order")
+        elif page.status == "published":
+            qs = PageComponent.objects.filter(page=page).exclude(
+                component_type__in=["navbar", "footer"]
+            )
+            return qs.filter(status="published").order_by("order")
+
         return (
             PageComponent.objects.filter(page=page)
             .exclude(component_type__in=["navbar", "footer"])
@@ -110,8 +115,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
         )
 
     def perform_create(self, serializer):
-        id = self.kwargs["id"]
-        page = get_object_or_404(Page, id=id)
+        slug = self.kwargs["slug"]
+        page = get_object_or_404(Page, slug=slug)
 
         # Fetch the order. Ensure it's the next available order or use the provided order.
         order = serializer.validated_data.get("order")
@@ -137,9 +142,9 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     queryset = PageComponent.objects.all()
 
     def get_object(self):
-        page_id = self.kwargs["page_id"]
+        slug = self.kwargs["slug"]
         component_id = self.kwargs["component_id"]
-        return get_object_or_404(PageComponent, page__id=page_id, id=component_id)
+        return get_object_or_404(PageComponent, page__slug=slug, id=component_id)
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -169,8 +174,8 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 
 
 class PageComponentPublishView(APIView):
-    def post(self, request, id):
-        component = get_object_or_404(PageComponent, id=id, status="draft")
+    def post(self, request, slug):
+        component = get_object_or_404(PageComponent, page__slug=slug, status="draft")
         publish_instance(component)
         return Response({"detail": "Component published successfully"})
 
