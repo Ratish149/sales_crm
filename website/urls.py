@@ -19,23 +19,23 @@ urlpatterns = [
     # 📄 Page
     path("pages/", views.PageListCreateView.as_view(), name="page-list-create"),
     path(
-        "pages/<slug:slug>/",
+        "pages/<int:id>/",
         views.PageRetrieveUpdateDestroyView.as_view(),
         name="page-detail",
     ),
     path(
-        "pages/<slug:slug>/publish/",
+        "pages/<int:id>/publish/",
         views.PagePublishView.as_view(),
         name="page-publish",
     ),
     # 🧩 Components
     path(
-        "pages/<slug:slug>/components/",
+        "pages/<int:id>/components/",
         views.PageComponentListCreateView.as_view(),
         name="component-list-create",
     ),
     path(
-        "pages/<slug:slug>/components/<int:id>/",
+        "pages/<int:id>/components/<int:id>/",
         views.PageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),

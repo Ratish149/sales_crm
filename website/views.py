@@ -62,7 +62,7 @@ class PageListCreateView(generics.ListCreateAPIView):
 class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageSerializer
     queryset = Page.objects.all()
-    lookup_field = "slug"
+    lookup_field = "id"
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
@@ -70,8 +70,8 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class PagePublishView(APIView):
     @transaction.atomic
-    def post(self, request, slug):
-        page = get_object_or_404(Page, slug=slug, status="draft")
+    def post(self, request, id):
+        page = get_object_or_404(Page, id=id, status="draft")
         # Publish all draft components linked to this page
         for comp in page.components.filter(status="draft"):
             publish_instance(comp)
@@ -86,8 +86,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     serializer_class = PageComponentSerializer
 
     def get_queryset(self):
-        slug = self.kwargs["slug"]
-        page = get_object_or_404(Page, slug=slug)
+        id = self.kwargs["id"]
+        page = get_object_or_404(Page, id=id)
         status = self.request.query_params.get("status")
 
         qs = PageComponent.objects.filter(page=page).exclude(
@@ -100,8 +100,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
         return qs.filter(status="published").order_by("order")
 
     def perform_create(self, serializer):
-        slug = self.kwargs["slug"]
-        page = get_object_or_404(Page, slug=slug)
+        id = self.kwargs["id"]
+        page = get_object_or_404(Page, id=id)
 
         # Fetch the order. Ensure it's the next available order or use the provided order.
         order = serializer.validated_data.get("order")
@@ -127,9 +127,9 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     queryset = PageComponent.objects.all()
 
     def get_object(self):
-        slug = self.kwargs["slug"]
+        page_id = self.kwargs["id"]
         component_id = self.kwargs["id"]
-        return get_object_or_404(PageComponent, page__slug=slug, id=component_id)
+        return get_object_or_404(PageComponent, page__id=page_id, id=component_id)
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
