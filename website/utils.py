@@ -2,6 +2,7 @@
 from copy import deepcopy
 
 from django.db import transaction
+from django.db.models import ForeignKey
 
 
 def get_or_create_draft(instance):
@@ -30,43 +31,44 @@ def get_or_create_draft(instance):
 @transaction.atomic
 def publish_instance(instance):
     """
-    Creates or updates a published version of the given draft.
-    Ensures JSONFields are merged (not overwritten).
+    Publishes a draft instance.
+    Handles JSONField merging and assigns ForeignKeys to published versions.
     """
     if instance.status != "draft":
         return instance
 
     model = instance.__class__
 
-    # Collect field data to copy
-    data = {
-        f.name: getattr(instance, f.name)
-        for f in model._meta.fields
-        if f.name
-        not in ["id", "created_at", "updated_at", "published_version", "status"]
-    }
+    # Collect field data
+    data = {}
+    for f in model._meta.fields:
+        if f.name in ["id", "created_at", "updated_at", "published_version", "status"]:
+            continue
+
+        value = getattr(instance, f.name)
+
+        # If it's a ForeignKey, link to the published version
+        if isinstance(f, ForeignKey) and value:
+            if hasattr(value, "published_version") and value.published_version:
+                value = value.published_version
+
+        data[f.name] = value
+
     data["status"] = "published"
 
-    # Get existing published version if it exists
     if instance.published_version:
+        # Update existing published version
         published = instance.published_version
-
         for key, value in data.items():
             if key == "data" and isinstance(value, dict):
-                # Deep merge JSON data
                 old_data = deepcopy(getattr(published, "data") or {})
-                new_data = deepcopy(value)
-
-                # merge (override existing keys, add new ones)
-                old_data.update(new_data)
-
+                old_data.update(value)
                 setattr(published, "data", old_data)
             else:
                 setattr(published, key, value)
-
         published.save()
     else:
-        # Create new published copy
+        # Create new published instance
         published = model.objects.create(**data)
         instance.published_version = published
         instance.save(update_fields=["published_version"])

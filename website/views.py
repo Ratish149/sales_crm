@@ -360,10 +360,12 @@ class FooterPublishView(APIView):
 class PublishAllView(APIView):
     @transaction.atomic
     def post(self, request):
-        for comp in PageComponent.objects.filter(status="draft"):
-            publish_instance(comp)
-        for page in Page.objects.filter(status="draft"):
-            publish_instance(page)
         for theme in Theme.objects.filter(status="draft"):
             publish_instance(theme)
+
+        for page in Page.objects.filter(status="draft"):
+            publish_instance(page)
+
+        for comp in PageComponent.objects.filter(status="draft"):
+            publish_instance(comp)
         return Response({"detail": "All drafts published successfully"})
