@@ -88,50 +88,38 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         id = self.kwargs["id"]
         page = get_object_or_404(Page, id=id)
-        status_param = self.request.query_params.get("status")
+        status = self.request.query_params.get("status")
 
-        # Determine which version of the page to use (draft or published)
-        if status_param == "preview":
-            # Use draft page if it exists, else published
-            page = (
-                page.draft_version.first() if hasattr(page, "draft_version") else page
-            )
-            qs = PageComponent.objects.filter(page=page, status="draft")
-        else:
-            # Use published version if available
-            if page.status == "draft" and page.published_version:
-                page = page.published_version
-            qs = PageComponent.objects.filter(page=page, status="published")
+        qs = PageComponent.objects.filter(page=page).exclude(
+            component_type__in=["navbar", "footer"]
+        )
 
-        return qs.exclude(component_type__in=["navbar", "footer"]).order_by("order")
+        if status == "preview":
+            # return only drafts
+            return qs.filter(status="draft").order_by("order")
+        return qs.filter(status="published").order_by("order")
 
     def perform_create(self, serializer):
         id = self.kwargs["id"]
         page = get_object_or_404(Page, id=id)
 
-        # Always attach the component to the draft version of the page
-        if page.status == "published":
-            # Create new draft version if not already present
-            if not hasattr(page, "draft_version") or not page.draft_version.exists():
-                from .utils import get_or_create_draft  # if you already have this
-
-                page = get_or_create_draft(page)
-            else:
-                page = page.draft_version.first()
-
-        # Determine next available order
+        # Fetch the order. Ensure it's the next available order or use the provided order.
         order = serializer.validated_data.get("order")
         if order is None:
+            # Default to the next available order
             order = page.components.count()
 
+        # Check if the order is valid (positive integer and doesn't conflict)
         if order < 0:
             return Response(
                 {"detail": "Order cannot be negative."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Save as draft component always
+        # Save the component with the associated page and the determined order
         serializer.save(page=page, order=order, status="draft")
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
