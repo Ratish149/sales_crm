@@ -127,8 +127,8 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     queryset = PageComponent.objects.all()
 
     def get_object(self):
-        page_id = self.kwargs["id"]
-        component_id = self.kwargs["id"]
+        page_id = self.kwargs["page_id"]
+        component_id = self.kwargs["component_id"]
         return get_object_or_404(PageComponent, page__id=page_id, id=component_id)
 
     def perform_update(self, serializer):
