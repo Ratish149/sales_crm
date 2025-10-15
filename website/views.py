@@ -238,12 +238,13 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        incoming_data = self.request.data  # use full payload directly
+        incoming_data = self.request.data
 
-        # Ensure it's a dict
+        # Ensure dict
         if not isinstance(incoming_data, dict):
             incoming_data = {}
 
+        # Recursive merge utility
         def recursive_merge(old, new):
             for key, value in new.items():
                 if (
@@ -256,10 +257,13 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                     old[key] = value
             return old
 
+        # If client sends full object with a "data" key, use only that
+        new_data = incoming_data.get("data", incoming_data)
+
         if instance.data and isinstance(instance.data, dict):
-            merged_data = recursive_merge(instance.data, incoming_data)
+            merged_data = recursive_merge(instance.data, new_data)
         else:
-            merged_data = incoming_data
+            merged_data = new_data
 
         serializer.save(status="draft", data=merged_data)
 
@@ -331,12 +335,13 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         instance = self.get_object()
-        incoming_data = self.request.data  # use full payload directly
+        incoming_data = self.request.data
 
-        # Ensure it's a dict
+        # Ensure dict
         if not isinstance(incoming_data, dict):
             incoming_data = {}
 
+        # Recursive merge utility
         def recursive_merge(old, new):
             for key, value in new.items():
                 if (
@@ -349,10 +354,13 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                     old[key] = value
             return old
 
+        # If client sends full object with a "data" key, use only that
+        new_data = incoming_data.get("data", incoming_data)
+
         if instance.data and isinstance(instance.data, dict):
-            merged_data = recursive_merge(instance.data, incoming_data)
+            merged_data = recursive_merge(instance.data, new_data)
         else:
-            merged_data = incoming_data
+            merged_data = new_data
 
         serializer.save(status="draft", data=merged_data)
 
