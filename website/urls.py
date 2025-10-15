@@ -5,14 +5,14 @@ from . import views
 
 urlpatterns = [
     # 🌈 Theme
-    path("themes/", views.ThemeListCreateView.as_view(), name="theme-list-create"),
+    path("theme/", views.ThemeListCreateView.as_view(), name="theme-list-create"),
     path(
-        "themes/<int:pk>/",
+        "theme/<int:pk>/",
         views.ThemeRetrieveUpdateDestroyView.as_view(),
         name="theme-detail",
     ),
     path(
-        "themes/<int:pk>/publish/",
+        "theme/<int:pk>/publish/",
         views.ThemePublishView.as_view(),
         name="theme-publish",
     ),
