@@ -2,7 +2,7 @@ from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
 from .models import Payment
-from .serializers import PaymentSerializer
+from .serializers import PaymentSerializer, PaymentSmallSerializer
 
 
 # Create your views here.
@@ -21,6 +21,11 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = PaymentSerializer
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = PaymentFilterSet
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return PaymentSmallSerializer
+        return PaymentSerializer
 
 
 class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
