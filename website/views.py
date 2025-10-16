@@ -72,9 +72,23 @@ class PagePublishView(APIView):
     @transaction.atomic
     def post(self, request, slug):
         page = get_object_or_404(Page, slug=slug, status="draft")
-        # Publish all draft components linked to this page
+
+        # 🧹 Cleanup: remove published components that belonged to this page but no longer exist in draft
+        if page.published_version:
+            published_page = page.published_version
+            published_components = PageComponent.objects.filter(
+                page=published_page, status="published"
+            )
+
+            for comp in published_components:
+                # Check if the draft version still exists
+                if not PageComponent.objects.filter(published_version=comp).exists():
+                    comp.delete()
+
+        # 🌀 Publish components and the page
         for comp in page.components.filter(status="draft"):
             publish_instance(comp)
+
         publish_instance(page)
         return Response({"detail": "Page and its components published successfully"})
 
@@ -176,8 +190,20 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 
 
 class PageComponentPublishView(APIView):
+    @transaction.atomic
     def post(self, request, slug):
         component = get_object_or_404(PageComponent, page__slug=slug, status="draft")
+
+        # 🧹 Cleanup: Delete published components that have no draft
+        for published_component in PageComponent.objects.filter(
+            page__slug=slug, status="published"
+        ):
+            if not PageComponent.objects.filter(
+                published_version=published_component
+            ).exists():
+                published_component.delete()
+
+        # 🌀 Publish current draft component
         publish_instance(component)
         return Response({"detail": "Component published successfully"})
 
@@ -195,7 +221,7 @@ class NavbarView(APIView):
     """
 
     def get(self, request):
-        status_param = request.query_params.get("status", "live")
+        status_param = request.query_params.get("status", "published")
 
         qs = PageComponent.objects.filter(component_type="navbar")
 
@@ -271,13 +297,25 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class NavbarPublishView(APIView):
     """
     POST /api/navbar/<id>/publish/
-    Publishes the navbar draft.
+    Publishes the navbar draft and cleans up deleted ones.
     """
 
+    @transaction.atomic
     def post(self, request, id):
         navbar = get_object_or_404(
             PageComponent, id=id, component_type="navbar", status="draft"
         )
+
+        # 🧹 Cleanup: Delete published navbars that have no draft
+        for published_navbar in PageComponent.objects.filter(
+            component_type="navbar", status="published"
+        ):
+            if not PageComponent.objects.filter(
+                published_version=published_navbar
+            ).exists():
+                published_navbar.delete()
+
+        # 🌀 Publish current draft navbar
         publish_instance(navbar)
         return Response({"detail": "Navbar published successfully"})
 
@@ -368,13 +406,25 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class FooterPublishView(APIView):
     """
     POST /api/footer/<id>/publish/
-    Publishes the footer draft.
+    Publishes the footer draft and cleans up deleted ones.
     """
 
+    @transaction.atomic
     def post(self, request, id):
         footer = get_object_or_404(
             PageComponent, id=id, component_type="footer", status="draft"
         )
+
+        # 🧹 Cleanup: Delete published footers that have no draft
+        for published_footer in PageComponent.objects.filter(
+            component_type="footer", status="published"
+        ):
+            if not PageComponent.objects.filter(
+                published_version=published_footer
+            ).exists():
+                published_footer.delete()
+
+        # 🌀 Publish current draft footer
         publish_instance(footer)
         return Response({"detail": "Footer published successfully"})
 
@@ -385,6 +435,27 @@ class FooterPublishView(APIView):
 class PublishAllView(APIView):
     @transaction.atomic
     def post(self, request):
+        # 🧹 Step 1: Clean up published components that were deleted in draft
+        published_components = PageComponent.objects.filter(status="published")
+        published_pages = Page.objects.filter(status="published")
+        published_themes = Theme.objects.filter(status="published")
+
+        # Delete published components whose draft version no longer exists
+        for comp in published_components:
+            if not PageComponent.objects.filter(published_version=comp).exists():
+                comp.delete()
+
+        # Delete published pages whose draft version no longer exists
+        for page in published_pages:
+            if not Page.objects.filter(published_version=page).exists():
+                page.delete()
+
+        # Delete published themes whose draft version no longer exists
+        for theme in published_themes:
+            if not Theme.objects.filter(published_version=theme).exists():
+                theme.delete()
+
+        # 🌀 Step 2: Publish all remaining drafts
         for theme in Theme.objects.filter(status="draft"):
             publish_instance(theme)
 
@@ -393,4 +464,5 @@ class PublishAllView(APIView):
 
         for comp in PageComponent.objects.filter(status="draft"):
             publish_instance(comp)
+
         return Response({"detail": "All drafts published successfully"})
