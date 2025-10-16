@@ -8,9 +8,10 @@ class Payment(models.Model):
         ("esewa", "Esewa"),
         ("khalti", "Khalti"),
     )
-    payment_type = models.CharField(
-        max_length=10, choices=CHOICES, null=True, blank=True
-    )
+    payment_type = models.CharField(max_length=10, choices=CHOICES, unique=True)
     secret_key = models.CharField(max_length=255, null=True, blank=True)
     merchant_code = models.CharField(max_length=255, null=True, blank=True)
     is_enabled = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.payment_type
