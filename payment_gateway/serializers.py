@@ -12,4 +12,4 @@ class PaymentSerializer(serializers.ModelSerializer):
 class PaymentSmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ["id", "payment_type", "merchant_code", "is_enabled"]
+        fields = ["id", "payment_type", "is_enabled"]

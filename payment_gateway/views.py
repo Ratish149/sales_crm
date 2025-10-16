@@ -25,10 +25,9 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
-        user = self.request.user
-        if user and user.is_authenticated:
-            return PaymentSerializer
-        return PaymentSmallSerializer
+        if self.request.method == "GET":
+            return PaymentSmallSerializer
+        return PaymentSerializer
 
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
