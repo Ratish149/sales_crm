@@ -2,7 +2,7 @@ from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
 from .models import Payment
-from .serializers import PaymentSerializer, PaymentSmallSerializer
+from .serializers import PaymentSerializer
 
 
 # Create your views here.
@@ -24,7 +24,7 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         if self.request.method == "GET":
-            return PaymentSmallSerializer
+            return PaymentSerializer
         return PaymentSerializer
 
     def create(self, request, *args, **kwargs):
@@ -32,9 +32,9 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
         if response.status_code == 201:
             instance_data = response.data
             custom_response = {
-                'id': instance_data.get('id'),
-                'payment_type': instance_data.get('payment_type'),
-                'merchant_code': instance_data.get('merchant_code')
+                "id": instance_data.get("id"),
+                "payment_type": instance_data.get("payment_type"),
+                "merchant_code": instance_data.get("merchant_code"),
             }
             response.data = custom_response
         return response
@@ -49,9 +49,9 @@ class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
         if response.status_code == 200:
             instance_data = response.data
             custom_response = {
-                'id': instance_data.get('id'),
-                'payment_type': instance_data.get('payment_type'),
-                'merchant_code': instance_data.get('merchant_code')
+                "id": instance_data.get("id"),
+                "payment_type": instance_data.get("payment_type"),
+                "merchant_code": instance_data.get("merchant_code"),
             }
             response.data = custom_response
         return response
