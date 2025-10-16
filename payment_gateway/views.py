@@ -1,6 +1,5 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated
 
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentSmallSerializer
@@ -22,7 +21,6 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = PaymentSerializer
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = PaymentFilterSet
-    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         if self.request.method == "GET":
