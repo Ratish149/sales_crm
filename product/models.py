@@ -63,7 +63,7 @@ class ProductImage(models.Model):
         validators=[file_size],
         null=True,
         blank=True,
-        max_length=500,
+        max_length=255,
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -90,7 +90,7 @@ class Product(models.Model):
         validators=[file_size],
         null=True,
         blank=True,
-        max_length=500,
+        max_length=255,
     )
     thumbnail_alt_description = models.CharField(max_length=100, null=True, blank=True)
     category = models.ForeignKey(
@@ -153,9 +153,7 @@ class ProductVariant(models.Model):
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     stock = models.IntegerField(default=0, null=True, blank=True)
-    image = models.FileField(
-        upload_to="variant_images", validators=[file_size], null=True, blank=True
-    )
+    image = models.FileField(upload_to="variant_images", null=True, blank=True)
     option_values = models.ManyToManyField(
         ProductOptionValue, related_name="variants", blank=True
     )
