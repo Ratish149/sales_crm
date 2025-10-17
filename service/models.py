@@ -24,3 +24,6 @@ class Service(models.Model):
     def save(self, *args, **kwargs):
         self.slug = slugify(self.title)
         super().save(*args, **kwargs)
+
+    class Meta:
+        unique_together = ("title", "slug")
