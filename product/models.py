@@ -71,12 +71,12 @@ class Product(models.Model):
         ("draft", "Draft"),
         ("archived", "Archived"),
     )
-    name = models.CharField(max_length=255, null=True, blank=True)
-    slug = models.SlugField(max_length=255, null=True, blank=True)
+    name = models.TextField(null=True, blank=True)
+    slug = models.SlugField(null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=100, decimal_places=2)
     market_price = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
+        max_digits=100, decimal_places=2, null=True, blank=True
     )
     track_stock = models.BooleanField(default=True)
     stock = models.IntegerField(null=True, blank=True)
