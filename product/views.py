@@ -658,12 +658,22 @@ class BulkProductUploadView(APIView):
             )
 
         try:
-            df = pd.read_excel(file)
+            # Detect file type and read accordingly
+            if file.name.endswith(".csv"):
+                df = pd.read_csv(file)
+            elif file.name.endswith((".xls", ".xlsx")):
+                df = pd.read_excel(file)
+            else:
+                return Response(
+                    {"error": "Unsupported file format. Please upload .csv or .xlsx"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             # Clean column names - remove extra spaces and make lowercase for consistency
             df.columns = [col.strip().lower() for col in df.columns]
         except Exception as e:
             return Response(
-                {"error": f"Invalid Excel file: {str(e)}"},
+                {"error": f"Invalid file: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
