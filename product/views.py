@@ -1,4 +1,5 @@
 import re
+import traceback
 
 import pandas as pd
 from django.http import HttpResponse
@@ -741,7 +742,14 @@ class BulkProductUploadView(APIView):
                                 thumb_filename, thumb_file, save=False
                             )
 
-                    product.save()
+                    try:
+                        product.save()
+                    except Exception as e:
+                        print("❌ Error while saving product:", product_name)
+                        print("Exception type:", e.__class__.__name__)
+                        print("Exception message:", e)
+                        traceback.print_exc()
+                        raise
 
                     # Create product options based on the main row and store option names
                     option_names = self._create_product_options(product, row)
