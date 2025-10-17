@@ -76,7 +76,7 @@ class Product(models.Model):
         ("archived", "Archived"),
     )
     name = models.TextField(null=True, blank=True)
-    slug = models.SlugField(null=True, blank=True)
+    slug = models.SlugField(null=True, blank=True, max_length=255)
     description = models.TextField(null=True, blank=True)
     price = models.DecimalField(max_digits=100, decimal_places=2)
     market_price = models.DecimalField(
