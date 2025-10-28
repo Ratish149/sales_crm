@@ -77,6 +77,53 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["order_number", "created_at", "updated_at"]
 
+    def validate(self, data):
+        """
+        Validate that there is sufficient stock for all items before creating the order.
+        """
+        items_data = data.get("items", [])
+        if not items_data:
+            raise serializers.ValidationError({"items": "No order items provided."})
+
+        errors = {}
+
+        for index, item_data in enumerate(items_data):
+            product = item_data.get("product")
+            variant = item_data.get("variant")
+            quantity = item_data.get("quantity", 0)
+
+            if not product and not variant:
+                errors[f"items.{index}"] = (
+                    "Either product or variant must be specified."
+                )
+                continue
+
+            if variant:
+                # Check variant stock
+                if (
+                    variant.track_stock
+                    and variant.stock is not None
+                    and variant.stock < quantity
+                ):
+                    errors[f"items.{index}"] = (
+                        f"Insufficient stock for variant {variant.name}. Only {variant.stock} available."
+                    )
+            elif product:
+                # Check product stock
+                if (
+                    product.track_stock
+                    and product.stock is not None
+                    and product.stock < quantity
+                ):
+                    errors[f"items.{index}"] = (
+                        f"Insufficient stock for product {product.name}. Only {product.stock} available."
+                    )
+
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return data
+
     def create(self, validated_data):
         request = self.context.get("request")
         items_data = validated_data.pop("items", [])
@@ -90,6 +137,39 @@ class OrderSerializer(serializers.ModelSerializer):
             validated_data["customer"] = customer
 
         with transaction.atomic():
+            # Validate stock again in case of race conditions
+            for item_data in items_data:
+                product = item_data.get("product")
+                variant = item_data.get("variant")
+                quantity = item_data["quantity"]
+
+                if variant:
+                    if variant.track_stock and variant.stock is not None:
+                        if variant.stock < quantity:
+                            raise serializers.ValidationError(
+                                {
+                                    "items": [
+                                        f"Insufficient stock for variant {variant.name}. Only {variant.stock} available."
+                                    ]
+                                }
+                            )
+                        # Lock the variant row for update
+                        variant = ProductVariant.objects.select_for_update().get(
+                            pk=variant.pk
+                        )
+                elif product and product.track_stock and product.stock is not None:
+                    if product.stock < quantity:
+                        raise serializers.ValidationError(
+                            {
+                                "items": [
+                                    f"Insufficient stock for product {product.name}. Only {product.stock} available."
+                                ]
+                            }
+                        )
+                    # Lock the product row for update
+                    product = Product.objects.select_for_update().get(pk=product.pk)
+
+            # Create the order after all validations pass
             order = Order.objects.create(**validated_data)
 
             # Now create order items and update stock
