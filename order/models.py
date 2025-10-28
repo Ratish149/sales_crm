@@ -1,28 +1,36 @@
 from django.db import models
+
 from product.models import Product
+
 # Create your models here.
 
 
 class Order(models.Model):
     ORDER_STATUS = [
-        ('pending', 'Pending'),
-        ('processing', 'Processing'),
-        ('shipped', 'Shipped'),
-        ('delivered', 'Delivered'),
-        ('cancelled', 'Cancelled'),
+        ("pending", "Pending"),
+        ("processing", "Processing"),
+        ("shipped", "Shipped"),
+        ("delivered", "Delivered"),
+        ("cancelled", "Cancelled"),
     ]
     customer = models.ForeignKey(
-        'customer.Customer', on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
+        "customer.Customer",
+        on_delete=models.CASCADE,
+        related_name="orders",
+        null=True,
+        blank=True,
+    )
     order_number = models.CharField(
-        max_length=20, unique=True, default="", null=True, blank=True)
+        max_length=20, unique=True, default="", null=True, blank=True
+    )
     customer_name = models.CharField(max_length=100)
     customer_email = models.EmailField(null=True, blank=True)
     customer_phone = models.CharField(max_length=15, null=True, blank=True)
     customer_address = models.CharField(max_length=255)
     shipping_address = models.CharField(max_length=255)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(
-        max_length=20, choices=ORDER_STATUS, default="pending")
+    status = models.CharField(max_length=20, choices=ORDER_STATUS, default="pending")
+    transaction_id = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -42,8 +50,7 @@ class Order(models.Model):
 
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(
-        Order, on_delete=models.CASCADE, related_name='items')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
