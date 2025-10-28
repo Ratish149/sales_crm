@@ -82,6 +82,8 @@ class Product(models.Model):
     market_price = models.DecimalField(
         max_digits=100, decimal_places=2, null=True, blank=True
     )
+    fast_shipping = models.BooleanField(default=False)
+    warranty = models.CharField(max_length=20, null=True, blank=True)
     track_stock = models.BooleanField(default=True)
     stock = models.IntegerField(null=True, blank=True)
     weight = models.CharField(max_length=100, null=True, blank=True)
