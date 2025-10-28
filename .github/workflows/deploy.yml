@@ -19,7 +19,7 @@ jobs:
             cd /home/ratish/sales_crm/
             git fetch origin main
             git reset --hard origin/main
-            source venv/bin/activate
+            source ../myprojectenv/bin/activate
             python manage.py migrate
             python manage.py collectstatic
             sudo systemctl daemon-reload
