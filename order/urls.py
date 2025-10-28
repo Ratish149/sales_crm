@@ -16,6 +16,6 @@ urlpatterns = [
         name="order-retrieve-update-destroy",
     ),
     path("dashboard-stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
-    path("my-order/", MyOrderListAPIView.as_view(), name="customer-order"),
+    path("my-order-list/", MyOrderListAPIView.as_view(), name="customer-order"),
     path("my-order-status/", MyOrderStatusView.as_view(), name="customer-order-status"),
 ]
