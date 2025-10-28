@@ -67,6 +67,7 @@ SHARED_APPS = [
     "drf_spectacular",
     "accounts",
     "tinymce",
+    "support",
 ]
 
 TENANT_APPS = [
