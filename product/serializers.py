@@ -280,11 +280,6 @@ class ProductSerializer(serializers.ModelSerializer):
         variants_data = validated_data.pop("variants", [])
         variant_images = validated_data.pop("variant_images", {})
 
-        # Check if product with same name exists
-        name = validated_data.get("name")
-        if name and Product.objects.filter(name=name).exists():
-            raise serializers.ValidationError("Product with this name already exists.")
-
         product = Product.objects.create(**validated_data)
 
         # Create images
@@ -453,6 +448,25 @@ class ProductOnlySerializer(serializers.ModelSerializer):
             "thumbnail_image",
             "thumbnail_alt_description",
         ]
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+    option_values = ProductOptionValueSerializer(many=True, read_only=True)
+    product = ProductOnlySerializer(read_only=True)
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "id",
+            "product",
+            "price",
+            "stock",
+            "image",
+            "option_values",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class ProductReviewSerializer(serializers.ModelSerializer):

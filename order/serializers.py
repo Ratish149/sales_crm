@@ -1,29 +1,51 @@
+from django.db import models, transaction
 from rest_framework import serializers
 
 from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
-from product.models import Product
-from product.serializers import ProductOnlySerializer
+from product.models import Product, ProductVariant
+from product.serializers import ProductOnlySerializer, ProductVariantSerializer
 
 from .models import Order, OrderItem
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), source="product"
+        queryset=Product.objects.all(),
+        source="product",
+        required=False,
+        allow_null=True,
+    )
+    variant_id = serializers.PrimaryKeyRelatedField(
+        queryset=ProductVariant.objects.all(),
+        source="variant",
+        required=False,
+        allow_null=True,
     )
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product_id", "quantity", "price"]
+        fields = ["id", "product_id", "variant_id", "quantity", "price"]
+
+    def validate(self, data):
+        if not data.get("product") and not data.get("variant"):
+            raise serializers.ValidationError(
+                "Either product_id or variant_id must be provided"
+            )
+        if data.get("product") and data.get("variant"):
+            raise serializers.ValidationError(
+                "Cannot specify both product_id and variant_id"
+            )
+        return data
 
 
 class OrderItemDetailSerializer(serializers.ModelSerializer):
     product = ProductOnlySerializer(read_only=True)
+    variant = ProductVariantSerializer(read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "quantity", "price"]
+        fields = ["id", "product", "variant", "quantity", "price"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -48,6 +70,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "transaction_id",
             "created_at",
             "updated_at",
+            "is_paid",
+            "payment_type",
             "items",  # for creating/updating
             "order_items",  # for reading back
         ]
@@ -61,18 +85,34 @@ class OrderSerializer(serializers.ModelSerializer):
             validated_data["customer"] = None
 
         # Try to find a Customer with the same email as the User
-        # Decode JWT manually
         customer = get_customer_from_request(self.context["request"])
         if customer:
             validated_data["customer"] = customer
 
-        order = Order.objects.create(**validated_data)
+        with transaction.atomic():
+            order = Order.objects.create(**validated_data)
 
-        # Now create order items
-        for item_data in items_data:
-            OrderItem.objects.create(order=order, **item_data)
+            # Now create order items and update stock
+            for item_data in items_data:
+                product = item_data.get("product")
+                variant = item_data.get("variant")
+                quantity = item_data["quantity"]
 
-        return order
+                # Create order item
+                OrderItem.objects.create(order=order, **item_data)
+
+                # Update stock based on whether it's a variant or base product
+                if variant:
+                    if variant.product.track_stock and variant.stock is not None:
+                        ProductVariant.objects.filter(pk=variant.pk).update(
+                            stock=models.F("stock") - quantity
+                        )
+                elif product and product.track_stock and product.stock is not None:
+                    Product.objects.filter(pk=product.pk).update(
+                        stock=models.F("stock") - quantity
+                    )
+
+            return order
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -96,4 +136,6 @@ class OrderListSerializer(serializers.ModelSerializer):
             "transaction_id",
             "created_at",
             "updated_at",
+            "is_paid",
+            "payment_type",
         ]
