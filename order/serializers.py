@@ -71,6 +71,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_paid",
+            "is_manual",
             "payment_type",
             "items",  # for creating/updating
             "order_items",  # for reading back
@@ -139,5 +140,6 @@ class OrderListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_paid",
+            "is_manual",
             "payment_type",
         ]

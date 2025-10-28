@@ -46,6 +46,7 @@ class Order(models.Model):
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default="pending")
     is_paid = models.BooleanField(default=False)
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
+    is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
