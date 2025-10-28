@@ -1,5 +1,4 @@
 import re
-import traceback
 
 import pandas as pd
 from django.http import HttpResponse
@@ -341,6 +340,8 @@ class DownloadProductSampleTemplateView(APIView):
             "is_popular",
             "is_featured",
             "status",
+            "fast_shipping",
+            "warranty",
             "option1 name",
             "option1 values",
             "option2 name",
@@ -388,6 +389,8 @@ class DownloadProductSampleTemplateView(APIView):
             "TRUE",
             "FALSE",
             "active",
+            "FALSE",
+            "1 Year Manufacturer Warranty",
             "Color",
             "Green",
             "Size",
@@ -406,6 +409,8 @@ class DownloadProductSampleTemplateView(APIView):
 
         # Add additional variant row (empty except for variant columns)
         variant_only_data = [
+            "",
+            "",
             "",
             "",
             "",
@@ -455,6 +460,8 @@ class DownloadProductSampleTemplateView(APIView):
                 "",
                 "",
                 "",
+                "",
+                "",
                 "Blue",
                 "",
                 "L",
@@ -468,6 +475,8 @@ class DownloadProductSampleTemplateView(APIView):
             ],
             # Color: Red, Size: S
             [
+                "",
+                "",
                 "",
                 "",
                 "",
@@ -567,6 +576,20 @@ class DownloadProductSampleTemplateView(APIView):
         )
         ws.add_data_validation(status_validation)
         status_validation.add("N2:N1048576")  # status
+
+        # Fast shipping validation (boolean)
+        fast_shipping_validation = DataValidation(
+            type="list",
+            formula1='"TRUE,FALSE"',
+            allow_blank=True,
+            showErrorMessage=True,
+            errorTitle="Invalid value for fast shipping",
+            error="Please enter either TRUE or FALSE",
+        )
+        ws.add_data_validation(fast_shipping_validation)
+        fast_shipping_validation.add("O2:O1048576")  # fast_shipping
+
+        # Warranty is a free text field, no validation needed
 
         # Category validation (dynamic from database)
         if categories.exists():
@@ -683,8 +706,6 @@ class BulkProductUploadView(APIView):
         product_options = {}  # Store option names for each product
 
         for idx, row in df.iterrows():
-            print(f"Processing row {idx}")
-
             product_name = safe_value(row.get("name"))
 
             # If we have a product name, it's either a new product or the main product row
@@ -711,25 +732,45 @@ class BulkProductUploadView(APIView):
                         else None
                     )
 
-                    product = Product(
-                        name=current_product_key,
-                        description=safe_value(row.get("description"), ""),
-                        price=safe_value(row.get("price"), 0),
-                        market_price=safe_value(row.get("market_price")),
-                        track_stock=safe_value(row.get("track_stock"), True),
-                        stock=safe_value(row.get("stock"), 0),
-                        weight=safe_value(row.get("weight")),
-                        thumbnail_alt_description=safe_value(
-                            row.get("thumbnail_image_aly_description"), ""
+                    # Create product with default values for all fields
+                    product_data = {
+                        "name": current_product_key,
+                        "description": safe_value(row.get("description"), ""),
+                        "price": safe_value(row.get("price"), 0),
+                        "market_price": safe_value(
+                            row.get("market_price")
+                        ),  # Can be None
+                        "track_stock": safe_value(row.get("track_stock"), True),
+                        "stock": safe_value(row.get("stock"), 0),
+                        "weight": safe_value(row.get("weight")),  # Can be None
+                        "thumbnail_alt_description": safe_value(
+                            row.get(
+                                "thumbnail_image_alt_description",
+                                row.get("thumbnail_image_aly_description"),
+                            ),
+                            "",
                         ),
-                        category=category,
-                        sub_category=sub_category,
-                        is_popular=safe_value(row.get("is_popular"), False),
-                        is_featured=safe_value(row.get("is_featured"), False),
-                        status=safe_value(row.get("status"), "active"),
-                        meta_title=safe_value(row.get("meta title"), ""),
-                        meta_description=safe_value(row.get("meta description"), ""),
-                    )
+                        "category": category,  # Can be None
+                        "sub_category": sub_category,  # Can be None
+                        "is_popular": safe_value(row.get("is_popular"), False),
+                        "is_featured": safe_value(row.get("is_featured"), False),
+                        "status": safe_value(row.get("status"), "active"),
+                        "fast_shipping": safe_value(row.get("fast_shipping"), False),
+                        "warranty": safe_value(row.get("warranty"), ""),
+                        "meta_title": safe_value(
+                            row.get("meta_title", row.get("meta title")), ""
+                        ),
+                        "meta_description": safe_value(
+                            row.get("meta_description", row.get("meta description")), ""
+                        ),
+                    }
+
+                    # Remove None values to use model defaults
+                    product_data = {
+                        k: v for k, v in product_data.items() if v is not None
+                    }
+
+                    product = Product(**product_data)
 
                     # Download thumbnail image
                     thumb_url = safe_value(row.get("thumbnail_image"))
@@ -745,11 +786,9 @@ class BulkProductUploadView(APIView):
                     try:
                         product.save()
                     except Exception as e:
-                        print("❌ Error while saving product:", product_name)
-                        print("Exception type:", e.__class__.__name__)
-                        print("Exception message:", e)
-                        traceback.print_exc()
-                        raise
+                        return Response(
+                            {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
+                        )
 
                     # Create product options based on the main row and store option names
                     option_names = self._create_product_options(product, row)
@@ -759,18 +798,13 @@ class BulkProductUploadView(APIView):
                         "product": product,
                         "options_created": True,
                     }
-                    print(f"Created product: {product_name}")
 
                 current_product = created_products[current_product_key]["product"]
                 current_option_names = product_options[current_product_key]
 
             # Create variant for current product (even for empty name rows that continue variants)
             if current_product:
-                variant = self._create_product_variant(
-                    current_product, row, current_option_names
-                )
-                if variant:
-                    print(f"Created variant for {current_product.name}")
+                self._create_product_variant(current_product, row, current_option_names)
 
         return Response(
             {
@@ -821,8 +855,6 @@ class BulkProductUploadView(APIView):
                     ProductOptionValue.objects.get_or_create(
                         option=option, value=option_values_str
                     )
-
-                print(f"Created option: {option_name} for product: {product.name}")
 
         return option_names
 
@@ -881,5 +913,4 @@ class BulkProductUploadView(APIView):
                     variant.option_values.add(option_value)
                     option_values_added.append(f"{option_name}: {option_value_str}")
 
-        print(f"Created variant with options: {', '.join(option_values_added)}")
         return variant

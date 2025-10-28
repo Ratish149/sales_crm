@@ -83,8 +83,8 @@ class Product(models.Model):
         max_digits=100, decimal_places=2, null=True, blank=True
     )
     fast_shipping = models.BooleanField(default=False)
-    warranty = models.CharField(max_length=20, null=True, blank=True)
-    track_stock = models.BooleanField(default=True)
+    warranty = models.CharField(max_length=250, null=True, blank=True)
+    track_stock = models.BooleanField(default=True, null=True, blank=True)
     stock = models.IntegerField(null=True, blank=True)
     weight = models.CharField(max_length=100, null=True, blank=True)
     thumbnail_image = models.FileField(
