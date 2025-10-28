@@ -130,6 +130,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             "customer_phone",
             "customer_address",
             "shipping_address",
+            "latitude",
+            "longitude",
             "total_amount",
             "status",
             "order_items",

@@ -34,8 +34,14 @@ class Order(models.Model):
     customer_name = models.CharField(max_length=100)
     customer_email = models.EmailField(null=True, blank=True)
     customer_phone = models.CharField(max_length=15, null=True, blank=True)
-    customer_address = models.CharField(max_length=255)
-    shipping_address = models.CharField(max_length=255)
+    customer_address = models.CharField(max_length=255, null=True, blank=True)
+    shipping_address = models.CharField(max_length=255, null=True, blank=True)
+    latitude = models.DecimalField(
+        max_digits=10, decimal_places=10, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=10, null=True, blank=True
+    )
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default="pending")
     is_paid = models.BooleanField(default=False)
