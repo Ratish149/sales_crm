@@ -9,7 +9,7 @@ from product.models import Product
 class Order(models.Model):
     ORDER_STATUS = [
         ("pending", "Pending"),
-        ("processing", "Processing"),
+        ("confirmed", "Confirmed"),
         ("shipped", "Shipped"),
         ("delivered", "Delivered"),
         ("cancelled", "Cancelled"),
