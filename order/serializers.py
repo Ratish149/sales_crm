@@ -5,6 +5,7 @@ from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
 from product.serializers import ProductOnlySerializer, ProductVariantSerializer
+from promo_code.models import PromoCode
 
 from .models import Order, OrderItem
 
@@ -72,6 +73,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_paid",
             "is_manual",
+            "promo_code",
             "payment_type",
             "items",  # for creating/updating
             "order_items",  # for reading back
@@ -112,6 +114,12 @@ class OrderSerializer(serializers.ModelSerializer):
                     Product.objects.filter(pk=product.pk).update(
                         stock=models.F("stock") - quantity
                     )
+
+            # Increment used_count for promo code if one was used
+            if order.promo_code:
+                PromoCode.objects.filter(id=order.promo_code.id).update(
+                    used_count=models.F("used_count") + 1
+                )
 
             return order
 

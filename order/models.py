@@ -1,6 +1,7 @@
 from django.db import models
 
 from product.models import Product
+from promo_code.models import PromoCode
 
 # Create your models here.
 
@@ -47,6 +48,9 @@ class Order(models.Model):
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
     is_manual = models.BooleanField(default=False)
     dash_tracking_code = models.CharField(max_length=255, null=True, blank=True)
+    promo_code = models.ForeignKey(
+        PromoCode, on_delete=models.CASCADE, null=True, blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

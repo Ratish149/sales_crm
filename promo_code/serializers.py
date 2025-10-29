@@ -8,6 +8,7 @@ class PromoCodeSerializer(serializers.ModelSerializer):
         model = PromoCode
         fields = "__all__"
 
+
 class PromoCodeValidationSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=10, required=True)
 
@@ -24,8 +25,9 @@ class PromoCodeValidationSerializer(serializers.Serializer):
             raise serializers.ValidationError(message)
 
         return value
-    
+
+
 class PromoCodeDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = PromoCode
-        fields = ["code", "discount_percentage", "valid_from", "valid_to"]
+        fields = ["id", "code", "discount_percentage", "valid_from", "valid_to"]
