@@ -1,6 +1,9 @@
 from django.urls import path
 
-from .views import LogisticsListCreateView, LogisticsRetrieveUpdateDestroyView
+from .views import (
+    LogisticsListCreateView,
+    LogisticsRetrieveUpdateDestroyView,
+)
 
 urlpatterns = [
     path("logistics/", LogisticsListCreateView.as_view(), name="logistics-list-create"),

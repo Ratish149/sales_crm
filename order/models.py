@@ -1,4 +1,3 @@
-from django.core.exceptions import ValidationError
 from django.db import models
 
 from product.models import Product
@@ -47,6 +46,7 @@ class Order(models.Model):
     is_paid = models.BooleanField(default=False)
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
     is_manual = models.BooleanField(default=False)
+    dash_tracking_code = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -81,18 +81,6 @@ class OrderItem(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def clean(self):
-        if not self.product and not self.variant:
-            raise ValidationError("Either product or variant must be provided")
-        if self.product and self.variant:
-            raise ValidationError("Cannot specify both product and variant")
-        if self.variant and self.variant.product != self.product:
-            self.product = self.variant.product
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
 
     def __str__(self):
         if self.variant:
