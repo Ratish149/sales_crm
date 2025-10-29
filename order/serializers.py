@@ -64,6 +64,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "customer_name",
             "customer_email",
             "customer_phone",
+            "dash_location",
             "customer_address",
             "shipping_address",
             "total_amount",

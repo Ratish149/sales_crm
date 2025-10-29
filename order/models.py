@@ -34,6 +34,7 @@ class Order(models.Model):
     customer_name = models.CharField(max_length=100)
     customer_email = models.EmailField(null=True, blank=True)
     customer_phone = models.CharField(max_length=15, null=True, blank=True)
+    dash_location = models.CharField(max_length=255, null=True, blank=True)
     customer_address = models.CharField(max_length=255, null=True, blank=True)
     shipping_address = models.CharField(max_length=255, null=True, blank=True)
     latitude = models.DecimalField(

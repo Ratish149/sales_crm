@@ -217,8 +217,8 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         receiver_location = "Kathmandu"
 
         # If you have a dash_location field with the correct location name, use that
-        # if hasattr(order, "dash_location") and order.dash_location:
-        #     receiver_location = order.dash_location.name.lower()
+        if hasattr(order, "dash_location") and order.dash_location:
+            receiver_location = order.dash_location
 
         # Log the final location being used
 

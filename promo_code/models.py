@@ -23,7 +23,7 @@ class PromoCode(models.Model):
         today = timezone.now().date()
 
         if not self.is_active:
-            return False, "Promo code is inactive"
+            return False, "Promo code is expired"
 
         if today < self.valid_from:
             return False, "Promo code is not yet valid"
