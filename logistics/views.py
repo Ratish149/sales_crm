@@ -39,6 +39,7 @@ def dash_login(email, password, dash_obj=None):
                 timezone.now() + timedelta(seconds=expires_in) if expires_in else None
             )
             dash_defaults = {
+                "email": email,
                 "password": password,
                 "access_token": access_token,
                 "refresh_token": refresh_token,
