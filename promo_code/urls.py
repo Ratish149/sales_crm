@@ -11,7 +11,7 @@ urlpatterns = [
         "promocode/", PromoCodeListCreateView.as_view(), name="promo-code-list-create"
     ),
     path(
-        "promocode/<int:pk>",
+        "promocode/<int:pk>/",
         PromoCodeRetrieveUpdateDestroyView.as_view(),
         name="promo-code-retrieve-update-destroy",
     ),
