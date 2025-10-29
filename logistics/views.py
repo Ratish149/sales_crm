@@ -20,7 +20,7 @@ def dash_login(email, password, dash_obj=None):
     client_secret = dash_obj.client_secret
     grant_type = dash_obj.grant_type
     is_enabled = dash_obj.is_enabled
-    DASH_LOGIN_URL = f"{DASH_BASE_URL}/api/v1/login/client/"
+    DASH_LOGIN_URL = f"{DASH_BASE_URL}/api/v1/login/client"
     body = {
         "clientId": client_id,
         "clientSecret": client_secret,
