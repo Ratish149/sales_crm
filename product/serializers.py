@@ -371,11 +371,22 @@ class ProductSerializer(serializers.ModelSerializer):
                     image_key = variant_dict.pop("image", None)
 
                     # Handle the variant image
-                    if image_key and variant_images and image_key in variant_images:
-                        variant_dict["image"] = variant_images[image_key]
-                    # If image is a URL, don't modify it (preserve existing)
-                    elif isinstance(image_key, str) and image_key.startswith('http'):
-                        variant_dict["image"] = image_key
+                    if image_key:
+                        if variant_images and image_key in variant_images:
+                            # New image from form data
+                            variant_dict["image"] = variant_images[image_key]
+                        elif isinstance(image_key, str):
+                            # Existing image URL - ensure it's not already a full URL
+                            if image_key.startswith("http"):
+                                # If it's already a full URL, check for double-encoding
+                                domain = "bibek.nepdora.baliyoventures.com"
+                                if f"https%3A//{domain}" in image_key:
+                                    # Fix double-encoded URL
+                                    variant_dict["image"] = image_key.replace(
+                                        f"https%3A//{domain}", domain
+                                    )
+                                else:
+                                    variant_dict["image"] = image_key
 
                     # Create a key from the options to find matching variants
                     option_set = frozenset(options.items())
@@ -388,7 +399,7 @@ class ProductSerializer(serializers.ModelSerializer):
                         # Update existing variant
                         for attr, value in variant_dict.items():
                             # Only update the image if a new one was provided
-                            if attr != 'image' or 'image' in variant_dict:
+                            if attr != "image" or "image" in variant_dict:
                                 setattr(variant, attr, value)
                         variant.save()
                     else:
@@ -408,16 +419,21 @@ class ProductSerializer(serializers.ModelSerializer):
                     variant.option_values.set(option_value_ids)
 
                 except Exception as e:
-                    raise serializers.ValidationError(f"Failed to update/create variant: {str(e)}")
+                    raise serializers.ValidationError(
+                        f"Failed to update/create variant: {str(e)}"
+                    )
 
             # Delete variants that were not in the update data
             for variant in instance.variants.all():
                 variant_options = {}
                 for option_value in variant.option_values.all():
                     variant_options[option_value.option.name] = option_value.value
-                
+
                 # Check if this variant's options are in the updated options
-                if variant_options and frozenset(variant_options.items()) not in updated_option_sets:
+                if (
+                    variant_options
+                    and frozenset(variant_options.items()) not in updated_option_sets
+                ):
                     variant.delete()
 
         return instance
