@@ -1,5 +1,6 @@
 import json
 
+from django.core.files.base import File
 from django.db.models import Avg
 from rest_framework import serializers
 
@@ -373,22 +374,17 @@ class ProductSerializer(serializers.ModelSerializer):
                     # Handle the variant image
                     if image_key:
                         if variant_images and image_key in variant_images:
-                            # New image from form data
+                            # New image file from form data
                             variant_dict["image"] = variant_images[image_key]
-                        elif isinstance(image_key, str):
-                            # Handle existing image URL
-                            if image_key.startswith("http"):
-                                # Check for double-encoded media URL pattern
-                                media_pattern = "/media/https%3A/"
-                                if media_pattern in image_key:
-                                    # Extract the correct path after the first /media/
-                                    parts = image_key.split(media_pattern, 1)
-                                    if len(parts) > 1:
-                                        # Reconstruct the correct URL
-                                        variant_dict["image"] = f"{parts[0]}/media/{parts[1]}"
-                                else:
-                                    # If it's a normal URL, use it as is
-                                    variant_dict["image"] = image_key
+                        elif isinstance(image_key, str) and not isinstance(
+                            image_key, File
+                        ):
+                            # It's a URL string - don't add to variant_dict
+                            # This prevents Django from treating it as a new file path
+                            pass
+                        else:
+                            # It's already a File object, use it
+                            variant_dict["image"] = image_key
 
                     # Create a key from the options to find matching variants
                     option_set = frozenset(options.items())
@@ -400,9 +396,7 @@ class ProductSerializer(serializers.ModelSerializer):
                     if variant:
                         # Update existing variant
                         for attr, value in variant_dict.items():
-                            # Only update the image if a new one was provided
-                            if attr != "image" or "image" in variant_dict:
-                                setattr(variant, attr, value)
+                            setattr(variant, attr, value)
                         variant.save()
                     else:
                         # Create new variant
