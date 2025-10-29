@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from .models import Logistics
 from .serializers import LogisticsSerializer
 
-DASH_BASE_URL = "https://dashlogistics.com.np"
+DASH_BASE_URL = "https://dashlogistics.dev"
 
 
 def dash_login(email, password, dash_obj=None):
