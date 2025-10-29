@@ -15,12 +15,10 @@ DASH_BASE_URL = "https://dashlogistics.com.np"
 
 def dash_login(email, password, dash_obj=None):
     # Use values from dash_obj if provided, else use defaults
-    print(dash_obj)
-    print(email)
-    print(password)
     client_id = dash_obj.client_id
     client_secret = dash_obj.client_secret
     grant_type = dash_obj.grant_type
+    is_enabled = dash_obj.is_enabled
     DASH_LOGIN_URL = f"{DASH_BASE_URL}/api/v1/login/client/"
     body = {
         "clientId": client_id,
@@ -29,15 +27,11 @@ def dash_login(email, password, dash_obj=None):
         "email": email,
         "password": password,
     }
-    print(body)
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
     try:
         response = requests.post(DASH_LOGIN_URL, json=body, headers=headers)
-        print(response)
         if response.status_code == 200:
-            print(response.json())
             data = response.json().get("data", {})
-            print(data)
             access_token = data.get("accessToken")
             refresh_token = data.get("refreshToken")
             expires_in = data.get("expiresIn")
@@ -52,6 +46,7 @@ def dash_login(email, password, dash_obj=None):
                 "client_id": client_id,
                 "client_secret": client_secret,
                 "grant_type": grant_type,
+                "is_enabled": is_enabled,
             }
             dash_obj_db, created = Logistics.objects.update_or_create(
                 logistic=dash_obj.logistic,
