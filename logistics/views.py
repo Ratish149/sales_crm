@@ -4,6 +4,7 @@ from datetime import timedelta
 
 import requests
 from django.utils import timezone
+from django_filters import rest_framework as django_filters
 from rest_framework import generics, status
 from rest_framework.response import Response
 
@@ -66,9 +67,19 @@ def dash_login(email, password, dash_obj=None):
         return None, {"error": "Failed to login to Dash", "details": str(e)}
 
 
+class LogisticsFilterSet(django_filters.FilterSet):
+    logistic = django_filters.CharFilter(field_name="logistic", lookup_expr="icontains")
+
+    class Meta:
+        model = Logistics
+        fields = ["logistic"]
+
+
 class LogisticsListCreateView(generics.ListCreateAPIView):
     queryset = Logistics.objects.all()
     serializer_class = LogisticsSerializer
+    filter_backends = [django_filters.DjangoFilterBackend]
+    filterset_class = LogisticsFilterSet
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
