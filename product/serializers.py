@@ -347,31 +347,55 @@ class ProductSerializer(serializers.ModelSerializer):
                 ProductImage.objects.create(product=instance, image=img)
 
         if variants_data is not None:
-            # Delete old variants
-            instance.variants.all().delete()
-
             # Clean up orphaned options
             for option in instance.productoption_set.all():
                 if not option.productoptionvalue_set.exists():
                     option.delete()
 
-            # Create new variants
-            for idx, variant_data in enumerate(variants_data):
-                try:
-                    # Make a copy
-                    variant_dict = dict(variant_data)
+            # Create a mapping of existing variants by their options
+            existing_variants = {}
+            for variant in instance.variants.all():
+                option_values = {}
+                for option_value in variant.option_values.all():
+                    option_values[option_value.option.name] = option_value.value
+                if option_values:  # Only add variants with options to the mapping
+                    existing_variants[frozenset(option_values.items())] = variant
 
+            updated_option_sets = set()
+
+            # Update or create variants
+            for variant_data in variants_data:
+                try:
+                    variant_dict = dict(variant_data)
                     options = variant_dict.pop("options", {})
                     image_key = variant_dict.pop("image", None)
 
                     # Handle the variant image
                     if image_key and variant_images and image_key in variant_images:
                         variant_dict["image"] = variant_images[image_key]
+                    # If image is a URL, don't modify it (preserve existing)
+                    elif isinstance(image_key, str) and image_key.startswith('http'):
+                        variant_dict["image"] = image_key
 
-                    variant = ProductVariant.objects.create(
-                        product=instance, **variant_dict
-                    )
+                    # Create a key from the options to find matching variants
+                    option_set = frozenset(options.items())
+                    updated_option_sets.add(option_set)
 
+                    # Try to find existing variant with the same options
+                    variant = existing_variants.get(option_set)
+
+                    if variant:
+                        # Update existing variant
+                        for attr, value in variant_dict.items():
+                            # Only update the image if a new one was provided
+                            if attr != 'image' or 'image' in variant_dict:
+                                setattr(variant, attr, value)
+                        variant.save()
+                    else:
+                        # Create new variant
+                        variant = instance.variants.create(**variant_dict)
+
+                    # Update options for the variant
                     option_value_ids = []
                     for option_name, value_name in options.items():
                         option, _ = ProductOption.objects.get_or_create(
@@ -381,12 +405,20 @@ class ProductSerializer(serializers.ModelSerializer):
                             option=option, value=value_name
                         )
                         option_value_ids.append(value.id)
-
                     variant.option_values.set(option_value_ids)
 
-                except Exception:
-                    raise serializers.ValidationError("Failed to create variant")
-                    continue
+                except Exception as e:
+                    raise serializers.ValidationError(f"Failed to update/create variant: {str(e)}")
+
+            # Delete variants that were not in the update data
+            for variant in instance.variants.all():
+                variant_options = {}
+                for option_value in variant.option_values.all():
+                    variant_options[option_value.option.name] = option_value.value
+                
+                # Check if this variant's options are in the updated options
+                if variant_options and frozenset(variant_options.items()) not in updated_option_sets:
+                    variant.delete()
 
         return instance
 
