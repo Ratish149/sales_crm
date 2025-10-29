@@ -376,16 +376,18 @@ class ProductSerializer(serializers.ModelSerializer):
                             # New image from form data
                             variant_dict["image"] = variant_images[image_key]
                         elif isinstance(image_key, str):
-                            # Existing image URL - ensure it's not already a full URL
+                            # Handle existing image URL
                             if image_key.startswith("http"):
-                                # If it's already a full URL, check for double-encoding
-                                domain = "bibek.nepdora.baliyoventures.com"
-                                if f"https%3A//{domain}" in image_key:
-                                    # Fix double-encoded URL
-                                    variant_dict["image"] = image_key.replace(
-                                        f"https%3A//{domain}", domain
-                                    )
+                                # Check for double-encoded media URL pattern
+                                media_pattern = "/media/https%3A/"
+                                if media_pattern in image_key:
+                                    # Extract the correct path after the first /media/
+                                    parts = image_key.split(media_pattern, 1)
+                                    if len(parts) > 1:
+                                        # Reconstruct the correct URL
+                                        variant_dict["image"] = f"{parts[0]}/media/{parts[1]}"
                                 else:
+                                    # If it's a normal URL, use it as is
                                     variant_dict["image"] = image_key
 
                     # Create a key from the options to find matching variants
