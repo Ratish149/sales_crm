@@ -91,6 +91,7 @@ TENANT_APPS = [
     "payment_gateway",
     "logistics",
     "promo_code",
+    "delivery_charge",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [

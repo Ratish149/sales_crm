@@ -44,6 +44,7 @@ class Order(models.Model):
     longitude = models.DecimalField(
         max_digits=10, decimal_places=10, null=True, blank=True
     )
+    delivery_charge = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default="pending")
     is_paid = models.BooleanField(default=False)

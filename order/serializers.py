@@ -67,6 +67,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "dash_location",
             "customer_address",
             "shipping_address",
+            "delivery_charge",
             "total_amount",
             "status",
             "transaction_id",
