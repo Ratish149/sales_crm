@@ -64,7 +64,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "customer_name",
             "customer_email",
             "customer_phone",
-            "dash_location",
+            "city",
             "customer_address",
             "shipping_address",
             "delivery_charge",
@@ -76,6 +76,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "is_paid",
             "is_manual",
             "promo_code",
+            "note",
             "payment_type",
             "items",  # for creating/updating
             "order_items",  # for reading back
