@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    DefaultDeliveryChargeListCreateView,
     DeliveryChargeListCreateView,
     DeliveryChargeRetrieveUpdateDestroyView,
     LoadDefaultLocationsAPIView,
@@ -11,6 +12,11 @@ urlpatterns = [
         "delivery-charges/",
         DeliveryChargeListCreateView.as_view(),
         name="delivery-charge-list-create",
+    ),
+    path(
+        "default-delivery-charges/",
+        DefaultDeliveryChargeListCreateView.as_view(),
+        name="default-delivery-charge-list-create",
     ),
     path(
         "delivery-charges/<int:pk>/",
