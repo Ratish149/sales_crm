@@ -20,7 +20,7 @@ class DeliveryChargeListCreateView(generics.ListCreateAPIView):
 
         # Separate default and location-specific charges
         default_prices = queryset.filter(
-            Q(location_name__isnull=True) | Q(location_name="")
+            (Q(location_name__isnull=True) | Q(location_name="")) & Q(is_default=True)
         )
         location_prices = queryset.exclude(
             Q(location_name__isnull=True) | Q(location_name="")

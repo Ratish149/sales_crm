@@ -15,6 +15,7 @@ class LocationDeliveryChargeSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "location_name",
+            "default_cost",
             "cost_0_1kg",
             "cost_1_2kg",
             "cost_2_3kg",
