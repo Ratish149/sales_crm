@@ -122,6 +122,7 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     def _send_order_to_dash(self, order):
         # Get active and enabled Dash logistics
         dash_obj = Logistics.objects.filter(is_enabled=True, logistic="Dash").first()
+        print(dash_obj)
 
         if not dash_obj:
             error_msg = (
@@ -168,6 +169,7 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         try:
             # Refresh the order to ensure we have the latest data
             order = Order.objects.get(id=order.id)
+            print(order)
         except Order.DoesNotExist:
             error_msg = f"[ERROR] Order with id {order.id} does not exist."
             return Response({"error": error_msg}, status=404)
