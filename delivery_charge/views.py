@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import DeliveryCharge
-from .serializers import DeliveryChargeSerializer, LocationDeliveryChargeSerializer
+from .serializers import DeliveryChargeSerializer
 from .utils import import_default_locations
 
 
@@ -19,30 +19,13 @@ class CustomPagination(PageNumberPagination):
 
 
 class DeliveryChargeListCreateView(generics.ListCreateAPIView):
-    queryset = DeliveryCharge.objects.all()
+    queryset = DeliveryCharge.objects.filter(
+        location_name__isnull=False, is_default=False
+    )
     serializer_class = DeliveryChargeSerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ["location_name"]
-
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-
-        location_prices = queryset.exclude(
-            Q(location_name__isnull=True) | Q(location_name="")
-        ).order_by("location_name")
-
-        # Serialize them separately
-        location_serializer = LocationDeliveryChargeSerializer(
-            location_prices, many=True
-        )
-
-        # Custom response structure
-        return Response(
-            {
-                "locations": location_serializer.data,
-            }
-        )
 
 
 class DefaultDeliveryChargeListCreateView(generics.ListCreateAPIView):
