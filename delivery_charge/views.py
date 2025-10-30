@@ -15,7 +15,7 @@ from .utils import import_default_locations
 class CustomPagination(PageNumberPagination):
     page_size = 30
     page_size_query_param = "page_size"
-    max_page_size = 100
+    max_page_size = 500
 
 
 class DeliveryChargeListCreateView(generics.ListCreateAPIView):
