@@ -29,7 +29,9 @@ class DeliveryChargeListCreateView(generics.ListCreateAPIView):
 
 
 class DefaultDeliveryChargeListCreateView(generics.ListCreateAPIView):
-    queryset = DeliveryCharge.objects.filter(is_default=True)
+    queryset = DeliveryCharge.objects.filter(
+        is_default=True, location_name__isnull=True
+    )
     serializer_class = DeliveryChargeSerializer
 
     def list(self, request, *args, **kwargs):
