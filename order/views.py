@@ -109,28 +109,33 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         old_status = instance.status
         response = super().update(request, *args, **kwargs)
 
-        # Refresh the instance to get the updated status
+        # Refresh instance after update
         instance.refresh_from_db()
         new_status = instance.status
 
-        # Check if status was changed to 'confirmed'
+        # Only trigger Dash API when status changes to "confirmed"
         if old_status != "confirmed" and new_status == "confirmed":
-            self._send_order_to_dash(instance)
+            dash_response = self._send_order_to_dash(instance)
+
+            # If Dash failed, raise error and revert status
+            if dash_response.status_code != 200:
+                instance.status = old_status
+                instance.save(update_fields=["status"])
+                return dash_response  # Return Dash error directly
 
         return response
 
     def _send_order_to_dash(self, order):
-        # Get active and enabled Dash logistics
         dash_obj = Logistics.objects.filter(is_enabled=True, logistic="Dash").first()
         print(dash_obj)
 
         if not dash_obj:
-            error_msg = (
-                "[ERROR] No active and enabled Dash logistics configuration found"
+            return Response(
+                {"error": "No active and enabled Dash logistics configuration found"},
+                status=400,
             )
-            return Response({"error": error_msg}, status=400)
 
-        # Check if token is missing or expired
+        # Handle token expiry
         token_expired = dash_obj.expires_at and dash_obj.expires_at <= timezone.now()
         if not dash_obj.access_token or token_expired:
             dash_obj.access_token = None
@@ -142,41 +147,34 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                 dash_obj, error = dash_login(
                     dash_obj.email, dash_obj.password, dash_obj=dash_obj
                 )
-
                 if not dash_obj:
-                    error_msg = f"[ERROR] Failed to refresh Dash token: {error}"
-                    status_code = error.get("status", 400)
                     return Response(
                         {"error": "Failed to refresh Dash token", "details": error},
-                        status=status_code,
+                        status=400,
                     )
-
                 dash_obj.refresh_from_db()
-
             except Exception as e:
-                error_msg = f"[ERROR] Exception during Dash login: {str(e)}"
-                return Response({"error": error_msg}, status=500)
+                return Response(
+                    {"error": f"Exception during Dash login: {str(e)}"}, status=500
+                )
 
         access_token = dash_obj.access_token
-
         DASH_API_URL = f"{DASH_BASE_URL}/api/v1/clientOrder/add-order"
-
         HEADERS = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {access_token}",
         }
 
         try:
-            # Refresh the order to ensure we have the latest data
             order = Order.objects.get(id=order.id)
-            print(order)
         except Order.DoesNotExist:
-            error_msg = f"[ERROR] Order with id {order.id} does not exist."
-            return Response({"error": error_msg}, status=404)
+            return Response(
+                {"error": f"Order with id {order.id} does not exist."}, status=404
+            )
 
         order_products = OrderItem.objects.filter(order=order)
 
-        # Build product name list
+        # Build product list
         product_name_list = []
         for op in order_products:
             try:
@@ -186,7 +184,6 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                     product_name = op.product.name
                 else:
                     product_name = "Unknown Product"
-
                 product_name_list.append(f"{op.quantity}x {product_name}")
             except Exception:
                 continue
@@ -194,35 +191,21 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         product_name = (
             ", ".join(product_name_list) if product_name_list else "No products"
         )
-
         product_price = order.total_amount
-        payment_type = order.payment_type
-
         full_address = getattr(order, "shipping_address", "No address provided")
 
-        # Map payment types to what Dash API expects
-        # Based on the error, Dash expects specific payment type values
-        if hasattr(order, "payment_type") and order.payment_type:
-            payment_type = order.payment_type.lower()
-            if payment_type in ["cod", "cash_on_delivery"]:
-                payment_type = "cashOnDelivery"
-            elif payment_type in ["khalti", "esewa"]:
-                payment_type = "prepaid"
-            else:
-                payment_type = "cashOnDelivery"
+        # Map payment type
+        payment_type = (
+            order.payment_type.lower() if order.payment_type else "cashOnDelivery"
+        )
+        if payment_type in ["cod", "cash_on_delivery"]:
+            payment_type = "cashOnDelivery"
+        elif payment_type in ["khalti", "esewa"]:
+            payment_type = "prepaid"
+        else:
+            payment_type = "cashOnDelivery"
 
-        # Dash requires a specific location name from their system
-        # Common locations might include: 'kathmandu', 'lalitpur', 'bhaktapur', etc.
-        # You'll need to get the exact location names from Dash's documentation or dashboard
-
-        # Default to Kathmandu as it's the most common location
-        receiver_location = "Kathmandu"
-
-        # If you have a city field with the correct location name, use that
-        if hasattr(order, "city") and order.city:
-            receiver_location = order.city
-
-        # Log the final location being used
+        receiver_location = getattr(order, "city", None) or "Kathmandu"
 
         customer = {
             "receiver_name": order.customer_name,
@@ -239,11 +222,13 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         }
 
         payload = {"customers": [customer]}
+        print(payload)
 
         try:
             dash_response = requests.post(
                 DASH_API_URL, json=payload, headers=HEADERS, timeout=30
             )
+            print(dash_response)
 
             try:
                 response_data = dash_response.json()
@@ -257,7 +242,17 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                     status=500,
                 )
 
-            dash_response.raise_for_status()
+            if (
+                dash_response.status_code != 200
+                or response_data.get("status") != "success"
+            ):
+                return Response(
+                    {
+                        "error": "Failed to send order to Dash",
+                        "dash_response": response_data,
+                    },
+                    status=dash_response.status_code or 500,
+                )
 
             tracking_codes = []
             if response_data.get("data", {}).get("detail"):
@@ -269,54 +264,40 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
                     for item in response_data["data"]["detail"]
                 ]
 
-                if tracking_codes:
-                    order.dash_tracking_code = tracking_codes[0]["tracking_code"]
-                    order.order_status = "shipped"
-                    order.save()
+            # ✅ Only update status if success & tracking code exists
+            if tracking_codes:
+                order.dash_tracking_code = tracking_codes[0]["tracking_code"]
+                order.status = "shipped"
+                order.save(update_fields=["dash_tracking_code", "status"])
+
+                return Response(
+                    {
+                        "message": "Order sent to Dash successfully.",
+                        "tracking_codes": tracking_codes,
+                        "dash_response": response_data,
+                    },
+                    status=200,
+                )
 
             return Response(
                 {
-                    "message": "Order sent to Dash successfully.",
-                    "tracking_codes": tracking_codes,
+                    "error": "Dash order creation returned no tracking code",
                     "dash_response": response_data,
                 },
-                status=200,
+                status=500,
             )
-
-        except requests.exceptions.HTTPError as http_err:
-            error_msg = f"[ERROR] HTTP error occurred: {str(http_err)}"
-            try:
-                error_details = (
-                    dash_response.json() if "dash_response" in locals() else {}
-                )
-                return Response(
-                    {
-                        "error": "Failed to send order to Dash (HTTP error)",
-                        "details": str(http_err),
-                        "response": error_details,
-                        "status_code": getattr(dash_response, "status_code", None),
-                    },
-                    status=500,
-                )
-            except Exception as e:
-                return Response(
-                    {"error": "Failed to send order to Dash", "details": str(e)},
-                    status=500,
-                )
 
         except requests.exceptions.RequestException as e:
             return Response(
                 {"error": "Failed to connect to Dash API", "details": str(e)},
                 status=500,
             )
-
         except Exception as e:
             import traceback
 
             traceback.print_exc()
             return Response(
-                {"error": "An unexpected error occurred", "details": str(e)},
-                status=500,
+                {"error": "An unexpected error occurred", "details": str(e)}, status=500
             )
 
 
