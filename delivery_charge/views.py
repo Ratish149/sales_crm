@@ -24,7 +24,7 @@ class DeliveryChargeListCreateView(generics.ListCreateAPIView):
         )
         location_prices = queryset.exclude(
             Q(location_name__isnull=True) | Q(location_name="")
-        )
+        ).order_by("location_name")
 
         # Serialize them separately
         default_serializer = self.get_serializer(default_prices, many=True)
