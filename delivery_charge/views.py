@@ -21,7 +21,7 @@ class CustomPagination(PageNumberPagination):
 class DeliveryChargeListCreateView(generics.ListCreateAPIView):
     queryset = DeliveryCharge.objects.filter(
         location_name__isnull=False, is_default=False
-    )
+    ).order_by("location_name")
     serializer_class = DeliveryChargeSerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
