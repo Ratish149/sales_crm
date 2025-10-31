@@ -140,6 +140,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "customer_name",
             "customer_email",
             "customer_phone",
+            "city",
             "customer_address",
             "shipping_address",
             "latitude",
@@ -152,5 +153,6 @@ class OrderListSerializer(serializers.ModelSerializer):
             "updated_at",
             "is_paid",
             "is_manual",
+            "delivery_charge",
             "payment_type",
         ]
