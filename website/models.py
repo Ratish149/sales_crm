@@ -1,5 +1,17 @@
 from django.db import models
 from django.utils.text import slugify
+from solo.models import SingletonModel
+
+
+class SiteConfig(SingletonModel):
+    favicon = models.FileField(upload_to="favicon", null=True, blank=True)
+    logo = models.FileField(upload_to="logo", null=True, blank=True)
+    instagram_url = models.URLField(null=True, blank=True)
+    facebook_url = models.URLField(null=True, blank=True)
+    twitter_url = models.URLField(null=True, blank=True)
+    linkedin_url = models.URLField(null=True, blank=True)
+    youtube_url = models.URLField(null=True, blank=True)
+    tiktok_url = models.URLField(null=True, blank=True)
 
 
 class Theme(models.Model):

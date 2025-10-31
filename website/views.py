@@ -5,9 +5,24 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Page, PageComponent, Theme
-from .serializers import PageComponentSerializer, PageSerializer, ThemeSerializer
+from .models import Page, PageComponent, SiteConfig, Theme
+from .serializers import (
+    PageComponentSerializer,
+    PageSerializer,
+    SiteConfigSerializer,
+    ThemeSerializer,
+)
 from .utils import publish_instance
+
+
+class SiteConfigListCreateView(generics.ListCreateAPIView):
+    serializer_class = SiteConfigSerializer
+    queryset = SiteConfig.objects.all()
+
+
+class SiteConfigRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = SiteConfigSerializer
+    queryset = SiteConfig.objects.all()
 
 
 # ------------------------------

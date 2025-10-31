@@ -4,6 +4,17 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # 🏠 SiteConfig
+    path(
+        "site-config/",
+        views.SiteConfigListCreateView.as_view(),
+        name="site-config-list-create",
+    ),
+    path(
+        "site-config/<int:pk>/",
+        views.SiteConfigRetrieveUpdateDestroyView.as_view(),
+        name="site-config-detail",
+    ),
     # 🌈 Theme
     path("theme/", views.ThemeListCreateView.as_view(), name="theme-list-create"),
     path(

@@ -1,6 +1,13 @@
 # serializers.py
 from rest_framework import serializers
-from .models import Theme, Page, PageComponent
+
+from .models import Page, PageComponent, SiteConfig, Theme
+
+
+class SiteConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteConfig
+        fields = "__all__"
 
 
 class ThemeSerializer(serializers.ModelSerializer):
