@@ -53,6 +53,7 @@ urlpatterns = [
     path("api/", include("logistics.urls")),
     path("api/", include("promo_code.urls")),
     path("api/", include("delivery_charge.urls")),
+    path("api/", include("google_analytic.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
