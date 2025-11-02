@@ -5,7 +5,7 @@ from .serializers import FacebookSerializer
 
 
 class FacebookListCreateView(generics.ListCreateAPIView):
-    queryset = Facebook.objects.all()
+    queryset = Facebook.objects.filter(is_enabled=True)
     serializer_class = FacebookSerializer
 
 
