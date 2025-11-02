@@ -441,6 +441,9 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     reviews_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     is_wishlist = serializers.SerializerMethodField()
+    variants_read = ProductVariantReadSerializer(
+        source="variants", many=True, read_only=True
+    )
 
     def get_reviews_count(self, obj):
         return ProductReview.objects.only("id").filter(product=obj).count()
@@ -481,6 +484,7 @@ class ProductSmallSerializer(serializers.ModelSerializer):
             "average_rating",
             "reviews_count",
             "is_wishlist",
+            "variants_read",
         ]
 
 

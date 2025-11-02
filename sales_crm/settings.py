@@ -93,6 +93,7 @@ TENANT_APPS = [
     "promo_code",
     "delivery_charge",
     "google_analytic",
+    "facebook",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
