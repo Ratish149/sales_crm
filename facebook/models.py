@@ -1,9 +1,8 @@
 from django.db import models
-from solo.models import SingletonModel
 
 
 # Create your models here.
-class Facebook(SingletonModel):
+class Facebook(models.Model):
     user_token = models.TextField(blank=True, null=True)
     app_id = models.CharField(max_length=255, blank=True, null=True)
     app_secret = models.CharField(max_length=255, blank=True, null=True)
