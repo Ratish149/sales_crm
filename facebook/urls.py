@@ -5,7 +5,6 @@ from .views import (
     ConversationMessageAPIView,
     FacebookListCreateView,
     FacebookRetrieveUpdateDestroyView,
-    facebook_webhook,
 )
 
 urlpatterns = [
@@ -21,5 +20,4 @@ urlpatterns = [
         ConversationMessageAPIView.as_view(),
         name="conversation-messages",
     ),
-    path("facebook/webhook/", facebook_webhook, name="facebook-webhook"),
 ]
