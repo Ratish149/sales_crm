@@ -13,3 +13,19 @@ class Facebook(models.Model):
 
     def __str__(self):
         return "Facebook"
+
+
+class Conversation(models.Model):
+    page = models.ForeignKey(
+        Facebook, on_delete=models.CASCADE, related_name="conversations"
+    )
+    conversation_id = models.CharField(max_length=255, unique=True)
+    participants = models.JSONField(blank=True, null=True)
+    snippet = models.TextField(blank=True, null=True)
+    updated_time = models.DateTimeField(blank=True, null=True)
+    messages = models.JSONField(
+        default=list, null=True, blank=True
+    )  # store all messages in JSON
+
+    def __str__(self):
+        return f"{self.page.page_name} - {self.conversation_id}"
