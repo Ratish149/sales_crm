@@ -38,12 +38,8 @@ class Order(models.Model):
     city = models.CharField(max_length=255, null=True, blank=True)
     customer_address = models.CharField(max_length=255, null=True, blank=True)
     shipping_address = models.CharField(max_length=255, null=True, blank=True)
-    latitude = models.DecimalField(
-        max_digits=10, decimal_places=10, null=True, blank=True
-    )
-    longitude = models.DecimalField(
-        max_digits=10, decimal_places=10, null=True, blank=True
-    )
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     delivery_charge = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True
     )

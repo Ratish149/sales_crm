@@ -23,9 +23,8 @@ class Conversation(models.Model):
     participants = models.JSONField(blank=True, null=True)
     snippet = models.TextField(blank=True, null=True)
     updated_time = models.DateTimeField(blank=True, null=True)
-    messages = models.JSONField(
-        default=list, null=True, blank=True
-    )  # store all messages in JSON
+    messages = models.JSONField(default=list, blank=True)
+    last_synced = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.page.page_name} - {self.conversation_id}"

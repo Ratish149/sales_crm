@@ -77,6 +77,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "is_manual",
             "promo_code",
             "note",
+            "latitude",
+            "longitude",
             "payment_type",
             "items",  # for creating/updating
             "order_items",  # for reading back

@@ -1,8 +1,14 @@
 from rest_framework import generics, response, status
 
 from .models import Conversation, Facebook
-from .serializers import ConversationSerializer, FacebookSerializer
+from .serializers import (
+    ConversationMessageSerializer,
+    ConversationSerializer,
+    FacebookSerializer,
+)
 from .utils import sync_conversations_from_facebook, sync_messages_for_conversation
+
+VERIFY_TOKEN = "secret123"  # 🔑 same as you’ll set in Facebook Developer dashboard
 
 
 class FacebookListCreateView(generics.ListCreateAPIView):
@@ -42,7 +48,7 @@ class ConversationListAPIView(generics.ListAPIView):
 
 
 class ConversationMessageAPIView(generics.RetrieveAPIView):
-    serializer_class = ConversationSerializer
+    serializer_class = ConversationMessageSerializer
     lookup_field = "conversation_id"
     queryset = Conversation.objects.all()
 

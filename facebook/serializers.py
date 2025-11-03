@@ -22,6 +22,24 @@ class ConversationSerializer(serializers.ModelSerializer):
             "participants",
             "snippet",
             "updated_time",
+            # "messages",
+            "last_synced",
+        ]
+
+
+class ConversationMessageSerializer(serializers.ModelSerializer):
+    page_name = serializers.CharField(source="page.page_name", read_only=True)
+
+    class Meta:
+        model = Conversation
+        fields = [
+            "id",
+            "page",
+            "page_name",
+            "conversation_id",
+            "participants",
+            "snippet",
+            "updated_time",
             "messages",
             "last_synced",
         ]
