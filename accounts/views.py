@@ -1,38 +1,45 @@
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
-from allauth.headless.account.views import SignupView as AllauthSignupView
-from django.core.exceptions import ValidationError
-from django.contrib.auth import login
-from allauth.account import app_settings as allauth_settings
-from allauth.account.utils import get_adapter, setup_user_email
-from .serializers import AcceptInvitationSerializer, InvitationSerializer, StoreProfileSerializer, UserWithStoresSerializer
-from rest_framework import generics, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import CustomUser, StoreProfile, Invitation
-from allauth.account.utils import send_email_confirmation
-import os
-import resend
-from django.template.loader import render_to_string
-from dotenv import load_dotenv
-from tenants.models import Client, Domain
 import json
-from allauth.account.adapter import get_adapter
-from allauth.headless.account.views import SignupView as AllauthSignupView
-from rest_framework_simplejwt.tokens import RefreshToken
-from allauth.account.utils import user_email, user_username, user_field
-from django.http import JsonResponse
-from django.utils.text import slugify
-from sales_crm.utils.error_handler import (
-    bad_request, server_error, not_found, duplicate_entry,
-    validation_error, ErrorCode, ErrorMessage
+import os
+from uuid import uuid4
+
+import resend
+from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+from allauth.account.utils import (
+    send_email_confirmation,
+    user_email,
+    user_field,
+    user_username,
 )
 from django.db.models import Q
+from django.http import Http404
+from django.template.loader import render_to_string
+from django.utils.decorators import method_decorator
+from django.utils.text import slugify
+from django.views.decorators.csrf import csrf_exempt
+from dotenv import load_dotenv
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework import serializers
-from uuid import uuid4
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from sales_crm.utils.error_handler import (
+    ErrorCode,
+    bad_request,
+    duplicate_entry,
+    not_found,
+    server_error,
+    validation_error,
+)
+from tenants.models import Client, Domain
+
+from .models import CustomUser, Invitation, StoreProfile
+from .serializers import (
+    AcceptInvitationSerializer,
+    InvitationSerializer,
+    StoreProfileSerializer,
+    UserWithStoresSerializer,
+)
+
 load_dotenv()
 # Create your views here.
 
@@ -40,9 +47,8 @@ backend_url = os.getenv("BACKEND_URL")
 frontendUrl = os.getenv("FRONTEND_URL")
 
 
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_exempt, name="dispatch")
 class CustomSignupView(APIView):
-
     def post(self, request, *args, **kwargs):
         # Parse request data
         try:
@@ -53,7 +59,7 @@ class CustomSignupView(APIView):
             return bad_request(
                 message="Invalid request data",
                 code=ErrorCode.BAD_REQUEST,
-                params={"error": str(e)}
+                params={"error": str(e)},
             )
 
         email = data.get("email")
@@ -73,7 +79,7 @@ class CustomSignupView(APIView):
         if CustomUser.objects.filter(Q(username=username) | Q(email=email)).exists():
             return duplicate_entry(
                 message="A user with this email/username already exists. Please use a different email or try logging in.",
-                params={"email": email}
+                params={"email": email},
             )
 
         # Validate unique store_name schema
@@ -100,12 +106,12 @@ class CustomSignupView(APIView):
                 if Client.objects.filter(schema_name=store_name).exists():
                     return validation_error(
                         message=f"Store name '{store_name}' is already taken.",
-                        params={"store_name": "This store name is already taken"}
+                        params={"store_name": "This store name is already taken"},
                     )
-                if store_name in ['public', 'default', 'postgres']:
+                if store_name in ["public", "default", "postgres"]:
                     return validation_error(
                         message=f"Store name '{store_name}' is reserved.",
-                        params={"store_name": "This store name is reserved"}
+                        params={"store_name": "This store name is reserved"},
                     )
 
             # Create StoreProfile & Tenant
@@ -115,8 +121,8 @@ class CustomSignupView(APIView):
                     user.frontend_url = frontend_url
                     user.save()
                     store_profile, created = StoreProfile.objects.get_or_create(
-                        owner=user,
-                        store_name=store_name)
+                        owner=user, store_name=store_name
+                    )
                     user.role = "owner" if created else "viewer"
                     user.save()
 
@@ -135,7 +141,7 @@ class CustomSignupView(APIView):
                     user.delete()
                     return server_error(
                         message="Failed to create store profile",
-                        params={"error": str(e)}
+                        params={"error": str(e)},
                     )
 
             # Send verification email
@@ -144,22 +150,26 @@ class CustomSignupView(APIView):
             except Exception as e:
                 # Log the error but don't fail the signup
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.error(f"Failed to send verification email: {str(e)}")
 
             # Return success response
-            return Response({
-                "id": user.id,
-                "email": email,
-                "username": username,
-                "store_name": store_name,
-                "role": user.role,
-            }, status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "id": user.id,
+                    "email": email,
+                    "username": username,
+                    "store_name": store_name,
+                    "role": user.role,
+                },
+                status=status.HTTP_201_CREATED,
+            )
 
         except Exception as e:
             return server_error(
                 message="An unexpected error occurred during signup",
-                params={"error": str(e)}
+                params={"error": str(e)},
             )
 
 
@@ -170,61 +180,73 @@ class CustomVerifyEmailView(APIView):
     """
 
     def post(self, request, *args, **kwargs):
-        key = request.query_params.get(
-            'key') or request.headers.get('x-email-verification-key') or request.data.get('key')
+        key = (
+            request.query_params.get("key")
+            or request.headers.get("x-email-verification-key")
+            or request.data.get("key")
+        )
 
         if not key:
             return bad_request(
                 message="Verification key is required.",
-                code=status.HTTP_400_BAD_REQUEST
+                code=status.HTTP_400_BAD_REQUEST,
             )
 
         # Try to find EmailConfirmation by key (DB or HMAC)
         email_confirmation = EmailConfirmationHMAC.from_key(key)
         if not email_confirmation:
             try:
-                email_confirmation = EmailConfirmation.objects.get(
-                    key=key.lower())
+                email_confirmation = EmailConfirmation.objects.get(key=key.lower())
             except EmailConfirmation.DoesNotExist:
                 return not_found(
-                    message="Invalid verification key.",
-                    code=status.HTTP_404_NOT_FOUND
+                    message="Invalid verification key.", code=status.HTTP_404_NOT_FOUND
                 )
 
         try:
             # Confirm email
             email_confirmation.confirm(request)
-            return Response({
-                "message": "Email verified successfully.",
-                "status": status.HTTP_200_OK
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "message": "Email verified successfully.",
+                    "status": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
 
         except Exception as e:
             return server_error(
                 message="Failed to verify email",
                 code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                params={"error": str(e)}
+                params={"error": str(e)},
             )
 
 
 class ChangePasswordView(APIView):
     def post(self, request):
-        password = request.data.get('password')
-        email = request.data.get('email')
+        password = request.data.get("password")
+        email = request.data.get("email")
         user = CustomUser.objects.get(email=email)
         user.set_password(password)
         user.save()
-        return Response({'message': 'Password changed successfully'}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Password changed successfully"}, status=status.HTTP_200_OK
+        )
 
 
 class ResendEmailVerificationView(APIView):
     def post(self, request):
-        email = request.data.get('email')
+        email = request.data.get("email")
         user = CustomUser.objects.get(email=email)
-        if user.is_authenticated and not user.emailaddress_set.filter(verified=True).exists():
+        if (
+            user.is_authenticated
+            and not user.emailaddress_set.filter(verified=True).exists()
+        ):
             send_email_confirmation(request, user)
             return Response({"detail": "Verification email sent."})
-        return Response({"detail": "Already verified or not authenticated."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Already verified or not authenticated."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class InvitationCreateView(generics.ListCreateAPIView):
@@ -241,46 +263,53 @@ class InvitationCreateView(generics.ListCreateAPIView):
 
         if not store:
             raise serializers.ValidationError(
-                "You don't own any store to invite users to.")
+                "You don't own any store to invite users to."
+            )
 
         # Check if the user has permission to invite (only owner and admin can invite)
-        if not (self.request.user.role in ['owner', 'admin'] and store.owner == self.request.user):
+        if not (
+            self.request.user.role in ["owner", "admin"]
+            and store.owner == self.request.user
+        ):
             raise PermissionDenied(
-                "You don't have permission to invite users to this store.")
+                "You don't have permission to invite users to this store."
+            )
 
-        email = serializer.validated_data['email']
-        role = serializer.validated_data['role']
+        email = serializer.validated_data["email"]
+        role = serializer.validated_data["role"]
 
         # Check if user is already a member
         existing_user = CustomUser.objects.filter(email=email).first()
         if existing_user and store.users.filter(id=existing_user.id).exists():
             raise serializers.ValidationError(
-                "This user is already a member of this store.")
+                "This user is already a member of this store."
+            )
 
         # Check for existing invitation
         if Invitation.objects.filter(email=email, store=store, accepted=False).exists():
             raise serializers.ValidationError(
-                "An invitation has already been sent to this email.")
+                "An invitation has already been sent to this email."
+            )
         # Create the invitation
         invitation = serializer.save(
-            store=store,
-            invited_by=self.request.user,
-            role=role
+            store=store, invited_by=self.request.user, role=role
         )
 
         # Send invitation email
         self._send_invitation_email(invitation)
 
     def _send_invitation_email(self, invitation):
-
         resend.api_key = os.getenv("RESEND_API_KEY")
         FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         invite_url = f"{FRONTEND_URL}/user/invite/{invitation.token}"
         # Prepare email content using a template
         html_body = render_to_string(
             "account/email/invitation_message.html",
-            {"store_name": invitation.store.store_name,
-                "role": invitation.role, "invite_url": invite_url}
+            {
+                "store_name": invitation.store.store_name,
+                "role": invitation.role,
+                "invite_url": invite_url,
+            },
         )
         params = {
             "from": "sales@baliyoventures.com",
@@ -292,8 +321,7 @@ class InvitationCreateView(generics.ListCreateAPIView):
             response = resend.Emails.send(params)
         except Exception as e:
             return server_error(
-                message="Failed to send invitation email",
-                params={"error": str(e)}
+                message="Failed to send invitation email", params={"error": str(e)}
             )
 
 
@@ -305,13 +333,17 @@ class ResendInvitationView(APIView):
             invitation = Invitation.objects.get(
                 id=invitation_id,
                 store__users=request.user,  # Only allow resending if user has access to the store
-                accepted=False
+                accepted=False,
             )
 
             # Check permission - only store owner or admin can resend invitations
-            if not (request.user.role in ['owner', 'admin'] and request.user in invitation.store.users.all()):
+            if not (
+                request.user.role in ["owner", "admin"]
+                and request.user in invitation.store.users.all()
+            ):
                 raise PermissionDenied(
-                    "You don't have permission to resend this invitation.")
+                    "You don't have permission to resend this invitation."
+                )
 
             # Update the token and save
             invitation.token = uuid4()
@@ -321,20 +353,16 @@ class ResendInvitationView(APIView):
             InvitationCreateView._send_invitation_email(self, invitation)
 
             return Response(
-                {"detail": "Invitation resent successfully."},
-                status=status.HTTP_200_OK
+                {"detail": "Invitation resent successfully."}, status=status.HTTP_200_OK
             )
 
         except Invitation.DoesNotExist:
             return Response(
                 {"detail": "Invitation not found or already accepted."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
-            return Response(
-                {"detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AcceptInvitationView(APIView):
@@ -342,7 +370,9 @@ class AcceptInvitationView(APIView):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response({'detail': 'User created successfully.'}, status=status.HTTP_201_CREATED)
+            return Response(
+                {"detail": "User created successfully."}, status=status.HTTP_201_CREATED
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -379,24 +409,24 @@ class StoreProfileDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise Http404("No store found for this user.")
 
         # Check if user has permission to view this store
-        if not self.request.user in store.users.all() and not self.request.user == store.owner:
-            raise PermissionDenied(
-                "You don't have permission to access this store.")
+        if (
+            self.request.user not in store.users.all()
+            and not self.request.user == store.owner
+        ):
+            raise PermissionDenied("You don't have permission to access this store.")
 
         return store
 
     def perform_update(self, serializer):
         # Only allow the store owner to update the store
         if self.request.user != serializer.instance.owner:
-            raise PermissionDenied(
-                "Only the store owner can update store details.")
+            raise PermissionDenied("Only the store owner can update store details.")
         serializer.save()
 
     def perform_destroy(self, instance):
         # Only allow the store owner to delete the store
         if self.request.user != instance.owner:
-            raise PermissionDenied(
-                "Only the store owner can delete the store.")
+            raise PermissionDenied("Only the store owner can delete the store.")
         instance.delete()
 
 
@@ -406,6 +436,6 @@ class UserWithStoresListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return (
             CustomUser.objects.all()
-            .prefetch_related("stores")       # prefetch many-to-many stores
+            .prefetch_related("stores")  # prefetch many-to-many stores
             .prefetch_related("owned_stores")  # prefetch owned stores
         )

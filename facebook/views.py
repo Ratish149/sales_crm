@@ -1,4 +1,8 @@
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import generics, response, status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
 
 from .models import Conversation, Facebook
 from .serializers import (
@@ -58,3 +62,141 @@ class ConversationMessageAPIView(generics.RetrieveAPIView):
         return response.Response(
             {"result": result, "conversation": data}, status=status.HTTP_200_OK
         )
+
+
+@api_view(["POST"])
+def webhook_handler(request):
+    """
+    Webhook to receive real-time message data from frontend.
+
+    Expected format from your frontend:
+    {
+        "id": "m_xxx",
+        "conversationId": "t_775429945664166_32735928529331376",
+        "message": "Hello",
+        "from": {
+            "id": "32735928529331376",
+            "name": "Facebook User"
+        },
+        "created_time": "2025-11-03T08:24:15.000Z",
+        "pageId": "775429945664166",
+        "senderId": "32735928529331376"
+    }
+    """
+    try:
+        # Extract data from frontend format
+        message_id = request.data.get("id")
+        conversation_id = request.data.get("conversationId")
+        message_text = request.data.get("message", "")
+        sender_info = request.data.get("from", {})
+        created_time_str = request.data.get("created_time")
+        page_id = request.data.get("pageId")
+        sender_id = request.data.get("senderId")
+
+        # Validate required fields
+        if not all([message_id, conversation_id, page_id, sender_id]):
+            return Response(
+                {
+                    "error": "Missing required fields: id, conversationId, pageId, senderId"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get Facebook page
+        try:
+            page = Facebook.objects.get(page_id=page_id, is_enabled=True)
+        except Facebook.DoesNotExist:
+            return Response(
+                {"error": f"Facebook page {page_id} not found or disabled"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Parse created_time
+        if created_time_str:
+            try:
+                # Handle the timestamp from frontend
+                created_time = parse_datetime(created_time_str)
+                if not created_time:
+                    created_time = timezone.now()
+            except:
+                created_time = timezone.now()
+        else:
+            created_time = timezone.now()
+
+        # Get or create conversation
+        conversation, created = Conversation.objects.get_or_create(
+            conversation_id=conversation_id,
+            defaults={
+                "page": page,
+                "participants": [],
+                "snippet": "",
+                "updated_time": created_time,
+                "messages": [],
+                "last_synced": timezone.now(),
+            },
+        )
+
+        # Check if message already exists
+        existing_message_ids = {msg.get("id") for msg in conversation.messages}
+
+        message_status = "no_change"
+        if message_id and message_id not in existing_message_ids:
+            # Create message in your database format
+            new_message = {
+                "id": message_id,
+                "from": {
+                    "id": sender_id,
+                    "name": sender_info.get("name", "Facebook User"),
+                    "email": f"{sender_id}@facebook.com",
+                },
+                "message": message_text,
+                "created_time": created_time.strftime("%Y-%m-%dT%H:%M:%S+0000"),
+            }
+
+            # Append message
+            conversation.messages.append(new_message)
+
+            # Sort messages by created_time
+            conversation.messages.sort(key=lambda x: x.get("created_time", ""))
+
+            # Update snippet
+            conversation.snippet = message_text
+
+            # Update updated_time
+            conversation.updated_time = created_time
+
+            message_status = "added"
+        elif message_id in existing_message_ids:
+            message_status = "duplicate"
+
+        # Update participants if sender is new
+        participant_ids = {p.get("id") for p in conversation.participants}
+        if sender_id and sender_id not in participant_ids:
+            conversation.participants.append(
+                {"id": sender_id, "name": sender_info.get("name", "Facebook User")}
+            )
+
+        # Update last_synced
+        conversation.last_synced = timezone.now()
+        conversation.save()
+
+        return Response(
+            {
+                "status": "success",
+                "conversation_created": created,
+                "message_status": message_status,
+                "total_messages": len(conversation.messages),
+                "conversation": {
+                    "id": conversation.id,
+                    "conversation_id": conversation.conversation_id,
+                    "snippet": conversation.snippet,
+                    "updated_time": conversation.updated_time.isoformat()
+                    if conversation.updated_time
+                    else None,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
