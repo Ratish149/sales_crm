@@ -14,7 +14,7 @@ from .utils import sync_conversations_from_facebook, sync_messages_for_conversat
 
 
 class FacebookListCreateView(generics.ListCreateAPIView):
-    queryset = Facebook.objects.filter(is_enabled=True)
+    queryset = Facebook.objects.all()
     serializer_class = FacebookSerializer
     # permission_classes = [IsAuthenticated]
 
