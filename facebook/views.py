@@ -72,7 +72,7 @@ def webhook_handler(request):
     Expected format from your frontend:
     {
         "id": "m_xxx",
-        "conversationId": "t_775429945664166_32735928529331376",
+        "conversationId": "t_122170001792604595" or "t_775429945664166_32735928529331376",
         "message": "Hello",
         "from": {
             "id": "32735928529331376",
@@ -114,7 +114,6 @@ def webhook_handler(request):
         # Parse created_time
         if created_time_str:
             try:
-                # Handle the timestamp from frontend
                 created_time = parse_datetime(created_time_str)
                 if not created_time:
                     created_time = timezone.now()
@@ -123,18 +122,24 @@ def webhook_handler(request):
         else:
             created_time = timezone.now()
 
-        # Get or create conversation
-        conversation, created = Conversation.objects.get_or_create(
-            conversation_id=conversation_id,
-            defaults={
-                "page": page,
-                "participants": [],
-                "snippet": "",
-                "updated_time": created_time,
-                "messages": [],
-                "last_synced": timezone.now(),
-            },
-        )
+        # Try to find existing conversation by conversation_id
+        try:
+            conversation = Conversation.objects.get(
+                conversation_id=conversation_id, page=page
+            )
+            created = False
+        except Conversation.DoesNotExist:
+            # Create new conversation
+            conversation = Conversation.objects.create(
+                conversation_id=conversation_id,
+                page=page,
+                participants=[],
+                snippet=message_text,
+                updated_time=created_time,
+                messages=[],
+                last_synced=timezone.now(),
+            )
+            created = True
 
         # Check if message already exists
         existing_message_ids = {msg.get("id") for msg in conversation.messages}
@@ -159,7 +164,7 @@ def webhook_handler(request):
             # Sort messages by created_time
             conversation.messages.sort(key=lambda x: x.get("created_time", ""))
 
-            # Update snippet
+            # Update snippet with latest message
             conversation.snippet = message_text
 
             # Update updated_time
@@ -176,6 +181,13 @@ def webhook_handler(request):
                 {"id": sender_id, "name": sender_info.get("name", "Facebook User")}
             )
 
+        # Also add page as participant if not exists
+        page_id_str = str(page_id)
+        if page_id_str not in participant_ids:
+            conversation.participants.append(
+                {"id": page_id_str, "name": page.page_name or "Page"}
+            )
+
         # Update last_synced
         conversation.last_synced = timezone.now()
         conversation.save()
@@ -189,14 +201,21 @@ def webhook_handler(request):
                 "conversation": {
                     "id": conversation.id,
                     "conversation_id": conversation.conversation_id,
+                    "page_name": page.page_name,
                     "snippet": conversation.snippet,
                     "updated_time": conversation.updated_time.isoformat()
                     if conversation.updated_time
                     else None,
+                    "participants": conversation.participants,
                 },
             },
             status=status.HTTP_200_OK,
         )
 
     except Exception as e:
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        import traceback
+
+        return Response(
+            {"error": str(e), "traceback": traceback.format_exc()},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
