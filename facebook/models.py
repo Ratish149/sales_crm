@@ -12,7 +12,10 @@ class Facebook(models.Model):
     is_enabled = models.BooleanField(default=False)
 
     def __str__(self):
-        return "Facebook"
+        return f"{self.page_name}"
+
+    class Meta:
+        unique_together = ("page_id",)
 
 
 class Conversation(models.Model):
