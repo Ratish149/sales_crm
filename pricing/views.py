@@ -92,3 +92,45 @@ class UserSubscriptionListView(generics.ListAPIView):
         except Client.DoesNotExist:
             return UserSubscription.objects.none()
         return UserSubscription.objects.filter(tenant=tenant)
+
+
+@allow_inactive_subscription
+class SubscriptionStatusView(generics.GenericAPIView):
+    """
+    Check the current tenant's subscription status.
+    Returns `active` or `inactive`.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            tenant = Client.objects.get(owner=request.user)
+        except Client.DoesNotExist:
+            return Response({"error": "Tenant not found for this user"}, status=404)
+
+        if tenant.pricing_plan is None:
+            # No plan => inactive
+            status_flag = False
+            status_text = "inactive"
+        elif tenant.paid_until is None:
+            # Lifetime plan => active
+            status_flag = True
+            status_text = "active"
+        else:
+            # Check expiry date
+            if tenant.paid_until >= date.today():
+                status_flag = True
+                status_text = "active"
+            else:
+                status_flag = False
+                status_text = "inactive"
+
+        return Response(
+            {
+                "active": status_flag,
+                "status": status_text,
+                "plan": tenant.pricing_plan.name if tenant.pricing_plan else "No plan",
+                "expires_on": tenant.paid_until if tenant.paid_until else "Never",
+            }
+        )
