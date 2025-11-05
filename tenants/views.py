@@ -1,5 +1,6 @@
 # Create your views here.
 import json  # You already have this, but confirm
+import logging
 from datetime import datetime
 from datetime import timezone as dt_timezone
 
@@ -21,6 +22,8 @@ from .models import Domain
 from .serializers import DomainSerializer
 
 VERIFY_TOKEN = "secret123"
+
+logger = logging.getLogger("facebook_webhook")
 
 
 class CustomPagination(PageNumberPagination):
@@ -49,59 +52,61 @@ class FacebookWebhookAPIView(APIView):
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
-        print("GET webhook hit:", mode, token, challenge)
+        logger.info(
+            f"GET webhook hit: mode={mode}, token={token}, challenge={challenge}"
+        )
 
         if mode and token:
             if mode == "subscribe" and token == VERIFY_TOKEN:
-                print("GET verification successful")
+                logger.info("GET verification successful")
                 return HttpResponse(challenge, status=200)
             else:
-                print("GET verification failed: token mismatch")
+                logger.warning("GET verification failed: token mismatch")
                 return HttpResponseForbidden("Verification token mismatch")
         return HttpResponseBadRequest("Missing verification parameters")
 
     def post(self, request, *args, **kwargs):
-        print("POST webhook hit!")
+        logger.info("POST webhook hit!")
         try:
             data = json.loads(request.body.decode("utf-8"))
-            print("Payload received:", json.dumps(data, indent=2))
+            logger.debug(f"Payload received: {json.dumps(data, indent=2)}")
         except json.JSONDecodeError:
-            print("Invalid JSON received")
+            logger.error("Invalid JSON received")
             return HttpResponseBadRequest("Invalid JSON payload")
 
         if data.get("object") != "page":
-            print("Not a page object")
+            logger.warning("Not a page object")
             return HttpResponseForbidden("Not a page object")
 
         for entry in data.get("entry", []):
             page_fb_id = entry.get("id")
-            print("Processing entry for Page ID:", page_fb_id)
+            logger.info(f"Processing entry for Page ID: {page_fb_id}")
 
             tenant = self.find_tenant_by_page_id(page_fb_id)
             if not tenant:
-                print("No tenant has this page ID")
+                logger.warning("No tenant has this page ID")
                 continue
 
-            print("Tenant found:", tenant.schema_name)
+            logger.info(f"Tenant found: {tenant.schema_name}")
 
             try:
                 connection.set_tenant(tenant)
-                print(f"Switched to tenant: {tenant.schema_name}")
+                logger.info(f"Switched to tenant: {tenant.schema_name}")
             except Exception as e:
-                print("Error switching tenant:", e)
+                logger.error(f"Error switching tenant: {e}")
                 continue
 
             try:
                 facebook_page = Facebook.objects.get(
                     page_id=page_fb_id, is_enabled=True
                 )
-                print("Facebook page found in tenant:", facebook_page.page_name)
+                logger.info(f"Facebook page found in tenant: {facebook_page.page_name}")
             except Facebook.DoesNotExist:
-                print("Facebook page not enabled in tenant")
+                logger.warning("Facebook page not enabled in tenant")
                 connection.set_schema_to_public()
                 continue
             except Exception as e:
-                print("Error fetching Facebook page:", e)
+                logger.error(f"Error fetching Facebook page: {e}")
                 connection.set_schema_to_public()
                 continue
 
@@ -109,14 +114,14 @@ class FacebookWebhookAPIView(APIView):
                 with transaction.atomic():
                     for event in entry.get("messaging", []):
                         if "message" in event:
-                            print("Processing message event:", event)
+                            logger.info(f"Processing message event: {event}")
                             self._handle_message(facebook_page, event)
             except Exception as e:
-                print("Error processing messages:", e)
+                logger.error(f"Error processing messages: {e}")
             finally:
                 connection.set_schema_to_public()
 
-        print("Webhook processing finished")
+        logger.info("Webhook processing finished")
         return HttpResponse("EVENT_RECEIVED", status=200)
 
     def find_tenant_by_page_id(self, page_id):
@@ -127,7 +132,7 @@ class FacebookWebhookAPIView(APIView):
                     if FacebookPageTenantMap.objects.filter(page_id=page_id).exists():
                         return tenant
             except Exception as e:
-                print("Error checking tenant schema:", tenant.schema_name, e)
+                logger.error(f"Error checking tenant schema: {tenant.schema_name}, {e}")
         return None
 
     def _handle_message(self, facebook_page, event):
@@ -140,7 +145,9 @@ class FacebookWebhookAPIView(APIView):
             message_id = message_data.get("mid")
             message_text = message_data.get("text", "")
 
-            print(f"Handling message {message_id} from {sender_id}: {message_text}")
+            logger.info(
+                f"Handling message {message_id} from {sender_id}: {message_text}"
+            )
 
             conversation_id = f"{facebook_page.page_id}-{sender_id}"
             created_datetime = datetime.fromtimestamp(
@@ -183,6 +190,6 @@ class FacebookWebhookAPIView(APIView):
                     conversation.last_synced = timezone.now()
                     conversation.save()
 
-            print(f"Conversation {conversation.conversation_id} processed")
+            logger.info(f"Conversation {conversation.conversation_id} processed")
         except Exception as e:
-            print("Error in _handle_message:", e)
+            logger.error(f"Error in _handle_message: {e}")
