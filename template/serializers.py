@@ -1,0 +1,49 @@
+from rest_framework import serializers
+
+from .models import Template, TemplatePage, TemplatePageComponent
+
+
+class TemplatePageComponentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplatePageComponent
+        fields = [
+            "id",
+            "page",
+            "component_type",
+            "component_id",
+            "data",
+            "order",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class TemplatePageSerializer(serializers.ModelSerializer):
+    components = TemplatePageComponentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = TemplatePage
+        fields = [
+            "id",
+            "template",
+            "title",
+            "slug",
+            "components",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class TemplateSerializer(serializers.ModelSerializer):
+    pages = TemplatePageSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Template
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "pages",
+            "created_at",
+            "updated_at",
+        ]
