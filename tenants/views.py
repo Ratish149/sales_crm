@@ -18,7 +18,7 @@ from .models import Domain
 from .serializers import DomainSerializer
 
 load_dotenv()
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+VERIFY_TOKEN = "secret123"
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
 
 logger = logging.getLogger("facebook_webhook")
