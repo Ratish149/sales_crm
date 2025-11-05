@@ -68,6 +68,7 @@ SHARED_APPS = [
     "accounts",
     "tinymce",
     "support",
+    "pricing",
 ]
 
 TENANT_APPS = [
@@ -105,6 +106,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
+    "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
