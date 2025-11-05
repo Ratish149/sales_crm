@@ -1,7 +1,7 @@
 # pricing/serializers.py
 from rest_framework import serializers
 
-from .models import Pricing, PricingFeature
+from .models import Pricing, PricingFeature, UserSubscription
 
 
 class PricingFeatureSerializer(serializers.ModelSerializer):
@@ -25,4 +25,33 @@ class PricingSerializer(serializers.ModelSerializer):
             "unit",
             "is_popular",
             "features",
+        ]
+
+
+class PricingSmallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Pricing
+        fields = [
+            "id",
+            "name",
+            "price",
+            "unit",
+        ]
+
+
+class UserSubscriptionSerializer(serializers.ModelSerializer):
+    plan = PricingSmallSerializer()
+
+    class Meta:
+        model = UserSubscription
+        fields = [
+            "id",
+            "tenant",
+            "plan",
+            "transaction_id",
+            "payment_type",
+            "amount",
+            "started_on",
+            "expires_on",
+            "created_at",
         ]

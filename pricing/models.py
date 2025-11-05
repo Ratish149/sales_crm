@@ -1,4 +1,8 @@
+from datetime import date
+
 from django.db import models
+
+from tenants.models import Client
 
 # Create your models here.
 
@@ -78,3 +82,27 @@ class PricingFeature(models.Model):
 
     def __str__(self):
         return f"{self.pricing.name} - {self.feature} - {self.order}"
+
+
+class UserSubscription(models.Model):
+    PAYMENT_CHOICES = [
+        ("esewa", "Esewa"),
+        ("khalti", "Khalti"),
+        ("cash", "Cash"),
+    ]
+
+    tenant = models.ForeignKey(
+        Client, on_delete=models.CASCADE, related_name="subscription_history"
+    )
+    plan = models.ForeignKey("Pricing", on_delete=models.SET_NULL, null=True)
+    transaction_id = models.CharField(max_length=255, blank=True, null=True)
+    payment_type = models.CharField(
+        max_length=50, choices=PAYMENT_CHOICES, default="cash", blank=True, null=True
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
+    started_on = models.DateField(default=date.today)
+    expires_on = models.DateField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tenant.name} - {self.plan.name if self.plan else 'No Plan'} - {self.transaction_id}"

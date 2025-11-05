@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from sales_crm.utils.decorators import allow_inactive_subscription
 from tenants.models import Client
 
-from .models import Pricing
-from .serializers import PricingSerializer
+from .models import Pricing, UserSubscription
+from .serializers import PricingSerializer, UserSubscriptionSerializer
 
 
 class PricingListView(generics.ListAPIView):
@@ -24,6 +24,9 @@ class TenantUpgradePlanView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         plan_id = request.data.get("plan_id")
+        transaction_id = request.data.get("transaction_id")
+        payment_type = request.data.get("payment_type", "cash")  # default to cash
+
         if not plan_id:
             return Response({"error": "plan_id is required"}, status=400)
 
@@ -41,7 +44,7 @@ class TenantUpgradePlanView(generics.GenericAPIView):
         tenant.pricing_plan = plan
 
         # Extend subscription based on plan's duration_days
-        duration_days = plan.get_duration_days()  # uses duration_days or fallback
+        duration_days = plan.get_duration_days()
         if duration_days is None:
             # Lifetime plan
             tenant.paid_until = None
@@ -52,6 +55,17 @@ class TenantUpgradePlanView(generics.GenericAPIView):
                 tenant.paid_until = date.today() + timedelta(days=duration_days)
 
         tenant.save()
+
+        # Create subscription history record
+        UserSubscription.objects.create(
+            tenant=tenant,
+            plan=plan,
+            transaction_id=transaction_id,
+            payment_type=payment_type,
+            amount=plan.price,
+            started_on=date.today(),
+            expires_on=tenant.paid_until,
+        )
 
         return Response(
             {
@@ -66,3 +80,15 @@ class TenantUpgradePlanView(generics.GenericAPIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class UserSubscriptionListView(generics.ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserSubscriptionSerializer
+
+    def get_queryset(self):
+        try:
+            tenant = Client.objects.get(owner=self.request.user)
+        except Client.DoesNotExist:
+            return UserSubscription.objects.none()
+        return UserSubscription.objects.filter(tenant=tenant)
