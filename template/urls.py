@@ -1,11 +1,12 @@
 from django.urls import path
+
 from .views import (
     TemplateListCreateView,
-    TemplateRetrieveUpdateDestroyView,
-    TemplatePageListCreateView,
-    TemplatePageRetrieveUpdateDestroyView,
     TemplatePageComponentListCreateView,
     TemplatePageComponentRetrieveUpdateDestroyView,
+    TemplatePageListCreateView,
+    TemplatePageRetrieveUpdateDestroyView,
+    TemplateRetrieveUpdateDestroyView,
 )
 
 urlpatterns = [
@@ -17,20 +18,24 @@ urlpatterns = [
         name="template-detail",
     ),
     # TemplatePage endpoints
-    path("pages/", TemplatePageListCreateView.as_view(), name="page-list-create"),
     path(
-        "pages/<int:id>/",
+        "template-pages/",
+        TemplatePageListCreateView.as_view(),
+        name="template-page-list-create",
+    ),
+    path(
+        "template-pages/<int:id>/",
         TemplatePageRetrieveUpdateDestroyView.as_view(),
-        name="page-detail",
+        name="template-page-detail",
     ),
     # TemplatePageComponent endpoints
     path(
-        "pages/<int:page_id>/components/",
+        "template-pages/<int:page_id>/components/",
         TemplatePageComponentListCreateView.as_view(),
-        name="component-list-create",
+        name="template-page-component-list-create",
     ),
     path(
-        "pages/<int:page_id>/components/<int:component_id>/",
+        "template-pages/<int:page_id>/components/<int:component_id>/",
         TemplatePageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),
