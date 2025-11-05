@@ -1,27 +1,25 @@
 # Create your views here.
 import json  # You already have this, but confirm
 import logging
-from datetime import datetime
-from datetime import timezone as dt_timezone
+import os
 
-from django.db import connection, transaction
+import requests
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
-from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django_tenants.utils import get_tenant_model, schema_context
+from dotenv import load_dotenv
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import AllowAny
-from rest_framework.views import APIView
 
-from facebook.models import Conversation, Facebook
 from tenants.models import FacebookPageTenantMap
 
 from .models import Domain
 from .serializers import DomainSerializer
 
-VERIFY_TOKEN = "secret123"
+load_dotenv()
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
+BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
 
 logger = logging.getLogger("facebook_webhook")
 
@@ -44,152 +42,98 @@ class DomainDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @method_decorator(csrf_exempt, name="dispatch")
-class FacebookWebhookAPIView(APIView):
-    authentication_classes = []
-    permission_classes = [AllowAny]
+class FacebookWebhookView(View):
+    """Webhook endpoint that receives messages from Facebook and routes to correct tenant backend."""
 
     def get(self, request, *args, **kwargs):
+        """Verify Facebook webhook"""
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge")
+
+        print(f"GET webhook hit: mode={mode}, token={token}, challenge={challenge}")
         logger.info(
             f"GET webhook hit: mode={mode}, token={token}, challenge={challenge}"
         )
 
-        if mode and token:
-            if mode == "subscribe" and token == VERIFY_TOKEN:
-                logger.info("GET verification successful")
-                return HttpResponse(challenge, status=200)
-            else:
-                logger.warning("GET verification failed: token mismatch")
-                return HttpResponseForbidden("Verification token mismatch")
-        return HttpResponseBadRequest("Missing verification parameters")
+        if mode == "subscribe" and token == VERIFY_TOKEN:
+            print("✅ Facebook webhook verified.")
+            logger.info("✅ Facebook webhook verified.")
+            return HttpResponse(challenge)
+        else:
+            print("❌ Invalid verification token.")
+            logger.warning("❌ Invalid verification token.")
+            return HttpResponseForbidden("Invalid token")
 
     def post(self, request, *args, **kwargs):
-        logger.info("POST webhook hit!")
+        """Receive webhook event and route to tenant"""
+        print("📩 POST webhook hit!")
+        logger.info("📩 POST webhook hit!")
+
         try:
-            data = json.loads(request.body.decode("utf-8"))
-            logger.debug(f"Payload received: {json.dumps(data, indent=2)}")
+            payload = json.loads(request.body)
+            print("Payload received:", json.dumps(payload, indent=2))
+            logger.debug(f"📦 Payload:\n{json.dumps(payload, indent=2)}")
         except json.JSONDecodeError:
-            logger.error("Invalid JSON received")
-            return HttpResponseBadRequest("Invalid JSON payload")
+            print("❌ Invalid JSON received")
+            logger.error("❌ Invalid JSON received")
+            return HttpResponseBadRequest("Invalid JSON")
 
-        if data.get("object") != "page":
-            logger.warning("Not a page object")
-            return HttpResponseForbidden("Not a page object")
+        if payload.get("object") != "page":
+            print("⚠️ Not a page object.")
+            logger.warning("⚠️ Not a page object.")
+            return HttpResponseForbidden("Not a page event")
 
-        for entry in data.get("entry", []):
-            page_fb_id = entry.get("id")
-            logger.info(f"Processing entry for Page ID: {page_fb_id}")
+        for entry in payload.get("entry", []):
+            page_id = entry.get("id")
+            print(f"➡️ Processing entry for page_id: {page_id}")
+            logger.info(f"➡️ Processing entry for page_id: {page_id}")
 
-            tenant = self.find_tenant_by_page_id(page_fb_id)
-            if not tenant:
-                logger.warning("No tenant has this page ID")
+            if not page_id:
+                print("⚠️ Missing page_id in entry.")
+                logger.warning("⚠️ Missing page_id in entry.")
                 continue
 
-            logger.info(f"Tenant found: {tenant.schema_name}")
-
+            # Step 1: find tenant mapping
             try:
-                connection.set_tenant(tenant)
-                logger.info(f"Switched to tenant: {tenant.schema_name}")
+                mapping = FacebookPageTenantMap.objects.get(page_id=page_id)
+                tenant = mapping.tenant
+                tenant_schema = tenant.schema_name
+                print(f"✅ Found tenant: {tenant_schema} for page_id {page_id}")
+                logger.info(f"✅ Found tenant: {tenant_schema} for page_id {page_id}")
+            except FacebookPageTenantMap.DoesNotExist:
+                print(f"❌ No tenant mapping found for page_id: {page_id}")
+                logger.warning(f"❌ No tenant mapping found for page_id: {page_id}")
+                continue
             except Exception as e:
-                logger.error(f"Error switching tenant: {e}")
+                print(f"🚨 Error fetching tenant mapping: {e}")
+                logger.error(f"🚨 Error fetching tenant mapping: {e}")
                 continue
 
+            # Step 2: forward to tenant API
+            tenant_url = (
+                f"http://{tenant_schema}.{BACKEND_DOMAIN}/api/facebook/tenant-webhook/"
+            )
+            print(f"🌐 Forwarding to {tenant_url}")
+            logger.info(f"🌐 Forwarding to {tenant_url}")
+
             try:
-                facebook_page = Facebook.objects.get(
-                    page_id=page_fb_id, is_enabled=True
+                resp = requests.post(
+                    tenant_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10,
                 )
-                logger.info(f"Facebook page found in tenant: {facebook_page.page_name}")
-            except Facebook.DoesNotExist:
-                logger.warning("Facebook page not enabled in tenant")
-                connection.set_schema_to_public()
-                continue
+                print(
+                    f"✅ Forwarded successfully to {tenant_schema}: {resp.status_code} → {resp.text}"
+                )
+                logger.info(
+                    f"➡️ Forwarded to {tenant_schema} ({resp.status_code}): {resp.text}"
+                )
             except Exception as e:
-                logger.error(f"Error fetching Facebook page: {e}")
-                connection.set_schema_to_public()
-                continue
+                print(f"🚨 Failed forwarding to {tenant_schema}: {e}")
+                logger.error(f"🚨 Failed forwarding to {tenant_schema}: {e}")
 
-            try:
-                with transaction.atomic():
-                    for event in entry.get("messaging", []):
-                        if "message" in event:
-                            logger.info(f"Processing message event: {event}")
-                            self._handle_message(facebook_page, event)
-            except Exception as e:
-                logger.error(f"Error processing messages: {e}")
-            finally:
-                connection.set_schema_to_public()
-
-        logger.info("Webhook processing finished")
+        print("🏁 Webhook processing finished.")
+        logger.info("🏁 Webhook processing finished.")
         return HttpResponse("EVENT_RECEIVED", status=200)
-
-    def find_tenant_by_page_id(self, page_id):
-        TenantModel = get_tenant_model()
-        for tenant in TenantModel.objects.all():
-            try:
-                with schema_context(tenant.schema_name):
-                    if FacebookPageTenantMap.objects.filter(page_id=page_id).exists():
-                        return tenant
-            except Exception as e:
-                logger.error(f"Error checking tenant schema: {tenant.schema_name}, {e}")
-        return None
-
-    def _handle_message(self, facebook_page, event):
-        try:
-            sender_id = event["sender"]["id"]
-            recipient_id = event["recipient"]["id"]
-            timestamp = event["timestamp"]
-            message_data = event["message"]
-
-            message_id = message_data.get("mid")
-            message_text = message_data.get("text", "")
-
-            logger.info(
-                f"Handling message {message_id} from {sender_id}: {message_text}"
-            )
-
-            conversation_id = f"{facebook_page.page_id}-{sender_id}"
-            created_datetime = datetime.fromtimestamp(
-                timestamp / 1000.0, tz=dt_timezone.utc
-            )
-
-            message_obj = {
-                "id": message_id,
-                "from": {"id": sender_id, "name": "Facebook User"},
-                "message": message_text,
-                "created_time": created_datetime.isoformat(),
-            }
-
-            conversation, created = Conversation.objects.get_or_create(
-                page=facebook_page,
-                conversation_id=conversation_id,
-                defaults={
-                    "participants": [
-                        {"id": sender_id, "name": "Facebook User"},
-                        {"id": recipient_id, "name": facebook_page.page_name or "Page"},
-                    ],
-                    "snippet": message_text[:255] or "New message",
-                    "updated_time": created_datetime,
-                    "messages": [message_obj],
-                    "last_synced": timezone.now(),
-                },
-            )
-
-            if not created:
-                existing_ids = {m.get("id") for m in conversation.messages}
-                if message_id not in existing_ids:
-                    conversation.messages.append(message_obj)
-                    conversation.messages.sort(key=lambda x: x["created_time"])
-                    conversation.snippet = message_text
-                    conversation.updated_time = created_datetime
-                    conversation.last_synced = timezone.now()
-                    conversation.save()
-                else:
-                    conversation.updated_time = created_datetime
-                    conversation.last_synced = timezone.now()
-                    conversation.save()
-
-            logger.info(f"Conversation {conversation.conversation_id} processed")
-        except Exception as e:
-            logger.error(f"Error in _handle_message: {e}")

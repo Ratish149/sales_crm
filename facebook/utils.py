@@ -70,6 +70,7 @@ def sync_messages_for_conversation(conversation, force_refresh=False):
     while url:
         response = requests.get(url, params=params)
         data = response.json()
+        print(data)
 
         if "data" not in data:
             break

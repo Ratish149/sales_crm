@@ -1,8 +1,13 @@
+import logging
+from datetime import datetime
+
+import requests
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework import generics, response, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Conversation, Facebook
 from .serializers import (
@@ -12,7 +17,7 @@ from .serializers import (
 )
 from .utils import sync_conversations_from_facebook, sync_messages_for_conversation
 
-VERIFY_TOKEN = "secret123"
+logger = logging.getLogger(__name__)
 
 
 class FacebookListCreateView(generics.ListCreateAPIView):
@@ -221,3 +226,142 @@ def webhook_handler(request):
             {"error": str(e), "traceback": traceback.format_exc()},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+class TenantFacebookWebhookMessageView(APIView):
+    """
+    Runs inside each tenant.
+    Receives forwarded webhook payloads and stores messages in Conversation in the given JSON format.
+    """
+
+    def post(self, request, *args, **kwargs):
+        payload = request.data
+        logger.info(f"📨 Tenant webhook received: {payload}")
+
+        for entry in payload.get("entry", []):
+            page_id = entry.get("id")
+            messaging_events = entry.get("messaging", [])
+
+            if not page_id or not messaging_events:
+                continue
+
+            # Step 1: find Facebook page
+            try:
+                page = Facebook.objects.get(page_id=page_id)
+            except Facebook.DoesNotExist:
+                logger.warning(f"⚠️ No Facebook page found for page_id={page_id}")
+                continue
+
+            # Step 2: handle each message
+            for event in messaging_events:
+                message = event.get("message")
+                sender_info = event.get("sender", {})
+                recipient_info = event.get("recipient", {})
+
+                if not message:
+                    continue
+
+                sender_id = sender_info.get("id")
+                recipient_id = recipient_info.get("id")
+                msg_text = message.get("text", "")
+                msg_id = message.get("mid", "")
+                timestamp = event.get("timestamp", None)
+
+                # Step 3: Check if conversation already exists
+                convo = Conversation.objects.filter(
+                    page=page, participants__contains=[{"id": sender_id}]
+                ).first()
+
+                if convo:
+                    # Existing conversation, avoid Graph API call
+                    conv_id = convo.conversation_id
+                    sender_name = next(
+                        (p["name"] for p in convo.participants if p["id"] == sender_id),
+                        sender_id,
+                    )
+                    print("✅ Existing conversation detected")
+                    logger.info(
+                        f"✅ Existing conversation detected for sender {sender_id}"
+                    )
+                else:
+                    # New sender, call Graph API to get official conversation ID and name
+                    conv_id = f"{sender_id}-{recipient_id}"  # fallback
+                    sender_name = sender_id
+                    print("📞 New user → calling conversation API")
+                    try:
+                        conv_url = f"https://graph.facebook.com/v20.0/{page.page_id}/conversations"
+                        params = {
+                            "access_token": page.page_access_token,
+                            "fields": "participants,id",
+                        }
+                        while conv_url:
+                            r = requests.get(conv_url, params=params)
+                            data = r.json()
+                            for conv in data.get("data", []):
+                                participant_ids = [
+                                    p["id"]
+                                    for p in conv.get("participants", {}).get(
+                                        "data", []
+                                    )
+                                ]
+                                if sender_id in participant_ids:
+                                    conv_id = conv["id"]
+                                    for p in conv.get("participants", {}).get(
+                                        "data", []
+                                    ):
+                                        if p["id"] == sender_id:
+                                            sender_name = p.get("name", sender_id)
+                                            break
+                                    break
+                            if conv_id != f"{sender_id}-{recipient_id}":
+                                break
+                            conv_url = data.get("paging", {}).get("next")
+                            params = {}
+                        logger.info(
+                            f"✅ New conversation created for sender {sender_id} with conv_id {conv_id}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"⚠️ Could not fetch official conversation ID: {e}"
+                        )
+
+                # Step 4: Build message JSON
+                message_json = {
+                    "id": msg_id,
+                    "from": {
+                        "id": sender_id,
+                        "name": sender_name,
+                        "email": f"{sender_id}@facebook.com",
+                    },
+                    "message": msg_text,
+                    "created_time": (
+                        datetime.utcfromtimestamp(timestamp / 1000).isoformat()
+                        + "+0000"
+                        if timestamp
+                        else datetime.utcnow().isoformat() + "+0000"
+                    ),
+                }
+
+                # Step 5: Create or update conversation
+                if convo is None:
+                    convo, _ = Conversation.objects.get_or_create(
+                        conversation_id=conv_id,
+                        page=page,
+                        defaults={
+                            "participants": [{"id": sender_id, "name": sender_name}],
+                            "messages": [],
+                        },
+                    )
+
+                # Step 6: Avoid duplicate messages
+                existing_ids = [m.get("id") for m in convo.messages]
+                if msg_id not in existing_ids:
+                    convo.messages.append(message_json)
+                    convo.snippet = msg_text
+                    convo.updated_time = timezone.now()
+                    convo.save()
+                    logger.info(f"💾 Saved new message for {sender_name}: {msg_text}")
+                else:
+                    logger.info(f"⚠️ Duplicate message ignored: {msg_id}")
+
+        return Response({"status": "success"})
