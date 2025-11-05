@@ -112,7 +112,7 @@ class FacebookWebhookView(View):
 
             # Step 2: forward to tenant API
             tenant_url = (
-                f"http://{tenant_schema}.{BACKEND_DOMAIN}/api/facebook/tenant-webhook/"
+                f"https://{tenant_schema}.{BACKEND_DOMAIN}/api/facebook/tenant-webhook/"
             )
             print(f"🌐 Forwarding to {tenant_url}")
             logger.info(f"🌐 Forwarding to {tenant_url}")
