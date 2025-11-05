@@ -5,8 +5,8 @@ from .views import (
     ConversationMessageAPIView,
     FacebookListCreateView,
     FacebookRetrieveUpdateDestroyView,
-    webhook_handler,
     FacebookWebhookView,
+    webhook_handler,
 )
 
 urlpatterns = [
