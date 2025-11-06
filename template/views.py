@@ -30,7 +30,11 @@ class TemplateRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 # ------------------------------
 class TemplatePageListCreateView(generics.ListCreateAPIView):
     serializer_class = TemplatePageSerializer
-    queryset = TemplatePage.objects.all()
+
+    def get_queryset(self):
+        template_slug = self.kwargs.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
+        return TemplatePage.objects.filter(template=template).order_by("id")
 
     def perform_create(self, serializer):
         template_slug = self.request.data.get("template_slug")
