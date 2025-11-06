@@ -4,6 +4,8 @@ from .models import Template, TemplatePage, TemplatePageComponent, TemplateTheme
 
 
 class TemplatePageComponentSerializer(serializers.ModelSerializer):
+    page = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = TemplatePageComponent
         fields = [
@@ -16,6 +18,7 @@ class TemplatePageComponentSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ("page",)
 
 
 class TemplatePageSerializer(serializers.ModelSerializer):
