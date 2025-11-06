@@ -22,7 +22,7 @@ class Template(models.Model):
 
 class TemplatePage(models.Model):
     template = models.ForeignKey(
-        Template, on_delete=models.CASCADE, related_name="pages"
+        Template, on_delete=models.CASCADE, related_name="pages", null=True, blank=True
     )
     title = models.CharField(max_length=255)
     slug = models.SlugField(max_length=255, blank=True, null=True)
