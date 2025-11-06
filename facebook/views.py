@@ -4,10 +4,13 @@ from datetime import datetime
 import requests
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django_tenants.utils import get_public_schema_name, schema_context
 from rest_framework import generics, response, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from tenants.models import FacebookPageTenantMap
 
 from .models import Conversation, Facebook
 from .serializers import (
@@ -25,10 +28,41 @@ class FacebookListCreateView(generics.ListCreateAPIView):
     serializer_class = FacebookSerializer
     # permission_classes = [IsAuthenticated]
 
+    def perform_create(self, serializer):
+        # Get the current tenant
+        tenant = self.request.tenant
+
+        # Save the Facebook instance first
+        facebook_instance = serializer.save()
+
+        # Create the mapping in the public schema
+        with schema_context(get_public_schema_name()):
+            # Check if mapping already exists
+            if not FacebookPageTenantMap.objects.filter(
+                page_id=facebook_instance.page_id
+            ).exists():
+                FacebookPageTenantMap.objects.create(
+                    page_id=facebook_instance.page_id, tenant=tenant
+                )
+                print(
+                    f"Created FacebookPageTenantMap for page {facebook_instance.page_name} -> tenant {tenant.schema_name}"
+                )
+
+        return facebook_instance
+
 
 class FacebookRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Facebook.objects.all()
     serializer_class = FacebookSerializer
+
+    def perform_destroy(self, instance):
+        # Delete the FacebookPageTenantMap in public schema before deleting the instance
+        with schema_context(get_public_schema_name()):
+            FacebookPageTenantMap.objects.filter(page_id=instance.page_id).delete()
+            print(f"Deleted FacebookPageTenantMap for page {instance.page_name}")
+
+        # Now delete the Facebook instance
+        instance.delete()
 
 
 class ConversationListAPIView(generics.ListAPIView):
