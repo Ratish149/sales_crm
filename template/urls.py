@@ -24,7 +24,7 @@ urlpatterns = [
         name="template-page-list-create",
     ),
     path(
-        "template-pages/<slug:slug>/",
+        "template-pages/<slug:template_slug>/<slug:page_slug>/",
         TemplatePageRetrieveUpdateDestroyView.as_view(),
         name="template-page-detail",
     ),

@@ -31,15 +31,21 @@ class TemplatePageListCreateView(generics.ListCreateAPIView):
     queryset = TemplatePage.objects.all()
 
     def perform_create(self, serializer):
-        template_id = self.request.data.get("template")
-        template = get_object_or_404(Template, id=template_id)
+        template_slug = self.request.data.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
         serializer.save(template=template)
 
 
 class TemplatePageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TemplatePageSerializer
     queryset = TemplatePage.objects.all()
-    lookup_field = "slug"
+
+    def get_object(self):
+        template_slug = self.kwargs.get("template_slug")
+        page_slug = self.kwargs.get("page_slug")
+        return get_object_or_404(
+            TemplatePage, template__slug=template_slug, slug=page_slug
+        )
 
 
 # ------------------------------
