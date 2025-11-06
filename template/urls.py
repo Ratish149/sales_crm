@@ -13,7 +13,7 @@ urlpatterns = [
     # Template endpoints
     path("templates/", TemplateListCreateView.as_view(), name="template-list-create"),
     path(
-        "templates/<int:pk>/",
+        "templates/<slug:slug>/",
         TemplateRetrieveUpdateDestroyView.as_view(),
         name="template-detail",
     ),
@@ -24,18 +24,18 @@ urlpatterns = [
         name="template-page-list-create",
     ),
     path(
-        "template-pages/<int:id>/",
+        "template-pages/<slug:slug>/",
         TemplatePageRetrieveUpdateDestroyView.as_view(),
         name="template-page-detail",
     ),
     # TemplatePageComponent endpoints
     path(
-        "template-pages/<int:page_id>/components/",
+        "template-pages/<slug:template_slug>/<slug:page_slug>/components/",
         TemplatePageComponentListCreateView.as_view(),
         name="template-page-component-list-create",
     ),
     path(
-        "template-pages/<int:page_id>/components/<int:component_id>/",
+        "template-pages/<slug:template_slug>/<slug:page_slug>/components/<int:component_id>/",
         TemplatePageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),

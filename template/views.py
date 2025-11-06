@@ -20,6 +20,7 @@ class TemplateListCreateView(generics.ListCreateAPIView):
 class TemplateRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TemplateSerializer
     queryset = Template.objects.all()
+    lookup_field = "slug"
 
 
 # ------------------------------
@@ -38,7 +39,7 @@ class TemplatePageListCreateView(generics.ListCreateAPIView):
 class TemplatePageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TemplatePageSerializer
     queryset = TemplatePage.objects.all()
-    lookup_field = "id"
+    lookup_field = "slug"
 
 
 # ------------------------------
@@ -48,13 +49,19 @@ class TemplatePageComponentListCreateView(generics.ListCreateAPIView):
     serializer_class = TemplatePageComponentSerializer
 
     def get_queryset(self):
-        page_id = self.kwargs.get("page_id")
-        page = get_object_or_404(TemplatePage, id=page_id)
+        template_slug = self.kwargs.get("template_slug")
+        page_slug = self.kwargs.get("page_slug")
+        page = get_object_or_404(
+            TemplatePage, template__slug=template_slug, slug=page_slug
+        )
         return TemplatePageComponent.objects.filter(page=page).order_by("order")
 
     def perform_create(self, serializer):
-        page_id = self.kwargs.get("page_id")
-        page = get_object_or_404(TemplatePage, id=page_id)
+        template_slug = self.kwargs.get("template_slug")
+        page_slug = self.kwargs.get("page_slug")
+        page = get_object_or_404(
+            TemplatePage, template__slug=template_slug, slug=page_slug
+        )
 
         order = serializer.validated_data.get("order")
         if order is None:
@@ -69,8 +76,10 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
     serializer_class = TemplatePageComponentSerializer
 
     def get_object(self):
-        page_id = self.kwargs.get("page_id")
+        template_slug = self.kwargs.get("template_slug")
+        page_slug = self.kwargs.get("page_slug")
         component_id = self.kwargs.get("component_id")
-        return get_object_or_404(
-            TemplatePageComponent, page__id=page_id, id=component_id
+        page = get_object_or_404(
+            TemplatePage, template__slug=template_slug, slug=page_slug
         )
+        return get_object_or_404(TemplatePageComponent, page=page, id=component_id)
