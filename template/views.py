@@ -122,7 +122,9 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
         page = get_object_or_404(
             TemplatePage, template__slug=template_slug, slug=page_slug
         )
-        return get_object_or_404(TemplatePageComponent, page=page, id=component_id)
+        return get_object_or_404(
+            TemplatePageComponent, page=page, component_id=component_id
+        )
 
 
 class NavbarView(APIView):
@@ -164,7 +166,7 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         template_slug = self.kwargs.get("template_slug")
         component_id = self.kwargs.get("component_id")
         return TemplatePageComponent.objects.get(
-            template__slug=template_slug, id=component_id
+            template__slug=template_slug, component_id=component_id
         )
 
     def perform_update(self, serializer):
@@ -235,7 +237,7 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         template_slug = self.kwargs.get("template_slug")
         component_id = self.kwargs.get("component_id")
         return TemplatePageComponent.objects.get(
-            template__slug=template_slug, id=component_id
+            template__slug=template_slug, component_id=component_id
         )
 
     def perform_update(self, serializer):
