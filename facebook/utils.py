@@ -22,7 +22,7 @@ def sync_conversations_from_facebook(page, force_refresh=False):
     # Skip API call if synced within 6 hours and not forced
     if last_sync and not force_refresh:
         elapsed = timezone.now() - last_sync
-        if elapsed < timedelta(hours=6):
+        if elapsed < timedelta(hours=0):
             print(
                 f"⏩ Skipping Facebook API call for {page.page_name}, "
                 f"last synced {elapsed} ago."
@@ -78,7 +78,7 @@ def sync_messages_for_conversation(conversation, force_refresh=False):
     # Skip if synced within 6 hours
     if conversation.last_synced and not force_refresh:
         elapsed = timezone.now() - conversation.last_synced
-        if elapsed < timedelta(hours=6):
+        if elapsed < timedelta(hours=0):
             print(
                 f"⏩ Skipping Facebook message sync for {conversation.conversation_id}, "
                 f"last synced {elapsed} ago."
