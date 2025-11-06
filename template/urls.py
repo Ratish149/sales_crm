@@ -51,7 +51,7 @@ urlpatterns = [
         name="template-page-component-list-create",
     ),
     path(
-        "template-pages/<slug:template_slug>/<slug:page_slug>/components/<int:component_id>/",
+        "template-pages/<slug:template_slug>/<slug:page_slug>/components/<str:component_id>/",
         TemplatePageComponentRetrieveUpdateDestroyView.as_view(),
         name="component-detail",
     ),
@@ -62,7 +62,7 @@ urlpatterns = [
         name="navbar",
     ),
     path(
-        "template-pages/<slug:template_slug>/navbar/<int:component_id>/",
+        "template-pages/<slug:template_slug>/navbar/<str:component_id>/",
         NavbarRetrieveUpdateDestroyView.as_view(),
         name="navbar-detail",
     ),
@@ -73,7 +73,7 @@ urlpatterns = [
         name="footer",
     ),
     path(
-        "template-pages/<slug:template_slug>/footer/<int:component_id>/",
+        "template-pages/<slug:template_slug>/footer/<str:component_id>/",
         FooterRetrieveUpdateDestroyView.as_view(),
         name="footer-detail",
     ),
