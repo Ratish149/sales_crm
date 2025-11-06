@@ -11,6 +11,8 @@ from .views import (
     TemplatePageListCreateView,
     TemplatePageRetrieveUpdateDestroyView,
     TemplateRetrieveUpdateDestroyView,
+    TemplateThemeListCreateView,
+    TemplateThemeRetrieveUpdateDestroyView,
 )
 
 urlpatterns = [
@@ -20,6 +22,16 @@ urlpatterns = [
         "templates/<slug:slug>/",
         TemplateRetrieveUpdateDestroyView.as_view(),
         name="template-detail",
+    ),
+    path(
+        "templates/themes/",
+        TemplateThemeListCreateView.as_view(),
+        name="template-theme-list-create",
+    ),
+    path(
+        "templates/<slug:template_slug>/themes/<slug:theme_slug>/",
+        TemplateThemeRetrieveUpdateDestroyView.as_view(),
+        name="template-theme-detail",
     ),
     # TemplatePage endpoints
     path(

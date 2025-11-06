@@ -20,6 +20,18 @@ class Template(models.Model):
         super().save(*args, **kwargs)
 
 
+class TemplateTheme(models.Model):
+    template = models.ForeignKey(
+        Template, on_delete=models.CASCADE, related_name="themes", null=True, blank=True
+    )
+    data = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Theme ({self.template.name})"
+
+
 class TemplatePage(models.Model):
     template = models.ForeignKey(
         Template, on_delete=models.CASCADE, related_name="pages", null=True, blank=True

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Template, TemplatePage, TemplatePageComponent
+from .models import Template, TemplatePage, TemplatePageComponent, TemplateTheme
 
 
 class TemplatePageComponentSerializer(serializers.ModelSerializer):
@@ -44,6 +44,18 @@ class TemplateSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "pages",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class TemplateThemeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateTheme
+        fields = [
+            "id",
+            "template",
+            "data",
             "created_at",
             "updated_at",
         ]

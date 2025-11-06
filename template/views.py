@@ -3,11 +3,12 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Template, TemplatePage, TemplatePageComponent
+from .models import Template, TemplatePage, TemplatePageComponent, TemplateTheme
 from .serializers import (
     TemplatePageComponentSerializer,
     TemplatePageSerializer,
     TemplateSerializer,
+    TemplateThemeSerializer,
 )
 
 
@@ -25,6 +26,33 @@ class TemplateRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
 
+class TemplateThemeListCreateView(generics.ListCreateAPIView):
+    serializer_class = TemplateThemeSerializer
+    queryset = TemplateTheme.objects.all()
+
+    def get_queryset(self):
+        template_slug = self.request.query_params.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
+        return TemplateTheme.objects.filter(template=template).order_by("id")
+
+    def perform_create(self, serializer):
+        template_slug = self.request.data.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
+        serializer.save(template=template)
+
+
+class TemplateThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = TemplateThemeSerializer
+    queryset = TemplateTheme.objects.all()
+
+    def get_object(self):
+        template_slug = self.kwargs.get("template_slug")
+        theme_slug = self.kwargs.get("theme_slug")
+        return get_object_or_404(
+            TemplateTheme, template__slug=template_slug, slug=theme_slug
+        )
+
+
 # ------------------------------
 # 📄 TEMPLATE PAGE VIEWS
 # ------------------------------
@@ -32,7 +60,7 @@ class TemplatePageListCreateView(generics.ListCreateAPIView):
     serializer_class = TemplatePageSerializer
 
     def get_queryset(self):
-        template_slug = self.kwargs.get("template_slug")
+        template_slug = self.request.query_params.get("template_slug")
         template = get_object_or_404(Template, slug=template_slug)
         return TemplatePage.objects.filter(template=template).order_by("id")
 
