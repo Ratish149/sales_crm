@@ -126,6 +126,32 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
             TemplatePageComponent, page=page, component_id=component_id
         )
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        incoming_data = self.request.data.get("data", {})
+
+        def recursive_merge(old, new):
+            """
+            Recursively merge new dict into old dict
+            """
+            for key, value in new.items():
+                if (
+                    key in old
+                    and isinstance(old[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    old[key] = recursive_merge(old[key], value)
+                else:
+                    old[key] = value
+            return old
+
+        if instance.data and isinstance(instance.data, dict):
+            merged_data = recursive_merge(instance.data, incoming_data)
+        else:
+            merged_data = incoming_data
+
+        serializer.save(data=merged_data)
+
 
 class NavbarView(APIView):
     def get(self, request):
