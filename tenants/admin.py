@@ -17,4 +17,4 @@ class DomainAdmin(admin.ModelAdmin):
 
 @admin.register(FacebookPageTenantMap)
 class FacebookPageTenantMapAdmin(admin.ModelAdmin):
-    list_display = ("page_id", "tenant")
+    list_display = ("page_name", "page_id", "tenant")

@@ -16,7 +16,11 @@ urlpatterns = [
         FacebookRetrieveUpdateDestroyView.as_view(),
         name="facebook-retrieve-update-destroy",
     ),
-    path("conversations/", ConversationListAPIView.as_view(), name="conversation-list"),
+    path(
+        "conversations/<str:page_id>/",
+        ConversationListAPIView.as_view(),
+        name="conversation-list",
+    ),
     path(
         "conversation-messages/<str:conversation_id>/",
         ConversationMessageAPIView.as_view(),

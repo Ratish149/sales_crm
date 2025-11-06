@@ -58,6 +58,8 @@ class Domain(DomainMixin):
 class FacebookPageTenantMap(models.Model):
     """Maps a Facebook Page ID to the owning Tenant (Client)."""
 
+    page_name = models.CharField(max_length=255, blank=True, null=True)
+
     page_id = models.CharField(max_length=255, unique=True, db_index=True)
     tenant = models.ForeignKey(Client, on_delete=models.CASCADE)
 

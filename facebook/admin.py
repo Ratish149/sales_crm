@@ -10,4 +10,13 @@ class FacebookAdmin(admin.ModelAdmin):
 
 @admin.register(Conversation)
 class ConversationAdmin(admin.ModelAdmin):
-    list_display = ("conversation_id", "page")
+    list_display = ("conversation_id", "page", "get_participants")
+
+    def get_participants(self, obj):
+        """Display participant names from JSONField"""
+        if not obj.participants:
+            return "-"
+        names = [p.get("name", "Unknown") for p in obj.participants]
+        return ", ".join(names)
+
+    get_participants.short_description = "Participants"

@@ -42,7 +42,9 @@ class FacebookListCreateView(generics.ListCreateAPIView):
                 page_id=facebook_instance.page_id
             ).exists():
                 FacebookPageTenantMap.objects.create(
-                    page_id=facebook_instance.page_id, tenant=tenant
+                    page_id=facebook_instance.page_id,
+                    page_name=facebook_instance.page_name,
+                    tenant=tenant,
                 )
                 print(
                     f"Created FacebookPageTenantMap for page {facebook_instance.page_name} -> tenant {tenant.schema_name}"
@@ -68,10 +70,7 @@ class FacebookRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class ConversationListAPIView(generics.ListAPIView):
     serializer_class = ConversationSerializer
 
-    def get_queryset(self):
-        # Check if frontend provided a page_id
-        page_id = self.request.query_params.get("page_id")
-
+    def get_queryset(self, page_id=None):
         if page_id:
             try:
                 page = Facebook.objects.get(page_id=page_id, is_enabled=True)
