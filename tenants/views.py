@@ -20,6 +20,7 @@ from .serializers import DomainSerializer
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
+HTTP = os.getenv("HTTP")
 
 
 logger = logging.getLogger("facebook_webhook")
@@ -113,7 +114,7 @@ class FacebookWebhookView(View):
 
             # Step 2: forward to tenant API
             tenant_url = (
-                f"https://{tenant_schema}.{BACKEND_DOMAIN}/api/facebook/tenant-webhook/"
+                f"{HTTP}/{tenant_schema}.{BACKEND_DOMAIN}/api/facebook/tenant-webhook/"
             )
             print(f"🌐 Forwarding to {tenant_url}")
             logger.info(f"🌐 Forwarding to {tenant_url}")
