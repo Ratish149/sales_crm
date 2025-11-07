@@ -29,6 +29,7 @@ class ConversationSerializer(serializers.ModelSerializer):
 
 class ConversationMessageSerializer(serializers.ModelSerializer):
     page_name = serializers.CharField(source="page.page_name", read_only=True)
+    messages = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
@@ -43,3 +44,12 @@ class ConversationMessageSerializer(serializers.ModelSerializer):
             "messages",
             "last_synced",
         ]
+
+    def get_messages(self, obj):
+        request = self.context.get("request")
+        limit = int(request.query_params.get("limit", 20)) if request else 20
+        offset = int(request.query_params.get("offset", 0)) if request else 0
+
+        # Return newest messages first
+        messages = obj.messages[::-1]  # reverse order: newest → oldest
+        return messages[offset : offset + limit]

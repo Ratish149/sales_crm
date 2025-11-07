@@ -57,23 +57,23 @@ urlpatterns = [
     ),
     # Navbar endpoints
     path(
-        "template-pages/<slug:template_slug>/navbar/",
+        "template-navbar/<slug:template_slug>/navbar/",
         NavbarView.as_view(),
         name="navbar",
     ),
     path(
-        "template-pages/<slug:template_slug>/navbar/<str:component_id>/",
+        "template-navbar/<slug:template_slug>/navbar/<str:component_id>/",
         NavbarRetrieveUpdateDestroyView.as_view(),
         name="navbar-detail",
     ),
     # Footer endpoints
     path(
-        "template-pages/<slug:template_slug>/footer/",
+        "template-footer/<slug:template_slug>/footer/",
         FooterView.as_view(),
         name="footer",
     ),
     path(
-        "template-pages/<slug:template_slug>/footer/<str:component_id>/",
+        "template-footer/<slug:template_slug>/footer/<str:component_id>/",
         FooterRetrieveUpdateDestroyView.as_view(),
         name="footer-detail",
     ),

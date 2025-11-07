@@ -1,10 +1,13 @@
+import json
 import logging
+import os
 from datetime import datetime
 
 import requests
 from django.utils import timezone
 from django_tenants.utils import get_public_schema_name, schema_context
-from rest_framework import generics, response, status
+from dotenv import load_dotenv
+from rest_framework import generics, response
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -18,6 +21,8 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 class FacebookListCreateView(generics.ListCreateAPIView):
@@ -88,19 +93,36 @@ class ConversationMessageAPIView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         conversation = self.get_object()
-        data = self.serializer_class(conversation).data
-        return response.Response({"conversation": data}, status=status.HTTP_200_OK)
+        serializer = self.serializer_class(conversation, context={"request": request})
+        return response.Response(
+            {
+                "conversation": serializer.data,
+                "total_messages": len(
+                    conversation.messages
+                ),  # for frontend to know remaining messages
+            },
+            status=200,
+        )
+
+
+NEXTJS_FRONTEND_URL = os.getenv("NEXTJS_FRONTEND_URL")  # or your domain
 
 
 class TenantFacebookWebhookMessageView(APIView):
     """
     Runs inside each tenant.
-    Receives forwarded webhook payloads and stores messages in Conversation in the given JSON format.
+    Receives forwarded webhook payloads and stores messages (with attachments) in Conversation.
     """
 
     def post(self, request, *args, **kwargs):
         payload = request.data
-        logger.info(f"📨 Tenant webhook received: {payload}")
+        print("Payload received in backend api:", json.dumps(payload, indent=2))
+        tenant_schema = (
+            getattr(request, "tenant", None).schema_name
+            if getattr(request, "tenant", None)
+            else "public"
+        )
+        logger.info(f"📨 Tenant {tenant_schema} webhook received")
 
         for entry in payload.get("entry", []):
             page_id = entry.get("id")
@@ -109,14 +131,14 @@ class TenantFacebookWebhookMessageView(APIView):
             if not page_id or not messaging_events:
                 continue
 
-            # Step 1: find Facebook page
+            # Step 1️⃣: Find Facebook Page
             try:
                 page = Facebook.objects.get(page_id=page_id)
             except Facebook.DoesNotExist:
                 logger.warning(f"⚠️ No Facebook page found for page_id={page_id}")
                 continue
 
-            # Step 2: handle each message
+            # Step 2️⃣: Process each messaging event
             for event in messaging_events:
                 message = event.get("message")
                 sender_info = event.get("sender", {})
@@ -127,69 +149,56 @@ class TenantFacebookWebhookMessageView(APIView):
 
                 sender_id = sender_info.get("id")
                 recipient_id = recipient_info.get("id")
+
+                if not sender_id or not recipient_id:
+                    logger.warning("⚠️ Missing sender or recipient ID.")
+                    continue
+
                 msg_text = message.get("text", "")
                 msg_id = message.get("mid", "")
                 timestamp = event.get("timestamp", None)
+                attachments = message.get("attachments", [])
 
-                # Step 3: Check if conversation already exists
-                convo = Conversation.objects.filter(
-                    page=page, participants__contains=[{"id": sender_id}]
-                ).first()
+                # Step 3️⃣: Try to find existing conversation
+                convo = None
+                for c in Conversation.objects.all():
+                    participant_ids = [p.get("id") for p in c.participants]
+                    if sender_id in participant_ids and recipient_id in participant_ids:
+                        convo = c
+                        break
 
-                if convo:
-                    # Existing conversation, avoid Graph API call
+                # Step 4️⃣: If not found, fetch from Facebook Graph API
+                if not convo:
+                    conv_id, sender_name = self.fetch_conversation_from_facebook(
+                        page, sender_id, recipient_id
+                    )
+                    logger.info(
+                        f"📞 Fetched conversation from Facebook for sender {sender_id}: {conv_id}"
+                    )
+
+                    convo, _ = Conversation.objects.get_or_create(
+                        conversation_id=conv_id,
+                        page=page,
+                        defaults={
+                            "participants": [
+                                {"id": sender_id, "name": sender_name},
+                                {
+                                    "id": page.page_id,
+                                    "name": getattr(page, "page_name", "Page"),
+                                },
+                            ],
+                            "messages": [],
+                        },
+                    )
+                else:
                     conv_id = convo.conversation_id
                     sender_name = next(
                         (p["name"] for p in convo.participants if p["id"] == sender_id),
                         sender_id,
                     )
-                    print("✅ Existing conversation detected")
-                    logger.info(
-                        f"✅ Existing conversation detected for sender {sender_id}"
-                    )
-                else:
-                    # New sender, call Graph API to get official conversation ID and name
-                    conv_id = f"{sender_id}-{recipient_id}"  # fallback
-                    sender_name = sender_id
-                    print("📞 New user → calling conversation API")
-                    try:
-                        conv_url = f"https://graph.facebook.com/v20.0/{page.page_id}/conversations"
-                        params = {
-                            "access_token": page.page_access_token,
-                            "fields": "participants,id",
-                        }
-                        while conv_url:
-                            r = requests.get(conv_url, params=params)
-                            data = r.json()
-                            for conv in data.get("data", []):
-                                participant_ids = [
-                                    p["id"]
-                                    for p in conv.get("participants", {}).get(
-                                        "data", []
-                                    )
-                                ]
-                                if sender_id in participant_ids:
-                                    conv_id = conv["id"]
-                                    for p in conv.get("participants", {}).get(
-                                        "data", []
-                                    ):
-                                        if p["id"] == sender_id:
-                                            sender_name = p.get("name", sender_id)
-                                            break
-                                    break
-                            if conv_id != f"{sender_id}-{recipient_id}":
-                                break
-                            conv_url = data.get("paging", {}).get("next")
-                            params = {}
-                        logger.info(
-                            f"✅ New conversation created for sender {sender_id} with conv_id {conv_id}"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"⚠️ Could not fetch official conversation ID: {e}"
-                        )
+                    logger.info(f"✅ Existing conversation for sender {sender_id}")
 
-                # Step 4: Build message JSON
+                # Step 5️⃣: Build message JSON
                 message_json = {
                     "id": msg_id,
                     "from": {
@@ -204,28 +213,151 @@ class TenantFacebookWebhookMessageView(APIView):
                         if timestamp
                         else datetime.utcnow().isoformat() + "+0000"
                     ),
+                    "attachments": [],
                 }
 
-                # Step 5: Create or update conversation
-                if convo is None:
-                    convo, _ = Conversation.objects.get_or_create(
-                        conversation_id=conv_id,
-                        page=page,
-                        defaults={
-                            "participants": [{"id": sender_id, "name": sender_name}],
-                            "messages": [],
-                        },
+                # Step 6️⃣: Handle attachments
+                for att in attachments:
+                    att_type = att.get("type")
+                    att_payload = att.get("payload", {})
+                    message_json["attachments"].append(
+                        {
+                            "type": att_type,
+                            "url": att_payload.get("url"),
+                            "sticker_id": att_payload.get("sticker_id"),
+                        }
                     )
 
-                # Step 6: Avoid duplicate messages
+                # Step 7️⃣: Avoid duplicate messages
                 existing_ids = [m.get("id") for m in convo.messages]
                 if msg_id not in existing_ids:
                     convo.messages.append(message_json)
-                    convo.snippet = msg_text
+                    convo.snippet = msg_text or (
+                        f"[{len(attachments)} attachment(s)]" if attachments else ""
+                    )
                     convo.updated_time = timezone.now()
                     convo.save()
-                    logger.info(f"💾 Saved new message for {sender_name}: {msg_text}")
+                    logger.info(
+                        f"💾 Saved new message for {sender_name}: {msg_text or 'Attachment'}"
+                    )
+
+                    # Step 8️⃣: Notify frontend
+                    self.notify_frontend(
+                        tenant_schema=tenant_schema,
+                        conversation_id=conv_id,
+                        message=message_json,
+                        page_id=page_id,
+                        snippet=convo.snippet,
+                        sender_name=sender_name,
+                        sender_id=sender_id,
+                    )
                 else:
                     logger.info(f"⚠️ Duplicate message ignored: {msg_id}")
 
         return Response({"status": "success"})
+
+    # -------------------------------------------------------------------
+    # 📞 Fetch Facebook Conversation ID
+    # -------------------------------------------------------------------
+    def fetch_conversation_from_facebook(self, page, sender_id, recipient_id):
+        """
+        Fetch the official Facebook conversation ID and sender name.
+        """
+        fallback_conv_id = f"{sender_id}-{recipient_id}"
+        sender_name = sender_id
+
+        try:
+            url = f"https://graph.facebook.com/v20.0/{page.page_id}/conversations"
+            params = {
+                "access_token": page.page_access_token,
+                "fields": "participants,id",
+                "limit": 50,
+            }
+
+            while url:
+                response = requests.get(url, params=params)
+                data = response.json()
+
+                if response.status_code != 200:
+                    logger.warning(f"⚠️ Graph API error: {data}")
+                    break
+
+                for conv in data.get("data", []):
+                    participants = conv.get("participants", {}).get("data", [])
+                    participant_ids = [p["id"] for p in participants]
+
+                    # Check if sender_id is part of this conversation
+                    if sender_id in participant_ids:
+                        conv_id = conv["id"]
+                        for p in participants:
+                            if p["id"] == sender_id:
+                                sender_name = p.get("name", sender_id)
+                        return conv_id, sender_name
+
+                # Move to next page if available
+                url = data.get("paging", {}).get("next")
+                params = {}
+
+        except Exception as e:
+            logger.warning(
+                f"⚠️ Failed to fetch official conversation from Facebook: {e}"
+            )
+
+        return fallback_conv_id, sender_name
+
+    # -------------------------------------------------------------------
+    # 🔔 Notify Frontend
+    # -------------------------------------------------------------------
+    def notify_frontend(
+        self,
+        tenant_schema,
+        conversation_id,
+        message,
+        page_id,
+        snippet,
+        sender_name,
+        sender_id,
+    ):
+        """Send POST request to Next.js API route."""
+        try:
+            notification_url = f"{NEXTJS_FRONTEND_URL}/api/webhook/"
+            print("Notification URL:", notification_url)
+
+            payload = {
+                "tenant": tenant_schema,
+                "type": "new_message",
+                "data": {
+                    "conversation_id": conversation_id,
+                    "message": message,
+                    "page_id": page_id,
+                    "snippet": snippet,
+                    "sender_name": sender_name,
+                    "sender_id": sender_id,
+                    "timestamp": message.get("created_time"),
+                    "message_type": "attachment"
+                    if message.get("attachments")
+                    else "text",
+                },
+            }
+
+            print("Payload to frontend:", json.dumps(payload, indent=2))
+            logger.info(f"🚀 Sending frontend notification to {notification_url}")
+
+            response = requests.post(
+                notification_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                logger.info(
+                    f"✅ Frontend notified successfully for tenant {tenant_schema}"
+                )
+            else:
+                logger.warning(
+                    f"⚠️ Frontend notification failed ({response.status_code}): {response.text}"
+                )
+
+        except Exception as e:
+            logger.error(f"❌ Error notifying frontend: {e}")
