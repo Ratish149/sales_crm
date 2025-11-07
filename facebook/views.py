@@ -175,16 +175,36 @@ class TenantFacebookWebhookMessageView(APIView):
                     logger.info(
                         f"📞 Fetched conversation from Facebook for sender {sender_id}: {conv_id}"
                     )
+                    profile_pic = None
+                    try:
+                        user_resp = requests.get(
+                            f"https://graph.facebook.com/{sender_id}",
+                            params={
+                                "fields": "name,picture.type(large)",
+                                "access_token": page.page_access_token,
+                            },
+                            timeout=5,
+                        ).json()
+                        profile_pic = (
+                            user_resp.get("picture", {}).get("data", {}).get("url")
+                        )
+                    except Exception as e:
+                        logger.warning(f"⚠️ Failed to fetch profile picture: {e}")
 
                     convo, _ = Conversation.objects.get_or_create(
                         conversation_id=conv_id,
                         page=page,
                         defaults={
                             "participants": [
-                                {"id": sender_id, "name": sender_name},
+                                {
+                                    "id": sender_id,
+                                    "name": sender_name,
+                                    "profile_pic": profile_pic,
+                                },
                                 {
                                     "id": page.page_id,
                                     "name": getattr(page, "page_name", "Page"),
+                                    "profile_pic": None,
                                 },
                             ],
                             "messages": [],
