@@ -1,4 +1,5 @@
 import requests
+from dateutil.parser import parse as parse_datetime
 from django.utils import timezone
 
 from .models import Conversation
@@ -7,10 +8,9 @@ from .models import Conversation
 def sync_conversations_from_facebook(page):
     """
     Fully sync all conversations for a Facebook page.
-    The DB will exactly mirror Facebook's conversations:
-    - New conversations are added
-    - Updated conversations are updated
-    - Deleted conversations are removed
+    - Adds new conversations
+    - Updates existing conversations
+    - Removes conversations that no longer exist on FB
     """
     print(f"🔄 Syncing conversations for {page.page_name}...")
 
@@ -21,6 +21,7 @@ def sync_conversations_from_facebook(page):
     }
 
     fb_ids = set()
+
     while url:
         response = requests.get(url, params=params)
         data = response.json()
@@ -37,21 +38,27 @@ def sync_conversations_from_facebook(page):
                 for p in conv.get("participants", {}).get("data", [])
             ]
 
+            updated_time = conv.get("updated_time")
+            if updated_time:
+                updated_time = parse_datetime(updated_time)
+            else:
+                updated_time = timezone.now()
+
             Conversation.objects.update_or_create(
                 conversation_id=conv_id,
                 defaults={
                     "page": page,
                     "participants": participants,
                     "snippet": conv.get("snippet", ""),
-                    "updated_time": conv.get("updated_time", timezone.now()),
+                    "updated_time": updated_time,
                     "last_synced": timezone.now(),
                 },
             )
 
-        url = data.get("paging", {}).get("next", None)
+        url = data.get("paging", {}).get("next")
         params = {}
 
-    # Remove conversations that no longer exist on Facebook
+    # Delete conversations that no longer exist on FB
     Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
 
     print(f"✅ Fully synced {len(fb_ids)} conversations for {page.page_name}")
@@ -61,10 +68,9 @@ def sync_conversations_from_facebook(page):
 def sync_messages_for_conversation(conversation):
     """
     Fully sync all messages for a conversation.
-    The DB messages will exactly match Facebook:
-    - New messages are added
-    - Updated messages are updated
-    - Deleted messages are removed
+    - Adds new messages
+    - Updates existing messages
+    - Removes deleted messages
     """
     print(f"🔄 Syncing messages for conversation {conversation.conversation_id}...")
 
@@ -72,7 +78,7 @@ def sync_messages_for_conversation(conversation):
     url = f"https://graph.facebook.com/v20.0/{conversation.conversation_id}/messages"
     params = {
         "access_token": page.page_access_token,
-        "fields": "id,from,message,created_time",
+        "fields": "id,from,message,created_time,attachments",
     }
 
     fb_messages = []
@@ -88,16 +94,36 @@ def sync_messages_for_conversation(conversation):
         for msg in data["data"]:
             msg_id = msg.get("id")
             fb_ids.add(msg_id)
+
+            # Parse created_time to datetime
+            created_time = msg.get("created_time")
+            if created_time:
+                created_time = parse_datetime(created_time).isoformat()
+            else:
+                created_time = timezone.now().isoformat()
+
+            # Process attachments if present
+            attachments = []
+            for att in msg.get("attachments", {}).get("data", []):
+                attachments.append(
+                    {
+                        "type": att.get("type"),
+                        "url": att.get("image_data", {}).get("url") or att.get("url"),
+                        "sticker_id": att.get("image_data", {}).get("sticker_id"),
+                    }
+                )
+
             fb_messages.append(
                 {
                     "id": msg_id,
                     "from": msg.get("from", {}),
                     "message": msg.get("message", ""),
-                    "created_time": msg.get("created_time", ""),
+                    "created_time": created_time,
+                    "attachments": attachments,
                 }
             )
 
-        url = data.get("paging", {}).get("next", None)
+        url = data.get("paging", {}).get("next")
         params = {}
 
     # Sort messages by created_time
@@ -106,13 +132,21 @@ def sync_messages_for_conversation(conversation):
     # Update conversation
     conversation.messages = fb_messages
     conversation.last_synced = timezone.now()
-    if fb_messages:
-        conversation.snippet = fb_messages[-1].get("message", "")
-    else:
-        conversation.snippet = ""
+    conversation.snippet = fb_messages[-1].get("message", "") if fb_messages else ""
     conversation.save()
 
     print(
         f"✅ Fully synced {len(fb_messages)} messages for {conversation.conversation_id}"
     )
     return {"total_messages": len(fb_messages)}
+
+
+def sync_all_page_data(page):
+    """
+    Helper function to sync conversations and messages for a page.
+    """
+    result = sync_conversations_from_facebook(page)
+    conversations = Conversation.objects.filter(page=page)
+    for conv in conversations:
+        sync_messages_for_conversation(conv)
+    return result
