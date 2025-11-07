@@ -78,7 +78,7 @@ def sync_messages_for_conversation(conversation):
     url = f"https://graph.facebook.com/v20.0/{conversation.conversation_id}/messages"
     params = {
         "access_token": page.page_access_token,
-        "fields": "id,from,message,created_time,attachments",
+        "fields": "id,from,message,created_time,attachments,sticker",
     }
 
     fb_messages = []
@@ -105,11 +105,37 @@ def sync_messages_for_conversation(conversation):
             # Process attachments if present
             attachments = []
             for att in msg.get("attachments", {}).get("data", []):
+                att_type = att.get("type") or att.get("mime_type")
+
+                # Get URL from the appropriate field depending on attachment type
+                url = (
+                    att.get("file_url")  # for audio/video
+                    or att.get("url")  # sometimes URL is directly here
+                    or att.get("image_data", {}).get("url")  # for images
+                    or att.get("payload", {}).get("url")  # fallback to payload
+                )
+
+                # Get sticker_id from payload or image_data if available
+                sticker_id = att.get("payload", {}).get("sticker_id") or att.get(
+                    "image_data", {}
+                ).get("sticker_id")
+
                 attachments.append(
                     {
-                        "type": att.get("type"),
-                        "url": att.get("image_data", {}).get("url") or att.get("url"),
-                        "sticker_id": att.get("image_data", {}).get("sticker_id"),
+                        "type": att_type,
+                        "url": url,
+                        "sticker_id": sticker_id,
+                    }
+                )
+            sticker_url = msg.get("sticker")
+            if sticker_url:
+                attachments.append(
+                    {
+                        "type": "sticker",
+                        "url": sticker_url,
+                        "sticker_id": sticker_url.split("/")[-1].split("_")[
+                            0
+                        ],  # optional: extract ID from URL
                     }
                 )
 
