@@ -24,12 +24,12 @@ urlpatterns = [
         name="template-detail",
     ),
     path(
-        "templates-themes/<slug:template_slug>/",
+        "template-theme/<slug:template_slug>/",
         TemplateThemeListCreateView.as_view(),
         name="template-theme-list-create",
     ),
     path(
-        "templates/<slug:template_slug>/themes/<slug:theme_slug>/",
+        "template-theme/<slug:template_slug>/themes/<slug:theme_slug>/",
         TemplateThemeRetrieveUpdateDestroyView.as_view(),
         name="template-theme-detail",
     ),

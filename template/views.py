@@ -155,9 +155,16 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
 
 class NavbarView(APIView):
     def get(self, request, template_slug):
-        template_slug = self.kwargs.get("template_slug")
+        # Get the template page for the given template slug
+        page = TemplatePage.objects.filter(template__slug=template_slug).first()
+
+        if not page:
+            return Response(
+                {"detail": "Template page not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
         navbar = TemplatePageComponent.objects.filter(
-            template__slug=template_slug, component_type="navbar"
+            page=page, component_type="navbar"
         ).first()
 
         if not navbar:
@@ -239,11 +246,11 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 # 🦶 FOOTER VIEWS
 # ------------------------------
 class FooterView(APIView):
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         template_slug = self.kwargs.get("template_slug")
         footer = TemplatePageComponent.objects.filter(
-            template__slug=template_slug, component_type="footer"
-        )
+            page__template__slug=template_slug, component_type="footer"
+        ).first()
 
         if not footer:
             return Response(
@@ -252,9 +259,14 @@ class FooterView(APIView):
 
         return Response(TemplatePageComponentSerializer(footer).data)
 
-    def post(self, request):
-        # Always create a draft when posting
+    def post(self, request, *args, **kwargs):
+        template_slug = self.kwargs.get("template_slug")
+        # Get the template page for the given template slug
+        page = get_object_or_404(TemplatePage, template__slug=template_slug)
+
+        # Prepare the data with required fields
         data = request.data.copy()
+        data["page"] = page.id
         data["component_type"] = "footer"
 
         serializer = TemplatePageComponentSerializer(data=data)
