@@ -62,6 +62,13 @@ class TemplatePageComponent(models.Model):
         null=True,
         blank=True,
     )
+    template = models.ForeignKey(
+        Template,
+        on_delete=models.CASCADE,
+        related_name="components",
+        null=True,
+        blank=True,
+    )
     component_type = models.CharField(max_length=255, null=True, blank=True)
     component_id = models.CharField(max_length=255)
     data = models.JSONField(null=True, blank=True)  # Component-specific data

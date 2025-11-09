@@ -155,44 +155,43 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
 
 class NavbarView(APIView):
     def get(self, request, template_slug):
-        # Get the template page for the given template slug
-        page = TemplatePage.objects.filter(template__slug=template_slug).first()
+        # Get the template first
+        template = get_object_or_404(Template, slug=template_slug)
 
-        if not page:
-            return Response(
-                {"detail": "Template page not found"}, status=status.HTTP_404_NOT_FOUND
-            )
-
+        # Get the navbar component for this template
         navbar = TemplatePageComponent.objects.filter(
-            page=page, component_type="navbar"
+            template=template, component_type="navbar"
         ).first()
 
         if not navbar:
             return Response(
-                {"detail": "Navbar not found"}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "Navbar not found for this template"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         return Response(TemplatePageComponentSerializer(navbar).data)
 
     def post(self, request, template_slug):
+        # Get the template
+        template = get_object_or_404(Template, slug=template_slug)
+
         # Get the first page for this template (or handle multiple pages appropriately)
-        pages = TemplatePage.objects.filter(template__slug=template_slug)
-        if not pages.exists():
+        page = TemplatePage.objects.filter(template=template).first()
+
+        if not page:
             return Response(
                 {"detail": "No pages found for this template"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # For now, use the first page. You might want to add page_slug to the URL if you need to be specific
-        page = pages.first()
-
-        # Check if navbar already exists for this page
+        # Check if navbar already exists for this template
         navbar = TemplatePageComponent.objects.filter(
-            page=page, component_type="navbar"
+            template=template, component_type="navbar"
         ).first()
 
         data = request.data.copy()
         data["page"] = page.id
+        data["template"] = template.id
         data["component_type"] = "navbar"
 
         if navbar:
@@ -205,7 +204,11 @@ class NavbarView(APIView):
             serializer = TemplatePageComponentSerializer(data=data)
 
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            # Ensure template is set on the instance
+            if not instance.template:
+                instance.template = template
+                instance.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -270,31 +273,63 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class FooterView(APIView):
     def get(self, request, *args, **kwargs):
         template_slug = self.kwargs.get("template_slug")
+        # Get the template first
+        template = get_object_or_404(Template, slug=template_slug)
+
+        # Get the footer component for this template
         footer = TemplatePageComponent.objects.filter(
-            page__template__slug=template_slug, component_type="footer"
+            template=template, component_type="footer"
         ).first()
 
         if not footer:
             return Response(
-                {"detail": "Footer not found"}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "Footer not found for this template"},
+                status=status.HTTP_404_NOT_FOUND,
             )
 
         return Response(TemplatePageComponentSerializer(footer).data)
 
     def post(self, request, *args, **kwargs):
         template_slug = self.kwargs.get("template_slug")
-        # Get the template page for the given template slug
-        page = get_object_or_404(TemplatePage, template__slug=template_slug)
+        # Get the template
+        template = get_object_or_404(Template, slug=template_slug)
 
-        # Prepare the data with required fields
+        # Get the first page for this template (or handle multiple pages appropriately)
+        page = TemplatePage.objects.filter(template=template).first()
+
+        if not page:
+            return Response(
+                {"detail": "No pages found for this template"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if footer already exists for this template
+        footer = TemplatePageComponent.objects.filter(
+            template=template, component_type="footer"
+        ).first()
+
         data = request.data.copy()
         data["page"] = page.id
+        data["template"] = template.id
         data["component_type"] = "footer"
 
-        serializer = TemplatePageComponentSerializer(data=data)
+        if footer:
+            # Update existing footer
+            serializer = TemplatePageComponentSerializer(
+                footer, data=data, partial=True
+            )
+        else:
+            # Create new footer
+            serializer = TemplatePageComponentSerializer(data=data)
+
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            # Ensure template is set on the instance
+            if not instance.template:
+                instance.template = template
+                instance.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
