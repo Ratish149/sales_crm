@@ -55,6 +55,8 @@ class TemplateSerializer(serializers.ModelSerializer):
 
 
 class TemplateThemeSerializer(serializers.ModelSerializer):
+    template = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = TemplateTheme
         fields = [
@@ -64,3 +66,4 @@ class TemplateThemeSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        read_only_fields = ("template",)
