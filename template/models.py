@@ -73,4 +73,4 @@ class TemplatePageComponent(models.Model):
         ordering = ["order"]
 
     def __str__(self):
-        return f"{self.component_type} ({self.page.title})"
+        return f"{self.component_type}"
