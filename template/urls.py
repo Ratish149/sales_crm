@@ -24,7 +24,7 @@ urlpatterns = [
         name="template-detail",
     ),
     path(
-        "templates/themes/",
+        "templates-themes/<slug:template_slug>/",
         TemplateThemeListCreateView.as_view(),
         name="template-theme-list-create",
     ),

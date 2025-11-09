@@ -4,10 +4,11 @@ import os
 from datetime import datetime
 
 import requests
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_tenants.utils import get_public_schema_name, schema_context
 from dotenv import load_dotenv
-from rest_framework import generics, response
+from rest_framework import generics, response, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -19,6 +20,7 @@ from .serializers import (
     ConversationSerializer,
     FacebookSerializer,
 )
+from .sync_single_page import sync_facebook_page
 
 logger = logging.getLogger(__name__)
 
@@ -381,3 +383,22 @@ class TenantFacebookWebhookMessageView(APIView):
 
         except Exception as e:
             logger.error(f"❌ Error notifying frontend: {e}")
+
+
+class SyncPageData(APIView):
+    """
+    DRF View: sync page data by page_id from URL.
+    Example:
+        GET /api/sync-page/<page_id>/
+    """
+
+    def get(self, request, page_id):
+        # Fetch the Facebook Page object within the current tenant
+        page = get_object_or_404(Facebook, page_id=page_id)
+
+        # Ensure the operation runs only inside the current tenant’s schema
+        tenant_schema = request.tenant.schema_name
+        with schema_context(tenant_schema):
+            result = sync_facebook_page(page)
+
+        return Response(result, status=status.HTTP_200_OK)

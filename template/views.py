@@ -31,12 +31,12 @@ class TemplateThemeListCreateView(generics.ListCreateAPIView):
     queryset = TemplateTheme.objects.all()
 
     def get_queryset(self):
-        template_slug = self.request.query_params.get("template_slug")
+        template_slug = self.kwargs.get("template_slug")
         template = get_object_or_404(Template, slug=template_slug)
         return TemplateTheme.objects.filter(template=template).order_by("id")
 
     def perform_create(self, serializer):
-        template_slug = self.request.data.get("template_slug")
+        template_slug = self.kwargs.get("template_slug")
         template = get_object_or_404(Template, slug=template_slug)
         serializer.save(template=template)
 
@@ -154,7 +154,7 @@ class TemplatePageComponentRetrieveUpdateDestroyView(
 
 
 class NavbarView(APIView):
-    def get(self, request):
+    def get(self, request, template_slug):
         template_slug = self.kwargs.get("template_slug")
         navbar = TemplatePageComponent.objects.filter(
             template__slug=template_slug, component_type="navbar"
@@ -167,9 +167,12 @@ class NavbarView(APIView):
 
         return Response(TemplatePageComponentSerializer(navbar).data)
 
-    def post(self, request):
+    def post(self, request, template_slug):
         # Always create a draft when posting
         data = request.data.copy()
+        data["template__slug"] = template_slug
+        page = get_object_or_404(TemplatePage, template__slug=template_slug)
+        data["page"] = page.id
         data["component_type"] = "navbar"
 
         serializer = TemplatePageComponentSerializer(data=data)
@@ -198,6 +201,11 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         instance = self.get_object()
         incoming_data = self.request.data
+        template_slug = self.kwargs.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
+        page = get_object_or_404(TemplatePage, template=template)
+        instance.page = page
+        instance.component_type = "navbar"
 
         # Ensure dict
         if not isinstance(incoming_data, dict):
@@ -258,17 +266,31 @@ class FooterView(APIView):
 
 class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TemplatePageComponentSerializer
+    queryset = TemplatePageComponent.objects.all()
 
     def get_object(self):
         template_slug = self.kwargs.get("template_slug")
         component_id = self.kwargs.get("component_id")
-        return TemplatePageComponent.objects.get(
-            template__slug=template_slug, component_id=component_id
-        )
+        try:
+            return TemplatePageComponent.objects.get(
+                template__slug=template_slug,
+                component_id=component_id,
+                component_type="footer",
+            )
+        except TemplatePageComponent.DoesNotExist:
+            raise Response(
+                {"detail": "Footer not found with the given component ID"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
     def perform_update(self, serializer):
         instance = self.get_object()
         incoming_data = self.request.data
+        template_slug = self.kwargs.get("template_slug")
+        template = get_object_or_404(Template, slug=template_slug)
+        page = get_object_or_404(TemplatePage, template=template)
+        instance.page = page
+        instance.component_type = "footer"
 
         # Ensure dict
         if not isinstance(incoming_data, dict):

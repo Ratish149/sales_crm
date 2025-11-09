@@ -1,6 +1,7 @@
 import requests
 from dateutil.parser import parse as parse_datetime
 from django.utils import timezone
+from tqdm import tqdm
 
 from .models import Conversation
 
@@ -87,7 +88,6 @@ def update_participants_profile_pics(participants, access_token):
 def sync_conversations_from_facebook(page):
     print(f"🔄 Syncing conversations for {page.page_name}...")
 
-    # Fetch page profile picture once per page
     page_profile_pic = fetch_facebook_profile_picture(
         page.page_id, page.page_access_token, is_page=True
     )
@@ -98,57 +98,58 @@ def sync_conversations_from_facebook(page):
         "fields": "participants,snippet,updated_time",
     }
     fb_ids = set()
+    all_conversations = []
 
+    # First, fetch all conversations
     while url:
         response = requests.get(url, params=params)
         data = response.json()
         if "data" not in data:
             break
 
-        for conv in data["data"]:
-            conv_id = conv["id"]
-            fb_ids.add(conv_id)
-
-            # Build participants list
-            participants = []
-            for p in conv.get("participants", {}).get("data", []):
-                participants.append(
-                    {
-                        "id": p.get("id"),
-                        "name": p.get("name"),
-                        "profile_pic": page_profile_pic
-                        if p.get("id") == page.page_id
-                        else None,
-                        "is_page": p.get("id") == page.page_id,
-                    }
-                )
-
-            participants, pics_updated = update_participants_profile_pics(
-                participants, page.page_access_token
-            )
-
-            updated_time = conv.get("updated_time")
-            updated_time = (
-                parse_datetime(updated_time) if updated_time else timezone.now()
-            )
-
-            convo_obj, created = Conversation.objects.get_or_create(
-                conversation_id=conv_id,
-                defaults={
-                    "page": page,
-                    "participants": participants,
-                    "snippet": conv.get("snippet", ""),
-                    "updated_time": updated_time,
-                    "last_synced": timezone.now(),
-                },
-            )
-
-            if not created and pics_updated:
-                convo_obj.participants = participants
-                convo_obj.save(update_fields=["participants"])
-
+        all_conversations.extend(data["data"])
         url = data.get("paging", {}).get("next")
         params = {}
+
+    # Process conversations with progress bar
+    for conv in tqdm(all_conversations, desc="Syncing Conversations", unit="conv"):
+        conv_id = conv["id"]
+        fb_ids.add(conv_id)
+
+        participants = []
+        for p in conv.get("participants", {}).get("data", []):
+            participants.append(
+                {
+                    "id": p.get("id"),
+                    "name": p.get("name"),
+                    "profile_pic": page_profile_pic
+                    if p.get("id") == page.page_id
+                    else None,
+                    "is_page": p.get("id") == page.page_id,
+                }
+            )
+
+        participants, pics_updated = update_participants_profile_pics(
+            participants, page.page_access_token
+        )
+
+        updated_time = conv.get("updated_time")
+        updated_time = parse_datetime(updated_time) if updated_time else timezone.now()
+
+        convo_obj, created = Conversation.objects.get_or_create(
+            conversation_id=conv_id,
+            defaults={
+                "page": page,
+                "participants": participants,
+                "snippet": conv.get("snippet", ""),
+                "updated_time": updated_time,
+                "last_synced": timezone.now(),
+            },
+        )
+
+        if not created and pics_updated:
+            convo_obj.participants = participants
+            convo_obj.save(update_fields=["participants"])
 
     Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
     print(f"✅ Fully synced {len(fb_ids)} conversations for {page.page_name}")
@@ -156,11 +157,9 @@ def sync_conversations_from_facebook(page):
 
 
 # -------------------------------------------------
-# Sync messages
+# Sync messages for a conversation
 # -------------------------------------------------
 def sync_messages_for_conversation(conversation):
-    print(f"🔄 Syncing messages for conversation {conversation.conversation_id}...")
-
     page = conversation.page
     page_profile_pic = fetch_facebook_profile_picture(
         page.page_id, page.page_access_token, is_page=True
@@ -172,89 +171,88 @@ def sync_messages_for_conversation(conversation):
         "fields": "id,from,message,created_time,attachments,sticker",
     }
 
-    fb_messages = []
-    fb_ids = set()
-    participants_map = {p["id"]: p for p in conversation.participants}
-
-    # Ensure page participant has profile pic
-    if page.page_id in participants_map:
-        participants_map[page.page_id]["profile_pic"] = page_profile_pic
-
+    all_messages = []
     while url:
         response = requests.get(url, params=params)
         data = response.json()
         if "data" not in data:
             break
+        all_messages.extend(data["data"])
+        url = data.get("paging", {}).get("next")
+        params = {}
 
-        for msg in data["data"]:
-            msg_id = msg.get("id")
-            fb_ids.add(msg_id)
+    fb_messages = []
+    fb_ids = set()
+    participants_map = {p["id"]: p for p in conversation.participants}
 
-            created_time = msg.get("created_time")
-            created_time = (
-                parse_datetime(created_time).isoformat()
-                if created_time
-                else timezone.now().isoformat()
+    if page.page_id in participants_map:
+        participants_map[page.page_id]["profile_pic"] = page_profile_pic
+
+    for msg in tqdm(
+        all_messages, desc=f"Messages for {conversation.conversation_id}", unit="msg"
+    ):
+        msg_id = msg.get("id")
+        fb_ids.add(msg_id)
+
+        created_time = msg.get("created_time")
+        created_time = (
+            parse_datetime(created_time).isoformat()
+            if created_time
+            else timezone.now().isoformat()
+        )
+
+        attachments = []
+        for att in msg.get("attachments", {}).get("data", []):
+            att_type = att.get("type") or att.get("mime_type")
+            url = (
+                att.get("file_url")
+                or att.get("url")
+                or att.get("image_data", {}).get("url")
+                or att.get("payload", {}).get("url")
             )
+            sticker_id = att.get("payload", {}).get("sticker_id") or att.get(
+                "image_data", {}
+            ).get("sticker_id")
+            attachments.append({"type": att_type, "url": url, "sticker_id": sticker_id})
 
-            attachments = []
-            for att in msg.get("attachments", {}).get("data", []):
-                att_type = att.get("type") or att.get("mime_type")
-                url = (
-                    att.get("file_url")
-                    or att.get("url")
-                    or att.get("image_data", {}).get("url")
-                    or att.get("payload", {}).get("url")
-                )
-                sticker_id = att.get("payload", {}).get("sticker_id") or att.get(
-                    "image_data", {}
-                ).get("sticker_id")
-                attachments.append(
-                    {"type": att_type, "url": url, "sticker_id": sticker_id}
-                )
-
-            sticker_url = msg.get("sticker")
-            if sticker_url:
-                attachments.append(
-                    {
-                        "type": "sticker",
-                        "url": sticker_url,
-                        "sticker_id": sticker_url.split("/")[-1].split("_")[0],
-                    }
-                )
-
-            sender = msg.get("from", {})
-            sender_id = sender.get("id")
-
-            # Page uses page_profile_pic
-            if sender_id == page.page_id:
-                sender["profile_pic"] = page_profile_pic
-            elif sender_id:
-                current_pic = participants_map.get(sender_id, {}).get("profile_pic")
-                sender_pic = fetch_facebook_profile_picture(
-                    sender_id, page.page_access_token, current_url=current_pic
-                )
-                if sender_pic:
-                    sender["profile_pic"] = sender_pic
-                    participants_map[sender_id] = {
-                        "id": sender_id,
-                        "name": sender.get("name", ""),
-                        "profile_pic": sender_pic,
-                        "is_page": False,
-                    }
-
-            fb_messages.append(
+        sticker_url = msg.get("sticker")
+        if sticker_url:
+            attachments.append(
                 {
-                    "id": msg_id,
-                    "from": sender,
-                    "message": msg.get("message", ""),
-                    "created_time": created_time,
-                    "attachments": attachments,
+                    "type": "sticker",
+                    "url": sticker_url,
+                    "sticker_id": sticker_url.split("/")[-1].split("_")[0],
                 }
             )
 
-        url = data.get("paging", {}).get("next")
-        params = {}
+        sender = msg.get("from", {})
+        sender_id = sender.get("id")
+
+        if sender_id == page.page_id:
+            sender["profile_pic"] = page_profile_pic
+        elif sender_id:
+            current_pic = participants_map.get(sender_id, {}).get("profile_pic")
+            sender_pic = fetch_facebook_profile_picture(
+                sender_id, page.page_access_token, current_url=current_pic
+            )
+            if sender_pic:
+                sender["profile_pic"] = sender_pic
+                participants_map[sender_id] = {
+                    "id": sender_id,
+                    "name": sender.get("name", ""),
+                    "profile_pic": sender_pic,
+                    "is_page": False,
+                }
+
+        fb_messages.append(
+            {
+                "id": msg_id,
+                "from": sender,
+                "message": msg.get("message", ""),
+                "created_time": created_time,
+                "attachments": attachments,
+            }
+        )
 
     fb_messages.sort(key=lambda x: x.get("created_time", ""))
     conversation.messages = fb_messages
@@ -263,18 +261,19 @@ def sync_messages_for_conversation(conversation):
     conversation.participants = list(participants_map.values())
     conversation.save()
 
-    print(
-        f"✅ Fully synced {len(fb_messages)} messages for {conversation.conversation_id}"
-    )
     return {"total_messages": len(fb_messages)}
 
 
 # -------------------------------------------------
-# Sync all data for a page
+# Sync all page data with unified progress bar
 # -------------------------------------------------
 def sync_all_page_data(page):
     result = sync_conversations_from_facebook(page)
     conversations = Conversation.objects.filter(page=page)
-    for conv in conversations:
+    print(f"🔄 Syncing messages for {len(conversations)} conversations...")
+
+    for conv in tqdm(conversations, desc="All Messages Progress", unit="conv"):
         sync_messages_for_conversation(conv)
+
+    print("✅ All messages synced for page:", page.page_name)
     return result

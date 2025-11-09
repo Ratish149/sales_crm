@@ -5,6 +5,7 @@ from .views import (
     ConversationMessageAPIView,
     FacebookListCreateView,
     FacebookRetrieveUpdateDestroyView,
+    SyncPageData,
     TenantFacebookWebhookMessageView,
 )
 
@@ -29,5 +30,10 @@ urlpatterns = [
         "facebook/tenant-webhook/",
         TenantFacebookWebhookMessageView.as_view(),
         name="tenant-webhook",
+    ),
+    path(
+        "sync-page/<str:page_id>/",
+        SyncPageData.as_view(),
+        name="sync-page-data",
     ),
 ]
