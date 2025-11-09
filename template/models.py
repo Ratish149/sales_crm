@@ -56,7 +56,11 @@ class TemplatePage(models.Model):
 
 class TemplatePageComponent(models.Model):
     page = models.ForeignKey(
-        TemplatePage, on_delete=models.CASCADE, related_name="components"
+        TemplatePage,
+        on_delete=models.CASCADE,
+        related_name="components",
+        null=True,
+        blank=True,
     )
     component_type = models.CharField(max_length=255, null=True, blank=True)
     component_id = models.CharField(max_length=255)
