@@ -175,17 +175,39 @@ class NavbarView(APIView):
         return Response(TemplatePageComponentSerializer(navbar).data)
 
     def post(self, request, template_slug):
-        # Always create a draft when posting
+        # Get the first page for this template (or handle multiple pages appropriately)
+        pages = TemplatePage.objects.filter(template__slug=template_slug)
+        if not pages.exists():
+            return Response(
+                {"detail": "No pages found for this template"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # For now, use the first page. You might want to add page_slug to the URL if you need to be specific
+        page = pages.first()
+
+        # Check if navbar already exists for this page
+        navbar = TemplatePageComponent.objects.filter(
+            page=page, component_type="navbar"
+        ).first()
+
         data = request.data.copy()
-        data["template__slug"] = template_slug
-        page = get_object_or_404(TemplatePage, template__slug=template_slug)
         data["page"] = page.id
         data["component_type"] = "navbar"
 
-        serializer = TemplatePageComponentSerializer(data=data)
+        if navbar:
+            # Update existing navbar
+            serializer = TemplatePageComponentSerializer(
+                navbar, data=data, partial=True
+            )
+        else:
+            # Create new navbar
+            serializer = TemplatePageComponentSerializer(data=data)
+
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
