@@ -47,10 +47,8 @@ class TemplateThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 
     def get_object(self):
         template_slug = self.kwargs.get("template_slug")
-        theme_slug = self.kwargs.get("theme_slug")
-        return get_object_or_404(
-            TemplateTheme, template__slug=template_slug, slug=theme_slug
-        )
+        pk = self.kwargs.get("pk")
+        return get_object_or_404(TemplateTheme, template__slug=template_slug, id=pk)
 
 
 # ------------------------------

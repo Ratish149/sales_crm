@@ -29,7 +29,7 @@ urlpatterns = [
         name="template-theme-list-create",
     ),
     path(
-        "template-theme/<slug:template_slug>/themes/<slug:theme_slug>/",
+        "template-theme/<slug:template_slug>/themes/<int:pk>/",
         TemplateThemeRetrieveUpdateDestroyView.as_view(),
         name="template-theme-detail",
     ),
