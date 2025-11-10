@@ -24,7 +24,7 @@ urlpatterns = [
         name="template-detail",
     ),
     path(
-        "template-theme/<slug:template_slug>/",
+        "template-theme/<slug:template_slug>/themes/",
         TemplateThemeListCreateView.as_view(),
         name="template-theme-list-create",
     ),
@@ -62,7 +62,7 @@ urlpatterns = [
         name="navbar",
     ),
     path(
-        "template-navbar/<slug:template_slug>/navbar/<str:component_id>/",
+        "template-navbar/<slug:template_slug>/navbar/<int:pk>/",
         NavbarRetrieveUpdateDestroyView.as_view(),
         name="navbar-detail",
     ),
@@ -73,7 +73,7 @@ urlpatterns = [
         name="footer",
     ),
     path(
-        "template-footer/<slug:template_slug>/footer/<str:component_id>/",
+        "template-footer/<slug:template_slug>/footer/<int:pk>/",
         FooterRetrieveUpdateDestroyView.as_view(),
         name="footer-detail",
     ),

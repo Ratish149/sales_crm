@@ -225,10 +225,8 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         template_slug = self.kwargs.get("template_slug")
-        component_id = self.kwargs.get("component_id")
-        return TemplatePageComponent.objects.get(
-            template__slug=template_slug, component_id=component_id
-        )
+        pk = self.kwargs.get("pk")
+        return TemplatePageComponent.objects.get(template__slug=template_slug, id=pk)
 
     def perform_update(self, serializer):
         instance = self.get_object()
@@ -339,11 +337,11 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     def get_object(self):
         template_slug = self.kwargs.get("template_slug")
-        component_id = self.kwargs.get("component_id")
+        pk = self.kwargs.get("pk")
         try:
             return TemplatePageComponent.objects.get(
                 template__slug=template_slug,
-                component_id=component_id,
+                id=pk,
                 component_type="footer",
             )
         except TemplatePageComponent.DoesNotExist:
