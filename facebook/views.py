@@ -85,7 +85,7 @@ class ConversationListAPIView(generics.ListAPIView):
                 )  # return empty queryset if page not found
         else:
             # If no page_id, fallback to all enabled pages
-            return Conversation.objects.all().order_by("-updated_time")
+            return Conversation.objects.none()
 
 
 class ConversationMessageAPIView(generics.RetrieveAPIView):
