@@ -74,22 +74,21 @@ class FacebookRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class ConversationListAPIView(generics.ListAPIView):
     serializer_class = ConversationSerializer
 
-    def get_queryset(self, page_id=None):
-        if page_id:
-            try:
-                page = Facebook.objects.get(page_id=page_id, is_enabled=True)
-                print("Page found:", page)
-                print(
-                    "Conversation.objects.filter(page=page).order_by(\"-updated_time\"):",
-                    Conversation.objects.filter(page=page).order_by("-updated_time"),
-                )
-                return Conversation.objects.filter(page=page).order_by("-updated_time")
-            except Facebook.DoesNotExist:
-                return (
-                    Conversation.objects.none()
-                )  # return empty queryset if page not found
-        else:
-            # If no page_id, fallback to all enabled pages
+    def get_queryset(self):
+        page_id = self.kwargs.get("page_id")
+        if not page_id:
+            return Conversation.objects.none()
+
+        try:
+            page = Facebook.objects.get(page_id=page_id, is_enabled=True)
+            print("Page found:", page)
+            conversations = Conversation.objects.filter(page=page).order_by(
+                "-updated_time"
+            )
+            print(f"Found {conversations.count()} conversations for page {page_id}")
+            return conversations
+        except Facebook.DoesNotExist:
+            print(f"Page with ID {page_id} not found or not enabled")
             return Conversation.objects.none()
 
 
