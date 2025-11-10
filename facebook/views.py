@@ -78,6 +78,11 @@ class ConversationListAPIView(generics.ListAPIView):
         if page_id:
             try:
                 page = Facebook.objects.get(page_id=page_id, is_enabled=True)
+                print("Page found:", page)
+                print(
+                    "Conversation.objects.filter(page=page).order_by(\"-updated_time\"):",
+                    Conversation.objects.filter(page=page).order_by("-updated_time"),
+                )
                 return Conversation.objects.filter(page=page).order_by("-updated_time")
             except Facebook.DoesNotExist:
                 return (
