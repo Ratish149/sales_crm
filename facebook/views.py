@@ -373,15 +373,18 @@ class TenantFacebookWebhookMessageView(APIView):
             )
 
             if response.status_code == 200:
+                print("Frontend notified successfully for tenant", tenant_schema)
                 logger.info(
                     f"✅ Frontend notified successfully for tenant {tenant_schema}"
                 )
             else:
+                print("Frontend notification failed for tenant", tenant_schema)
                 logger.warning(
                     f"⚠️ Frontend notification failed ({response.status_code}): {response.text}"
                 )
 
         except Exception as e:
+            print("Error notifying frontend:", e)
             logger.error(f"❌ Error notifying frontend: {e}")
 
 
