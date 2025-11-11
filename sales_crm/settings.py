@@ -43,6 +43,7 @@ TENANT_MODEL = "tenants.Client"
 TENANT_DOMAIN_MODEL = "tenants.Domain"
 
 SHARED_APPS = [
+    "daphne",
     "django_tenants",
     # 'unfold',
     "jazzmin",
@@ -141,6 +142,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "sales_crm.wsgi.application"
 
+ASGI_APPLICATION = "sales_crm.asgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
