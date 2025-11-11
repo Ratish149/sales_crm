@@ -20,7 +20,7 @@ from .serializers import (
     ConversationSerializer,
     FacebookSerializer,
 )
-from .sync_single_page import sync_facebook_page
+from .tasks import sync_page_task
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,10 @@ class FacebookRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def perform_destroy(self, instance):
         # Delete the FacebookPageTenantMap in public schema before deleting the instance
         with schema_context(get_public_schema_name()):
-            FacebookPageTenantMap.objects.filter(page_id=instance.page_id).delete()
-            print(f"Deleted FacebookPageTenantMap for page {instance.page_name}")
+            FacebookPageTenantMap.objects.filter(
+                page_id=instance.page_id).delete()
+            print(
+                f"Deleted FacebookPageTenantMap for page {instance.page_name}")
 
         # Now delete the Facebook instance
         instance.delete()
@@ -85,11 +87,35 @@ class ConversationListAPIView(generics.ListAPIView):
             conversations = Conversation.objects.filter(page=page).order_by(
                 "-updated_time"
             )
-            print(f"Found {conversations.count()} conversations for page {page_id}")
+            print(
+                f"Found {conversations.count()} conversations for page {page_id}")
             return conversations
         except Facebook.DoesNotExist:
             print(f"Page with ID {page_id} not found or not enabled")
             return Conversation.objects.none()
+
+    def list(self, request, *args, **kwargs):
+        page_id = self.kwargs.get("page_id")
+        page_obj = None
+        try:
+            page_obj = Facebook.objects.get(page_id=page_id, is_enabled=True)
+        except Facebook.DoesNotExist:
+            page_obj = None
+
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        meta = {}
+        if page_obj:
+            meta = {
+                "next_after": getattr(page_obj, "conversations_next", None),
+                "page_id": page_id,
+            }
+
+        return Response(
+            {"results": serializer.data, "meta": meta},
+            status=status.HTTP_200_OK,
+        )
 
 
 class ConversationMessageAPIView(generics.RetrieveAPIView):
@@ -99,7 +125,8 @@ class ConversationMessageAPIView(generics.RetrieveAPIView):
 
     def get(self, request, *args, **kwargs):
         conversation = self.get_object()
-        serializer = self.serializer_class(conversation, context={"request": request})
+        serializer = self.serializer_class(
+            conversation, context={"request": request})
         return response.Response(
             {
                 "conversation": serializer.data,
@@ -122,7 +149,8 @@ class TenantFacebookWebhookMessageView(APIView):
 
     def post(self, request, *args, **kwargs):
         payload = request.data
-        print("Payload received in backend api:", json.dumps(payload, indent=2))
+        print("Payload received in backend api:",
+              json.dumps(payload, indent=2))
         tenant_schema = (
             getattr(request, "tenant", None).schema_name
             if getattr(request, "tenant", None)
@@ -141,7 +169,8 @@ class TenantFacebookWebhookMessageView(APIView):
             try:
                 page = Facebook.objects.get(page_id=page_id)
             except Facebook.DoesNotExist:
-                logger.warning(f"⚠️ No Facebook page found for page_id={page_id}")
+                logger.warning(
+                    f"⚠️ No Facebook page found for page_id={page_id}")
                 continue
 
             # Step 2️⃣: Process each messaging event
@@ -192,10 +221,12 @@ class TenantFacebookWebhookMessageView(APIView):
                             timeout=5,
                         ).json()
                         profile_pic = (
-                            user_resp.get("picture", {}).get("data", {}).get("url")
+                            user_resp.get("picture", {}).get(
+                                "data", {}).get("url")
                         )
                     except Exception as e:
-                        logger.warning(f"⚠️ Failed to fetch profile picture: {e}")
+                        logger.warning(
+                            f"⚠️ Failed to fetch profile picture: {e}")
 
                     convo, _ = Conversation.objects.get_or_create(
                         conversation_id=conv_id,
@@ -219,10 +250,12 @@ class TenantFacebookWebhookMessageView(APIView):
                 else:
                     conv_id = convo.conversation_id
                     sender_name = next(
-                        (p["name"] for p in convo.participants if p["id"] == sender_id),
+                        (p["name"]
+                         for p in convo.participants if p["id"] == sender_id),
                         sender_id,
                     )
-                    logger.info(f"✅ Existing conversation for sender {sender_id}")
+                    logger.info(
+                        f"✅ Existing conversation for sender {sender_id}")
 
                 # Step 5️⃣: Build message JSON
                 message_json = {
@@ -367,7 +400,8 @@ class TenantFacebookWebhookMessageView(APIView):
             }
 
             print("Payload to frontend:", json.dumps(payload, indent=2))
-            logger.info(f"🚀 Sending frontend notification to {notification_url}")
+            logger.info(
+                f"🚀 Sending frontend notification to {notification_url}")
 
             response = requests.post(
                 notification_url,
@@ -396,16 +430,24 @@ class SyncPageData(APIView):
     """
     DRF View: sync page data by page_id from URL.
     Example:
-        GET /api/sync-page/<page_id>/
+        GET /api/sync-page/<page_id>/?frontend_url=http://localhost:3000/api/notify-task-complete/
     """
 
     def get(self, request, page_id):
-        # Fetch the Facebook Page object within the current tenant
         page = get_object_or_404(Facebook, page_id=page_id)
 
-        # Ensure the operation runs only inside the current tenant’s schema
-        tenant_schema = request.tenant.schema_name
-        with schema_context(tenant_schema):
-            result = sync_facebook_page(page)
+        limit = int(request.query_params.get("limit", 30))
+        after = request.query_params.get("after")
 
-        return Response(result, status=status.HTTP_200_OK)
+        tenant_schema = request.tenant.schema_name
+
+        # Call Celery task (async)
+        sync_page_task.delay(
+            page_id=page_id,
+            tenant_schema=tenant_schema,
+            frontend_url=NEXTJS_FRONTEND_URL,
+            limit=limit,
+            after=after
+        )
+
+        return Response({"status": "task_started"}, status=202)

@@ -470,21 +470,16 @@ else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = Path(BASE_DIR, "media")
 
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "handlers": {
-#         "file": {
-#             "level": "DEBUG",
-#             "class": "logging.FileHandler",
-#             "filename": os.path.join(BASE_DIR, "facebook_webhook.log"),  # relative file
-#         },
-#     },
-#     "loggers": {
-#         "facebook_webhook": {
-#             "handlers": ["file"],
-#             "level": "DEBUG",
-#             "propagate": True,
-#         },
-#     },
-# }
+# settings.py
+
+# Redis as broker (recommended)
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+
+# Only 1 worker concurrency by default (extra safety)
+CELERY_WORKER_CONCURRENCY = 1
+CELERY_TASK_ALWAYS_EAGER = False  # Set True only for local debugging
+
+# Optional: avoid running multiple instances of same task simultaneously
+CELERY_TASK_ACKS_LATE = True
+CELERYD_MAX_TASKS_PER_CHILD = 50

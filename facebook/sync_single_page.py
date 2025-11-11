@@ -47,7 +47,8 @@ def fetch_profile_picture(user_id, access_token, current_url=None, is_page=False
 
     try:
         url = f"https://graph.facebook.com/{user_id}"
-        params = {"fields": "picture.type(large)", "access_token": access_token}
+        params = {
+            "fields": "picture.type(large)", "access_token": access_token}
         resp = requests.get(url, params=params, timeout=5).json()
         pic_url = resp.get("picture", {}).get("data", {}).get("url")
         if pic_url:
@@ -61,41 +62,53 @@ def fetch_profile_picture(user_id, access_token, current_url=None, is_page=False
 # -------------------------------------------------
 # Main sync function
 # -------------------------------------------------
-def sync_facebook_page(page: Facebook):
+def sync_facebook_page(page: Facebook, limit=30, after=None):
     """
-    Sync all conversations and messages for the given Facebook page.
-    Works per-tenant (called inside the tenant schema context).
-    Shows progress bars for better visibility.
+    Sync a single page of conversations (default 30) and ALL messages for those conversations.
+    Successive calls can use the returned `next_after` cursor to fetch the next page of conversations.
+    Works per-tenant (called inside the tenant schema context). Shows progress bars for visibility.
     """
     access_token = page.page_access_token
-    page_id = page.page_id
-    page_profile_pic = fetch_profile_picture(page_id, access_token, is_page=True)
+    page_id = page.page_id 
+    page_profile_pic = fetch_profile_picture(
+        page_id, access_token, is_page=True)
 
     # ------------------------------
-    # Fetch Conversations
+    # Fetch a SINGLE PAGE of Conversations (limit + after cursor)
     # ------------------------------
     print(f"🔄 Syncing conversations for {page.page_name} ({page_id})")
     url = f"https://graph.facebook.com/v20.0/{page_id}/conversations"
     params = {
         "access_token": access_token,
         "fields": "participants,snippet,updated_time",
+        "limit": limit,
     }
+    if after:
+        params["after"] = after
 
     fb_ids = set()
     all_conversations = []
 
-    # First gather all conversations
-    while url:
-        response = requests.get(url, params=params)
-        data = response.json()
+    # Only one request (single page). We do NOT follow paging.next here.
+    response = requests.get(url, params=params)
+    data = response.json()
 
-        if "data" not in data:
-            print(f"⚠️ No data found for page {page.page_name}")
-            break
+    if "data" not in data:
+        print(f"⚠️ No data found for page {page.page_name}")
+        paging = data.get("paging", {}) or {}
+        cursors = paging.get("cursors", {}) or {}
+        return {
+            "status": "success",
+            "total_conversations": 0,
+            "has_next": bool(paging.get("next")),
+            "next_after": cursors.get("after"),
+        }
 
-        all_conversations.extend(data["data"])
-        url = data.get("paging", {}).get("next")
-        params = {}
+    all_conversations.extend(data["data"])
+    paging = data.get("paging", {}) or {}
+    cursors = paging.get("cursors", {}) or {}
+    has_next = bool(paging.get("next"))
+    next_after = cursors.get("after")
 
     # Process conversations with a progress bar
     for conv in tqdm(all_conversations, desc="📩 Syncing Conversations", unit="conv"):
@@ -128,7 +141,8 @@ def sync_facebook_page(page: Facebook):
                 updated = True
 
         updated_time = conv.get("updated_time")
-        updated_time = parse_datetime(updated_time) if updated_time else timezone.now()
+        updated_time = parse_datetime(
+            updated_time) if updated_time else timezone.now()
 
         convo_obj, created = Conversation.objects.get_or_create(
             conversation_id=conv_id,
@@ -145,13 +159,14 @@ def sync_facebook_page(page: Facebook):
             convo_obj.participants = participants
             convo_obj.save(update_fields=["participants"])
 
-    # Remove deleted conversations
-    Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
+    # NOTE: Do NOT delete conversations here since we're only partially syncing a subset
+    # Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
 
     # ------------------------------
-    # Fetch Messages for each conversation
+    # Fetch Messages for each conversation (ALL messages)
     # ------------------------------
-    conversations = Conversation.objects.filter(page=page)
+    conversations = Conversation.objects.filter(
+        page=page, conversation_id__in=list(fb_ids))
     print(f"💬 Syncing messages for {len(conversations)} conversations...")
 
     for conversation in tqdm(
@@ -167,7 +182,8 @@ def sync_facebook_page(page: Facebook):
 
         fb_messages = []
         fb_ids = set()
-        participants_map = {p["id"]: p for p in (conversation.participants or [])}
+        participants_map = {p["id"]: p for p in (
+            conversation.participants or [])}
 
         # Ensure page has profile pic
         if page_id in participants_map:
@@ -236,7 +252,8 @@ def sync_facebook_page(page: Facebook):
             if sender_id == page_id:
                 sender["profile_pic"] = page_profile_pic
             elif sender_id:
-                current_pic = participants_map.get(sender_id, {}).get("profile_pic")
+                current_pic = participants_map.get(
+                    sender_id, {}).get("profile_pic")
                 sender_pic = fetch_profile_picture(
                     sender_id, access_token, current_url=current_pic
                 )
@@ -261,10 +278,27 @@ def sync_facebook_page(page: Facebook):
 
         fb_messages.sort(key=lambda x: x.get("created_time", ""))
         conversation.messages = fb_messages
+        print(
+            f"💬 Synced {len(fb_messages)} messages for {conversation.conversation_id}")
+        page.conversations_next = next_after
+        page.save(update_fields=["conversations_next"])
         conversation.last_synced = timezone.now()
-        conversation.snippet = fb_messages[-1].get("message", "") if fb_messages else ""
+        conversation.snippet = fb_messages[-1].get(
+            "message", "") if fb_messages else ""
         conversation.participants = list(participants_map.values())
         conversation.save()
 
     print(f"✅ Sync completed for page {page.page_name}")
-    return {"status": "success", "total_conversations": conversations.count()}
+    # Persist pagination state on the Facebook page so frontend can resume after refresh
+    try:
+        page.conversations_next = next_after
+        page.save(update_fields=["conversations_next"])
+    except Exception:
+        pass
+
+    return {
+        "status": "success",
+        "total_conversations": len(all_conversations),
+        "has_next": has_next,
+        "next_after": next_after,
+    }
