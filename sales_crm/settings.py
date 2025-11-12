@@ -189,10 +189,6 @@ DATABASES = {
     }
 }
 
-
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = True
-
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
 CORS_ALLOW_ALL_ORIGINS = True
