@@ -144,6 +144,15 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
+        },
+    },
+}
+
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
@@ -181,6 +190,9 @@ DATABASES = {
 }
 
 
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SECURE_SSL_REDIRECT = True
+
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -192,7 +204,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://adapters-francis-trades-commonly.trycloudflare.com",
+    "https://net-episode-tours-edition.trycloudflare.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
@@ -200,7 +212,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://adapters-francis-trades-commonly.trycloudflare.com",
+    "https://net-episode-tours-edition.trycloudflare.com",
 ]
 
 # Password validation
@@ -475,8 +487,8 @@ else:
 # settings.py
 
 # Redis as broker (recommended)
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/1'
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/1"
 
 # Only 1 worker concurrency by default (extra safety)
 CELERY_WORKER_CONCURRENCY = 1
@@ -485,6 +497,3 @@ CELERY_TASK_ALWAYS_EAGER = False  # Set True only for local debugging
 # Optional: avoid running multiple instances of same task simultaneously
 CELERY_TASK_ACKS_LATE = True
 CELERYD_MAX_TASKS_PER_CHILD = 50
-
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_SSL_REDIRECT = True

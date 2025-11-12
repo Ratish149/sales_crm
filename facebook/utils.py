@@ -1,3 +1,6 @@
+from asgiref.sync import async_to_sync
+import json
+from channels.layers import get_channel_layer
 import requests
 from dateutil.parser import parse as parse_datetime
 from django.utils import timezone
@@ -51,7 +54,8 @@ def fetch_facebook_profile_picture(
 
     try:
         url = f"https://graph.facebook.com/{user_id}"
-        params = {"fields": "picture.type(large)", "access_token": access_token}
+        params = {
+            "fields": "picture.type(large)", "access_token": access_token}
         resp = requests.get(url, params=params, timeout=5).json()
         pic_url = resp.get("picture", {}).get("data", {}).get("url")
         if pic_url:
@@ -134,7 +138,8 @@ def sync_conversations_from_facebook(page):
         )
 
         updated_time = conv.get("updated_time")
-        updated_time = parse_datetime(updated_time) if updated_time else timezone.now()
+        updated_time = parse_datetime(
+            updated_time) if updated_time else timezone.now()
 
         convo_obj, created = Conversation.objects.get_or_create(
             conversation_id=conv_id,
@@ -151,7 +156,8 @@ def sync_conversations_from_facebook(page):
             convo_obj.participants = participants
             convo_obj.save(update_fields=["participants"])
 
-    Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
+    Conversation.objects.filter(page=page).exclude(
+        conversation_id__in=fb_ids).delete()
     print(f"✅ Fully synced {len(fb_ids)} conversations for {page.page_name}")
     return {"total_conversations": len(fb_ids)}
 
@@ -213,7 +219,8 @@ def sync_messages_for_conversation(conversation):
             sticker_id = att.get("payload", {}).get("sticker_id") or att.get(
                 "image_data", {}
             ).get("sticker_id")
-            attachments.append({"type": att_type, "url": url, "sticker_id": sticker_id})
+            attachments.append(
+                {"type": att_type, "url": url, "sticker_id": sticker_id})
 
         sticker_url = msg.get("sticker")
         if sticker_url:
@@ -231,7 +238,8 @@ def sync_messages_for_conversation(conversation):
         if sender_id == page.page_id:
             sender["profile_pic"] = page_profile_pic
         elif sender_id:
-            current_pic = participants_map.get(sender_id, {}).get("profile_pic")
+            current_pic = participants_map.get(
+                sender_id, {}).get("profile_pic")
             sender_pic = fetch_facebook_profile_picture(
                 sender_id, page.page_access_token, current_url=current_pic
             )
@@ -257,7 +265,8 @@ def sync_messages_for_conversation(conversation):
     fb_messages.sort(key=lambda x: x.get("created_time", ""))
     conversation.messages = fb_messages
     conversation.last_synced = timezone.now()
-    conversation.snippet = fb_messages[-1].get("message", "") if fb_messages else ""
+    conversation.snippet = fb_messages[-1].get(
+        "message", "") if fb_messages else ""
     conversation.participants = list(participants_map.values())
     conversation.save()
 
@@ -277,3 +286,46 @@ def sync_all_page_data(page):
 
     print("✅ All messages synced for page:", page.page_name)
     return result
+
+
+def notify_frontend_ws(tenant_schema, conversation_id, message, page_id, snippet, sender_name, sender_id):
+    print("\n================ WebSocket Notification Start ================")
+    print(f"Tenant: {tenant_schema}")
+    print(f"Conversation ID: {conversation_id}")
+    print(f"Page ID: {page_id}")
+    print(f"Sender: {sender_name} ({sender_id})")
+    print(f"Snippet: {snippet}")
+
+    payload = {
+        "type": "new_message",
+        "data": {
+            "conversation_id": conversation_id,
+            "message": message,
+            "page_id": page_id,
+            "snippet": snippet,
+            "sender_name": sender_name,
+            "sender_id": sender_id,
+            "timestamp": message.get("created_time"),
+            "message_type": "attachment" if message.get("attachments") else "text",
+        },
+    }
+
+    print("\n📦 Payload to send via WebSocket:")
+    print(json.dumps(payload, indent=2))
+
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        print("⚠️ Channel layer not configured or Redis not running!")
+        return
+
+    try:
+        print("\n⏳ Sending payload to WebSocket group...")
+        async_to_sync(channel_layer.group_send)(
+            f"tenant_{tenant_schema}",
+            {"type": "send_notification", "message": payload},
+        )
+        print(f"✅ Notification sent successfully for tenant '{tenant_schema}'")
+    except Exception as e:
+        print(f"❌ WebSocket notification failed: {e}")
+
+    print("================ WebSocket Notification End ================\n")
