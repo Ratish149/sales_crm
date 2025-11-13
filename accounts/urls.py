@@ -5,7 +5,6 @@ from .views import (
     ChangePasswordView,
     CustomSignupView,
     CustomVerifyEmailView,
-    DeleteUserAndSchemaView,
     InvitationCreateView,
     ResendEmailVerificationView,
     ResendInvitationView,
@@ -37,9 +36,4 @@ urlpatterns = [
         name="store-profile-detail",
     ),
     path("users/", UserWithStoresListAPIView.as_view(), name="users-with-stores"),
-    path(
-        "delete-account/<int:user_id>/",
-        DeleteUserAndSchemaView.as_view(),
-        name="delete-user-and-schema",
-    ),
 ]

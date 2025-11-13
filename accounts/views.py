@@ -14,10 +14,8 @@ from allauth.account.utils import (
     user_field,
     user_username,
 )
-from django.db import connection
 from django.db.models import Q
 from django.http import Http404
-from django.shortcuts import get_object_or_404
 from django.template.loader import render_to_string
 from django.utils.decorators import method_decorator
 from django.utils.text import slugify
@@ -465,40 +463,4 @@ class UserWithStoresListAPIView(generics.ListAPIView):
             CustomUser.objects.all()
             .prefetch_related("stores")  # prefetch many-to-many stores
             .prefetch_related("owned_stores")  # prefetch owned stores
-        )
-
-
-class DeleteUserAndSchemaView(APIView):
-    """
-    Delete user and their tenant schema.
-    """
-
-    def delete(self, request, user_id=None):
-        # If you want only the logged-in user to delete themselves:
-        user = get_object_or_404(CustomUser, id=user_id)
-
-        # Check if this user owns a tenant
-        try:
-            client = Client.objects.get(owner=user)
-        except Client.DoesNotExist:
-            return Response(
-                {"error": "This user does not own a tenant."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        schema_name = client.schema_name
-
-        # 1️⃣ Drop tenant schema safely
-        with connection.cursor() as cursor:
-            cursor.execute(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
-
-        # 2️⃣ Delete tenant object
-        client.delete()
-
-        # 3️⃣ Delete user
-        user.delete()
-
-        return Response(
-            {"message": f"User and schema '{schema_name}' deleted successfully."},
-            status=status.HTTP_200_OK,
         )
