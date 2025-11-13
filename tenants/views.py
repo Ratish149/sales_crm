@@ -9,12 +9,14 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from tenants.models import FacebookPageTenantMap
+from tenants.models import Client, Domain, FacebookPageTenantMap
 
-from .models import Client, Domain
 from .serializers import DomainSerializer, TemplateTenantSerializer
 
 load_dotenv()
@@ -148,3 +150,56 @@ class TemplateTenantListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return Client.objects.filter(is_template_account=True)
+
+
+class ClientTokenByIdAPIView(APIView):
+    """
+    Generate JWT tokens for a client owner using client ID.
+    """
+
+    def post(self, request):
+        client_id = request.data.get("client_id")
+        if not client_id:
+            return Response(
+                {"detail": "client_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get the client
+        try:
+            client = Client.objects.get(id=client_id)
+        except Client.DoesNotExist:
+            return Response(
+                {"detail": "Client not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        owner = client.owner
+        if not owner:
+            return Response(
+                {"detail": "Client owner not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        domain = Domain.objects.get(tenant=client)
+        domain_name = domain.domain
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(owner)
+        refresh["email"] = owner.email
+        refresh["client_id"] = client.id
+        refresh["client_name"] = client.name
+        refresh["schema_name"] = client.schema_name
+        refresh["is_template_account"] = client.is_template_account
+        refresh["domain"] = domain_name
+
+        return Response(
+            {
+                "access_token": str(refresh.access_token),
+                "refresh_token": str(refresh),
+                "owner": {"id": owner.id, "email": owner.email, "role": owner.role},
+                "client": {
+                    "id": client.id,
+                    "name": client.name,
+                    "schema_name": client.schema_name,
+                    "is_template_account": client.is_template_account,
+                    "domain": domain_name,
+                },
+            }
+        )
