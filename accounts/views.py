@@ -26,6 +26,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
     ErrorCode,
     bad_request,
@@ -143,12 +144,23 @@ class CustomSignupView(APIView):
                         primary=True,
                         verified=is_template_account,
                     )
-
                     Domain.objects.create(
                         domain=f"{storeName}.{backend_url}",
                         tenant=tenant,
                         is_primary=True,
                     )
+
+                    # For template accounts, assign a premium plan with no expiration
+                    if is_template_account:
+                        # Get the first available premium plan
+                        premium_plan = Pricing.objects.filter(
+                            plan_type="premium"
+                        ).first()
+                        if premium_plan:
+                            tenant.pricing_plan = premium_plan
+                            tenant.paid_until = None  # No expiration
+                            tenant.save()
+
                 except Exception as e:
                     # Clean up user if tenant creation fails
                     user.delete()
@@ -331,7 +343,7 @@ class InvitationCreateView(generics.ListCreateAPIView):
             "html": html_body,
         }
         try:
-            response = resend.Emails.send(params)
+            resend.Emails.send(params)
         except Exception as e:
             return server_error(
                 message="Failed to send invitation email", params={"error": str(e)}
@@ -382,7 +394,7 @@ class AcceptInvitationView(APIView):
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
+            serializer.save()
             return Response(
                 {"detail": "User created successfully."}, status=status.HTTP_201_CREATED
             )
