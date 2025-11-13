@@ -17,6 +17,7 @@ class Client(TenantMixin):
         blank=True,
         related_name="clients",
     )
+    is_template_account = models.BooleanField(default=False)
 
     auto_create_schema = True  # Required for automatic schema creation
 

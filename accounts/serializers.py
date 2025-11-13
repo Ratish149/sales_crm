@@ -167,3 +167,4 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
         serializer = StoreUserSerializer(
             stores, many=True, context={"user": user})
         return serializer.data
+

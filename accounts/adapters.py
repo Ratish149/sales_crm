@@ -1,21 +1,23 @@
-from allauth.headless.adapter import DefaultHeadlessAdapter
-from allauth.account.adapter import DefaultAccountAdapter
-from django.core.exceptions import ValidationError
-from rest_framework_simplejwt.tokens import RefreshToken
-from typing import Dict, Any
-from allauth.account.utils import user_display, user_username, user_field, user_email
-from allauth.account.models import EmailAddress
-from accounts.models import StoreProfile
-import re
 import os
+from typing import Any, Dict
+
 import resend
-from django.template.loader import render_to_string
-from dotenv import load_dotenv
-from tenants.models import Client, Domain
+from allauth.account.adapter import DefaultAccountAdapter
+from allauth.account.models import EmailAddress
+from allauth.account.utils import user_display, user_email, user_field, user_username
+from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.utils import valid_email_or_none
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+from django.template.loader import render_to_string
 from django.utils.text import slugify
+from dotenv import load_dotenv
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from accounts.models import StoreProfile
+from tenants.models import Client, Domain
+
 load_dotenv()
 
 resend.api_key = os.getenv("RESEND_API_KEY")
@@ -48,7 +50,8 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         if store_name:
             store_profile, created = StoreProfile.objects.get_or_create(
-                store_name=store_name)
+                store_name=store_name
+            )
             user.store = store_profile
             if created:
                 user.role = "owner"
@@ -65,7 +68,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
                 )
 
             # Prevent schema from being a reserved word
-            if schema_name in ['public', 'default', 'postgres']:
+            if schema_name in ["public", "default", "postgres"]:
                 schema_name = f"{schema_name}-user{user.id}"
 
             # Create tenant (Client)
@@ -76,7 +79,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             )
 
             # Create domain for the tenant
-            domain = Domain.objects.create(
+            Domain.objects.create(
                 domain=f"{schema_name}.{backend_url}",
                 tenant=tenant,
                 is_primary=True,
@@ -121,7 +124,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         if has_profile:
             # Try to get store profile from direct relationship first, then from many-to-many
             store_profile = StoreProfile.objects.filter(users=user).first()
-            if not store_profile and hasattr(user, 'store'):
+            if not store_profile and hasattr(user, "store"):
                 store_profile = user.store
 
             if store_profile:
@@ -132,12 +135,14 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 # Get subdomain from store name if available
                 sub_domain = slugify(store_name) if store_name else ""
                 # Check profile completion if we have a store profile
-                has_profile_completed = all([
-                    store_profile.logo,
-                    store_profile.store_number,
-                    store_profile.store_address,
-                    store_profile.business_category
-                ])
+                has_profile_completed = all(
+                    [
+                        store_profile.logo,
+                        store_profile.store_number,
+                        store_profile.store_address,
+                        store_profile.business_category,
+                    ]
+                )
 
             # Get tenant and domain safely
             try:
@@ -152,14 +157,15 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         # Generate JWT tokens
         try:
             refresh = RefreshToken.for_user(user)
-            refresh['email'] = user.email
-            refresh['store_name'] = store_name
-            refresh['has_profile'] = has_profile
-            refresh['role'] = role
-            refresh['phone_number'] = phone_number
-            refresh['domain'] = domain_name
-            refresh['sub_domain'] = sub_domain
-            refresh['has_profile_completed'] = has_profile_completed
+            refresh["email"] = user.email
+            refresh["store_name"] = store_name
+            refresh["has_profile"] = has_profile
+            refresh["role"] = role
+            refresh["phone_number"] = phone_number
+            refresh["domain"] = domain_name
+            refresh["sub_domain"] = sub_domain
+            refresh["has_profile_completed"] = has_profile_completed
+            refresh["is_template_account"] = client.is_template_account
 
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
@@ -167,24 +173,25 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             print(f"Error creating token: {e}")
 
         # Add store-related info
-        ret.update({
-            "store_name": store_name,
-            "role": role,
-            "phone_number": phone_number,
-            "has_profile_completed": has_profile_completed,
-        })
+        ret.update(
+            {
+                "store_name": store_name,
+                "role": role,
+                "phone_number": phone_number,
+                "has_profile_completed": has_profile_completed,
+            }
+        )
 
         return ret
 
 
 class CustomAccountAdapter(DefaultAccountAdapter):
-
     def get_phone(self, user):
         """
         Return (phone_number, verified) tuple to satisfy Allauth's expectations.
         Always mark as verified since we don't require phone verification.
         """
-        return getattr(user, 'phone_number', None), True
+        return getattr(user, "phone_number", None), True
 
     def save_user(self, request, user, form, commit=True):
         """
@@ -199,13 +206,14 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         except json.JSONDecodeError:
             # If request.body is already parsed (e.g. by middleware), use it directly
             data = request.body
-        print('User adapter')
+        print("User adapter")
         print("data", data)
         # Default to learner if not specified
         email = data.get("email")
         store_name = data.get("store_name", "").lower()
         # Use email as username if not provided
         username = data.get("username", email)
+        is_template_account = data.get("is_template_account", False)
         user_email(user, email)
         user_username(user, username)
         user_field(user, "store_name", store_name)
@@ -223,7 +231,8 @@ class CustomAccountAdapter(DefaultAccountAdapter):
 
             if store_name:
                 store_profile, created = StoreProfile.objects.get_or_create(
-                    store_name=store_name)
+                    store_name=store_name
+                )
                 user.store = store_profile
                 if created:
                     user.role = "owner"
@@ -236,10 +245,11 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 # Check if schema name already exists
                 if Client.objects.filter(schema_name=schema_name).exists():
                     raise ValidationError(
-                        f"Store name '{store_name}' is already taken. Please choose a different name.")
+                        f"Store name '{store_name}' is already taken. Please choose a different name."
+                    )
 
                 # Prevent schema from being a reserved word
-                if schema_name in ['public', 'default', 'postgres']:
+                if schema_name in ["public", "default", "postgres"]:
                     schema_name = f"{schema_name}-user{user.id}"
 
                     # Create tenant (Client)
@@ -247,10 +257,17 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                     schema_name=schema_name,
                     name=store_name,
                     owner=user,
+                    is_template_account=is_template_account,
+                )
+                EmailAddress.objects.create(
+                    email=user.email,
+                    user=user,
+                    primary=True,
+                    verified=is_template_account,
                 )
 
                 # Create domain for the tenant
-                domain = Domain.objects.create(
+                Domain.objects.create(
                     domain=f"{schema_name}.{backend_url}",
                     tenant=tenant,
                     is_primary=True,
@@ -259,14 +276,15 @@ class CustomAccountAdapter(DefaultAccountAdapter):
 
     def send_mail(self, template_prefix, email, context):
         try:
-
             if template_prefix == "account/email/password_reset_key":
                 html_body = render_to_string(
-                    "account/email/password_reset_message.html", context)
+                    "account/email/password_reset_message.html", context
+                )
                 subject = "Password Reset Requested"
             else:
                 html_body = render_to_string(
-                    "account/email/email_confirmation_message.html", context)
+                    "account/email/email_confirmation_message.html", context
+                )
                 subject = "Sales CRM - Email Verification"
             # test_email = "sikchhu.baliyo@gmail.com"
             # For testing, send to the verified email address
@@ -279,9 +297,9 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 "html": html_body,
             }
 
-            response = resend.Emails.send(params)
+            resend.Emails.send(params)
 
-        except Exception as e:
+        except Exception:
             # Fallback to default email sending if Resend fails
             super().send_mail(template_prefix, email, context)
 
@@ -293,10 +311,13 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         # Optionally log the user in here (if you want immediate session)
         # login(request, user)
 
-        return JsonResponse({
-            "status": 200,
-            "data": {
-                "message": "Verification mail sent successfully",
-                "sessionid": sessionid
-            }
-        }, status=200)
+        return JsonResponse(
+            {
+                "status": 200,
+                "data": {
+                    "message": "Verification mail sent successfully",
+                    "sessionid": sessionid,
+                },
+            },
+            status=200,
+        )

@@ -14,8 +14,8 @@ from rest_framework.pagination import PageNumberPagination
 
 from tenants.models import FacebookPageTenantMap
 
-from .models import Domain
-from .serializers import DomainSerializer
+from .models import Client, Domain
+from .serializers import DomainSerializer, TemplateTenantSerializer
 
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -137,3 +137,14 @@ class FacebookWebhookView(View):
         print("🏁 Webhook processing finished.")
         logger.info("🏁 Webhook processing finished.")
         return HttpResponse("EVENT_RECEIVED", status=200)
+
+
+class TemplateTenantListAPIView(generics.ListAPIView):
+    """
+    Get all template tenants with domain info
+    """
+
+    serializer_class = TemplateTenantSerializer
+
+    def get_queryset(self):
+        return Client.objects.filter(is_template_account=True)
