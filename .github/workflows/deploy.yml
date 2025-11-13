@@ -22,7 +22,6 @@ jobs:
             source ../myprojectenv/bin/activate
             python manage.py migrate
             sudo systemctl daemon-reload
-            sudo systemctl restart daphne
             sudo nginx -t
             sudo systemctl restart nginx
             echo "✅ Deployment completed on $(date)"
