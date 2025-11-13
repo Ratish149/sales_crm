@@ -6,6 +6,7 @@ from .views import (
     DomainView,
     FacebookWebhookView,
     TemplateTenantListAPIView,
+    TemplateTenantRetrieveUpdateDestroyAPIView,
 )
 
 urlpatterns = [
@@ -16,6 +17,11 @@ urlpatterns = [
         "template-tenants/",
         TemplateTenantListAPIView.as_view(),
         name="template-tenants-list",
+    ),
+    path(
+        "template-tenants/<int:owner_id>/",
+        TemplateTenantRetrieveUpdateDestroyAPIView.as_view(),
+        name="template-tenant-detail",
     ),
     path(
         "template-tokens/",

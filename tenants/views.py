@@ -4,7 +4,9 @@ import logging
 import os
 
 import requests
+from django.db import connection
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import View
@@ -151,6 +153,48 @@ class TemplateTenantListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return Client.objects.filter(is_template_account=True)
+
+
+class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update, or delete a template tenant (based on owner_id).
+    Drops the corresponding schema on delete.
+    """
+
+    queryset = Client.objects.filter(is_template_account=True)
+    serializer_class = TemplateTenantSerializer
+    lookup_field = "owner_id"  # Important!
+
+    def destroy(self, request, *args, **kwargs):
+        # Get the tenant by owner_id instead of pk
+        owner_id = self.kwargs.get(self.lookup_field)
+        instance = get_object_or_404(
+            Client, owner_id=owner_id, is_template_account=True
+        )
+        schema_name = instance.schema_name
+
+        try:
+            # 1️⃣ Drop schema safely
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
+
+            # 2️⃣ Delete the tenant object
+            instance.delete()
+
+            return Response(
+                {
+                    "message": f"Template tenant with owner {owner_id} and schema '{schema_name}' deleted successfully."
+                },
+                status=status.HTTP_204_NO_CONTENT,
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "error": f"Failed to delete tenant or schema '{schema_name}': {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class ClientTokenByIdAPIView(APIView):
