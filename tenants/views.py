@@ -6,6 +6,7 @@ import os
 import requests
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.utils.decorators import method_decorator
+from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
@@ -177,8 +178,32 @@ class ClientTokenByIdAPIView(APIView):
             return Response(
                 {"detail": "Client owner not found"}, status=status.HTTP_404_NOT_FOUND
             )
+
         domain = Domain.objects.get(tenant=client)
         domain_name = domain.domain
+        # Get the first store profile to generate subdomain from store name
+        store_profile = owner.owned_stores.first() or owner.stores.first()
+        sub_domain = (
+            slugify(store_profile.store_name)
+            if store_profile and store_profile.store_name
+            else domain_name.split(".")[0]
+        )
+
+        # Get store profile if it exists
+        store_profile = None
+        has_profile = False
+        store_name = None
+
+        # Check if owner has any associated store profiles
+        if hasattr(owner, "owned_stores") and owner.owned_stores.exists():
+            store_profile = owner.owned_stores.first()
+            has_profile = True
+            store_name = store_profile.store_name
+        # Also check if user is associated with any stores through the many-to-many relationship
+        elif hasattr(owner, "stores") and owner.stores.exists():
+            store_profile = owner.stores.first()
+            has_profile = True
+            store_name = store_profile.store_name
 
         # Generate JWT tokens
         refresh = RefreshToken.for_user(owner)
@@ -188,18 +213,37 @@ class ClientTokenByIdAPIView(APIView):
         refresh["schema_name"] = client.schema_name
         refresh["is_template_account"] = client.is_template_account
         refresh["domain"] = domain_name
+        refresh["sub_domain"] = sub_domain
 
-        return Response(
-            {
-                "access_token": str(refresh.access_token),
-                "refresh_token": str(refresh),
-                "owner": {"id": owner.id, "email": owner.email, "role": owner.role},
-                "client": {
-                    "id": client.id,
-                    "name": client.name,
-                    "schema_name": client.schema_name,
-                    "is_template_account": client.is_template_account,
-                    "domain": domain_name,
-                },
+        # Add store related information
+        refresh["store_name"] = store_name
+        refresh["has_profile"] = has_profile
+
+        response_data = {
+            "access_token": str(refresh.access_token),
+            "refresh_token": str(refresh),
+            "owner": {
+                "id": owner.id,
+                "email": owner.email,
+                "role": owner.role,
+                "sub_domain": sub_domain,
+                "has_profile": has_profile,
+            },
+            "client": {
+                "id": client.id,
+                "name": client.name,
+                "schema_name": client.schema_name,
+                "is_template_account": client.is_template_account,
+                "domain": domain_name,
+            },
+        }
+
+        # Add store info if profile exists
+        if store_name:
+            response_data["store"] = {
+                "name": store_name,
+                "has_profile": has_profile,
+                "sub_domain": sub_domain,
             }
-        )
+
+        return Response(response_data)
