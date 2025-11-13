@@ -176,7 +176,7 @@ class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
         try:
             # 1️⃣ Drop schema safely
             with connection.cursor() as cursor:
-                cursor.execute(f"DROP SCHEMA IF EXISTS {schema_name} CASCADE;")
+                cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;')
 
             # 2️⃣ Delete the tenant object
             instance.delete()
