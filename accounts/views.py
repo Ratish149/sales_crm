@@ -3,7 +3,11 @@ import os
 from uuid import uuid4
 
 import resend
-from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+from allauth.account.models import (
+    EmailAddress,
+    EmailConfirmation,
+    EmailConfirmationHMAC,
+)
 from allauth.account.utils import (
     send_email_confirmation,
     user_email,
@@ -67,6 +71,7 @@ class CustomSignupView(APIView):
         username = data.get("username", email)
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
+        is_template_account = data.get("is_template_account", False)
 
         # Validate required fields
         if not email:
@@ -130,8 +135,16 @@ class CustomSignupView(APIView):
                         schema_name=storeName,
                         name=storeName,
                         owner=user,
+                        is_template_account=is_template_account,
                     )
-                    domain = Domain.objects.create(
+                    EmailAddress.objects.create(
+                        email=user.email,
+                        user=user,
+                        primary=True,
+                        verified=is_template_account,
+                    )
+
+                    Domain.objects.create(
                         domain=f"{storeName}.{backend_url}",
                         tenant=tenant,
                         is_primary=True,
