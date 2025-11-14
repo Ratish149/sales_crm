@@ -42,20 +42,17 @@ def fetch_facebook_profile_picture(
     cache_get = profile_cache.get_page if is_page else profile_cache.get_user
     cache_set = profile_cache.set_page if is_page else profile_cache.set_user
 
-    # Return cached URL if exists
     cached_url = cache_get(user_id)
     if cached_url:
         return cached_url
 
-    # If current URL exists, reuse it and cache
     if current_url:
         cache_set(user_id, current_url)
         return current_url
 
     try:
         url = f"https://graph.facebook.com/{user_id}"
-        params = {
-            "fields": "picture.type(large)", "access_token": access_token}
+        params = {"fields": "picture.type(large)", "access_token": access_token}
         resp = requests.get(url, params=params, timeout=5).json()
         pic_url = resp.get("picture", {}).get("data", {}).get("url")
         if pic_url:
@@ -87,10 +84,10 @@ def update_participants_profile_pics(participants, access_token):
 
 
 # -------------------------------------------------
-# Sync conversations
+# Sync latest 30 conversations
 # -------------------------------------------------
-def sync_conversations_from_facebook(page):
-    print(f"🔄 Syncing conversations for {page.page_name}...")
+def sync_conversations_from_facebook(page, limit=30):
+    print(f"🔄 Syncing latest {limit} conversations for {page.page_name}...")
 
     page_profile_pic = fetch_facebook_profile_picture(
         page.page_id, page.page_access_token, is_page=True
@@ -100,46 +97,51 @@ def sync_conversations_from_facebook(page):
     params = {
         "access_token": page.page_access_token,
         "fields": "participants,snippet,updated_time",
+        "limit": limit,
     }
+
     fb_ids = set()
     all_conversations = []
 
-    # First, fetch all conversations
-    while url:
-        response = requests.get(url, params=params)
-        data = response.json()
-        if "data" not in data:
-            break
-
+    response = requests.get(url, params=params)
+    data = response.json()
+    if "data" in data:
         all_conversations.extend(data["data"])
-        url = data.get("paging", {}).get("next")
-        params = {}
 
-    # Process conversations with progress bar
+    # Sort by updated_time descending
+    all_conversations.sort(
+        key=lambda x: parse_datetime(x.get("updated_time", "1970-01-01T00:00:00Z")),
+        reverse=True,
+    )
+
+    # Only take top `limit`
+    all_conversations = all_conversations[:limit]
+
     for conv in tqdm(all_conversations, desc="Syncing Conversations", unit="conv"):
         conv_id = conv["id"]
         fb_ids.add(conv_id)
 
-        participants = []
-        for p in conv.get("participants", {}).get("data", []):
-            participants.append(
-                {
-                    "id": p.get("id"),
-                    "name": p.get("name"),
-                    "profile_pic": page_profile_pic
-                    if p.get("id") == page.page_id
-                    else None,
-                    "is_page": p.get("id") == page.page_id,
-                }
-            )
+        participants = [
+            {
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "profile_pic": page_profile_pic
+                if p.get("id") == page.page_id
+                else None,
+                "is_page": p.get("id") == page.page_id,
+            }
+            for p in conv.get("participants", {}).get("data", [])
+        ]
 
         participants, pics_updated = update_participants_profile_pics(
             participants, page.page_access_token
         )
 
-        updated_time = conv.get("updated_time")
-        updated_time = parse_datetime(
-            updated_time) if updated_time else timezone.now()
+        updated_time = (
+            parse_datetime(conv.get("updated_time"))
+            if conv.get("updated_time")
+            else timezone.now()
+        )
 
         convo_obj, created = Conversation.objects.get_or_create(
             conversation_id=conv_id,
@@ -156,9 +158,9 @@ def sync_conversations_from_facebook(page):
             convo_obj.participants = participants
             convo_obj.save(update_fields=["participants"])
 
-    Conversation.objects.filter(page=page).exclude(
-        conversation_id__in=fb_ids).delete()
-    print(f"✅ Fully synced {len(fb_ids)} conversations for {page.page_name}")
+    # Delete conversations not in latest 30
+    Conversation.objects.filter(page=page).exclude(conversation_id__in=fb_ids).delete()
+    print(f"✅ Synced {len(fb_ids)} conversations for {page.page_name}")
     return {"total_conversations": len(fb_ids)}
 
 
@@ -219,8 +221,7 @@ def sync_messages_for_conversation(conversation):
             sticker_id = att.get("payload", {}).get("sticker_id") or att.get(
                 "image_data", {}
             ).get("sticker_id")
-            attachments.append(
-                {"type": att_type, "url": url, "sticker_id": sticker_id})
+            attachments.append({"type": att_type, "url": url, "sticker_id": sticker_id})
 
         sticker_url = msg.get("sticker")
         if sticker_url:
@@ -238,8 +239,7 @@ def sync_messages_for_conversation(conversation):
         if sender_id == page.page_id:
             sender["profile_pic"] = page_profile_pic
         elif sender_id:
-            current_pic = participants_map.get(
-                sender_id, {}).get("profile_pic")
+            current_pic = participants_map.get(sender_id, {}).get("profile_pic")
             sender_pic = fetch_facebook_profile_picture(
                 sender_id, page.page_access_token, current_url=current_pic
             )
@@ -265,8 +265,7 @@ def sync_messages_for_conversation(conversation):
     fb_messages.sort(key=lambda x: x.get("created_time", ""))
     conversation.messages = fb_messages
     conversation.last_synced = timezone.now()
-    conversation.snippet = fb_messages[-1].get(
-        "message", "") if fb_messages else ""
+    conversation.snippet = fb_messages[-1].get("message", "") if fb_messages else ""
     conversation.participants = list(participants_map.values())
     conversation.save()
 
@@ -274,12 +273,14 @@ def sync_messages_for_conversation(conversation):
 
 
 # -------------------------------------------------
-# Sync all page data with unified progress bar
+# Sync all page data (latest 30 conversations only)
 # -------------------------------------------------
-def sync_all_page_data(page):
-    result = sync_conversations_from_facebook(page)
-    conversations = Conversation.objects.filter(page=page)
-    print(f"🔄 Syncing messages for {len(conversations)} conversations...")
+def sync_all_page_data(page, conv_limit=30):
+    result = sync_conversations_from_facebook(page, limit=conv_limit)
+    conversations = Conversation.objects.filter(page=page).order_by("-updated_time")[
+        :conv_limit
+    ]
+    print(f"🔄 Syncing messages for latest {len(conversations)} conversations...")
 
     for conv in tqdm(conversations, desc="All Messages Progress", unit="conv"):
         sync_messages_for_conversation(conv)
@@ -288,7 +289,12 @@ def sync_all_page_data(page):
     return result
 
 
-def notify_frontend_ws(tenant_schema, conversation_id, message, page_id, snippet, sender_name, sender_id):
+# -------------------------------------------------
+# WebSocket notification
+# -------------------------------------------------
+def notify_frontend_ws(
+    tenant_schema, conversation_id, message, page_id, snippet, sender_name, sender_id
+):
     print("\n================ WebSocket Notification Start ================")
     print(f"Tenant: {tenant_schema}")
     print(f"Conversation ID: {conversation_id}")
