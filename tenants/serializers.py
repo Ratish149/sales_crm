@@ -33,6 +33,7 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
             "owner_id",
             "created_on",
             "paid_until",
+            "template_image",
             "is_template_account",
             "domains",
         ]

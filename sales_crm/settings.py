@@ -70,7 +70,6 @@ SHARED_APPS = [
     "tinymce",
     "support",
     "pricing",
-    "template",
 ]
 
 TENANT_APPS = [

@@ -17,6 +17,9 @@ class Client(TenantMixin):
         blank=True,
         related_name="clients",
     )
+    template_image = models.FileField(
+        upload_to="template_images", null=True, blank=True
+    )
     is_template_account = models.BooleanField(default=False)
 
     auto_create_schema = True  # Required for automatic schema creation
