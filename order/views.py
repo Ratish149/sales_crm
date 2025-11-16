@@ -20,7 +20,6 @@ from .utils import send_order_to_dash
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-
 # Reusable function for Dash login
 DASH_BASE_URL = os.getenv("DASH_BASE_URL")
 

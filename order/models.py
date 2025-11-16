@@ -1,3 +1,5 @@
+import hashlib
+
 from django.db import models
 
 from product.models import Product
@@ -68,7 +70,9 @@ class Order(models.Model):
             super().save(*args, **kwargs)
 
     def generate_order_number(self):
-        return f"ORD-{self.id:06d}"
+        # Convert id to a hash and take first 8 hex digits
+        hashed = hashlib.md5(str(self.id).encode()).hexdigest()[:8].upper()
+        return f"ORD-{hashed}"
 
 
 class OrderItem(models.Model):

@@ -1,4 +1,8 @@
-from django.db import models, transaction
+import os
+
+import resend
+from django.db import connection, models, transaction
+from django.template.loader import render_to_string
 from rest_framework import serializers
 
 from customer.serializers import CustomerSerializer
@@ -8,6 +12,8 @@ from product.serializers import ProductOnlySerializer, ProductVariantSerializer
 from promo_code.models import PromoCode
 
 from .models import Order, OrderItem
+
+resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -99,7 +105,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
         with transaction.atomic():
             order = Order.objects.create(**validated_data)
-
+            created_items = []
             # Now create order items and update stock
             for item_data in items_data:
                 product = item_data.get("product")
@@ -107,7 +113,14 @@ class OrderSerializer(serializers.ModelSerializer):
                 quantity = item_data["quantity"]
 
                 # Create order item
-                OrderItem.objects.create(order=order, **item_data)
+                order_item = OrderItem.objects.create(order=order, **item_data)
+                created_items.append(
+                    {
+                        "product_name": str(order_item.product or order_item.variant),
+                        "quantity": order_item.quantity,
+                        "price": order_item.price,
+                    }
+                )
 
                 # Update stock based on whether it's a variant or base product
                 if variant:
@@ -125,8 +138,52 @@ class OrderSerializer(serializers.ModelSerializer):
                 PromoCode.objects.filter(id=order.promo_code.id).update(
                     used_count=models.F("used_count") + 1
                 )
+            # send mail to customer using resend
+            if order.customer_email:
+                self.send_order_email(order, created_items)
 
             return order
+
+    def send_order_email(self, order, items):
+        try:
+            # Get current tenant from DB connection
+            tenant = getattr(connection, "tenant", None)
+            if tenant:
+                tenant_name = tenant.name
+                tenant_email_prefix = tenant.schema_name.lower()
+            else:
+                tenant_name = "Nepdora"
+                tenant_email_prefix = "nepdora"
+
+            # Prepare template context
+            context = {
+                "customer_name": order.customer_name,
+                "order_number": order.order_number,
+                "items": items,
+                "total_amount": order.total_amount,
+                "delivery_charge": order.delivery_charge,
+                "tenant_name": tenant_name,
+            }
+
+            html_content = render_to_string(
+                "order/email/order_confirmation.html", context
+            )
+
+            from_email = f"{tenant_email_prefix}@nepdora.com"
+
+            # Send via Resend
+            resend.Emails.send(
+                {
+                    "from": from_email,
+                    "to": order.customer_email,
+                    "subject": f"Order Confirmation #{order.order_number}",
+                    "html": html_content,
+                }
+            )
+
+        except Exception as e:
+            print("Email sending failed:", e)
+            raise serializers.ValidationError("Failed to send order email")
 
 
 class OrderListSerializer(serializers.ModelSerializer):
