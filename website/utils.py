@@ -132,16 +132,22 @@ def clone_file(field):
 
 
 def import_template_to_tenant(template_client, target_client):
-    # 1) READ TEMPLATE DATA from template tenant
+    # 1) READ TEMPLATE DATA
     with schema_context(template_client.schema_name):
-        # Only published templates
         source_themes = list(Theme.objects.filter(status="published"))
         source_pages = list(Page.objects.filter(status="published"))
         source_components = list(PageComponent.objects.filter(status="published"))
 
-    # 2) SWITCH TO USER TENANT SCHEMA
+        # Navbars & Footers (site-wide)
+        source_navbars = [c for c in source_components if c.component_type == "navbar"]
+        source_footers = [c for c in source_components if c.component_type == "footer"]
+        source_other_components = [
+            c for c in source_components if c.component_type not in ["navbar", "footer"]
+        ]
+
+    # 2) WRITE INTO USER SCHEMA
     with schema_context(target_client.schema_name):
-        # Delete existing data
+        # Delete old data
         PageComponent.objects.all().delete()
         Page.objects.all().delete()
         Theme.objects.all().delete()
@@ -157,9 +163,7 @@ def import_template_to_tenant(template_client, target_client):
         # Copy pages
         page_map = {}
         for page in source_pages:
-            # Map old theme to new theme
             new_theme = theme_map.get(page.theme_id)
-
             new_page = Page.objects.create(
                 title=page.title,
                 status="draft",
@@ -168,15 +172,9 @@ def import_template_to_tenant(template_client, target_client):
             )
             page_map[page.id] = new_page
 
-        # Copy components
-        for comp in source_components:
-            # Map old page to new page
+        # Copy other components (linked to pages)
+        for comp in source_other_components:
             new_page = page_map.get(comp.page_id)
-
-            # Skip if parent page not found
-            if not new_page:
-                continue
-
             PageComponent.objects.create(
                 status="draft",
                 page=new_page,
@@ -184,6 +182,29 @@ def import_template_to_tenant(template_client, target_client):
                 component_id=comp.component_id,
                 data=comp.data,
                 order=comp.order,
+                published_version=None,
+            )
+
+        # Copy navbar/footer (page=None)
+        for nav in source_navbars:
+            PageComponent.objects.create(
+                status="draft",
+                page=None,
+                component_type="navbar",
+                component_id=nav.component_id,
+                data=nav.data,
+                order=nav.order,
+                published_version=None,
+            )
+
+        for foot in source_footers:
+            PageComponent.objects.create(
+                status="draft",
+                page=None,
+                component_type="footer",
+                component_id=foot.component_id,
+                data=foot.data,
+                order=foot.order,
                 published_version=None,
             )
 
