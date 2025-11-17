@@ -150,6 +150,7 @@ class TemplateTenantListAPIView(generics.ListAPIView):
     """
 
     serializer_class = TemplateTenantSerializer
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         return Client.objects.filter(is_template_account=True)

@@ -7,7 +7,7 @@ from .models import Client, Domain, FacebookPageTenantMap
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ("name", "owner", "is_template_account", "created_on")
+    list_display = ("name", "owner", "is_template_account", "paid_until", "created_on")
 
 
 @admin.register(Domain)
