@@ -81,4 +81,5 @@ urlpatterns = [
     ),
     # 🚀 Publish All
     path("publish-all/", views.PublishAllView.as_view(), name="publish-all"),
+    path("import-template/", views.import_template, name="import-template"),
 ]

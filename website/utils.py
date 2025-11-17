@@ -2,8 +2,12 @@
 import re
 from copy import deepcopy
 
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import ForeignKey
+from django_tenants.utils import schema_context
+
+from website.models import Page, PageComponent, Theme
 
 
 def clean_draft_links(data):
@@ -113,3 +117,60 @@ def publish_instance(instance):
         instance.save(update_fields=["published_version"])
 
     return published
+
+
+def clone_file(field):
+    """
+    Clone a FileField file so a new tenant has its own file.
+    """
+    if not field:
+        return None
+
+    file_content = field.read()
+    filename = field.name.split("/")[-1]
+    return ContentFile(file_content, name=filename)
+
+
+def import_template_to_tenant(template_client, target_client):
+    # 1) READ FROM TEMPLATE SCHEMA
+    with schema_context(template_client.schema_name):
+        source_themes = Theme.objects.filter(status="published")
+        source_pages = Page.objects.filter(status="published")
+        source_components = PageComponent.objects.filter(status="published")
+
+    # 2) WRITE INTO USER SCHEMA
+    with schema_context(target_client.schema_name):
+        # -------- Theme copy (as draft) ----------
+        theme_map = {}  # old_theme_id → new_theme_obj
+
+        for theme in source_themes:
+            new_theme = Theme.objects.create(
+                status="draft", data=theme.data, published_version=None
+            )
+            theme_map[theme.id] = new_theme
+
+        # -------- Page copy (as draft) ----------
+        page_map = {}  # old_page_id → new_page_obj
+
+        for page in source_pages:
+            new_page = Page.objects.create(
+                title=page.title,
+                status="draft",
+                theme=theme_map.get(page.theme_id),
+                published_version=None,
+            )
+            page_map[page.id] = new_page
+
+        # -------- PageComponent copy (as draft) ----------
+        for comp in source_components:
+            PageComponent.objects.create(
+                status="draft",
+                page=page_map.get(comp.page_id),
+                component_type=comp.component_type,
+                component_id=comp.component_id,
+                data=comp.data,
+                order=comp.order,
+                published_version=None,
+            )
+
+    return True

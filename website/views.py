@@ -2,8 +2,10 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from tenant.models import Client
 
 from .models import Page, PageComponent, SiteConfig, Theme
 from .serializers import (
@@ -12,7 +14,7 @@ from .serializers import (
     SiteConfigSerializer,
     ThemeSerializer,
 )
-from .utils import publish_instance
+from .utils import import_template_to_tenant, publish_instance
 
 
 class SiteConfigListCreateView(generics.ListCreateAPIView):
@@ -481,3 +483,18 @@ class PublishAllView(APIView):
             publish_instance(comp)
 
         return Response({"detail": "All drafts published successfully"})
+
+
+@api_view(["POST"])
+def import_template(request):
+    template_id = request.data.get("template_id")
+    template_client = Client.objects.get(id=template_id)
+
+    if not template_client.is_template_account:
+        return Response({"error": "Not a template account"}, status=400)
+
+    target_client = request.tenant  # the user's tenant
+
+    import_template_to_tenant(template_client, target_client)
+
+    return Response({"status": "Template imported successfully!"})
