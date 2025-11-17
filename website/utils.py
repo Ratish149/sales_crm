@@ -132,20 +132,21 @@ def clone_file(field):
 
 
 def import_template_to_tenant(template_client, target_client):
-    # 1) READ TEMPLATE DATA
+    # 1) READ TEMPLATE DATA from template tenant
     with schema_context(template_client.schema_name):
-        source_themes = Theme.objects.filter(status="published")
-        source_pages = Page.objects.filter(status="published")
-        source_components = PageComponent.objects.filter(status="published")
+        # Only published templates
+        source_themes = list(Theme.objects.filter(status="published"))
+        source_pages = list(Page.objects.filter(status="published"))
+        source_components = list(PageComponent.objects.filter(status="published"))
 
-    # 2) WRITE INTO USER SCHEMA
+    # 2) SWITCH TO USER TENANT SCHEMA
     with schema_context(target_client.schema_name):
-        # ---- DELETE OLD USER DATA ----
+        # Delete existing data
         PageComponent.objects.all().delete()
         Page.objects.all().delete()
         Theme.objects.all().delete()
 
-        # ---- COPY THEMES AS DRAFT ----
+        # Copy themes
         theme_map = {}
         for theme in source_themes:
             new_theme = Theme.objects.create(
@@ -153,22 +154,32 @@ def import_template_to_tenant(template_client, target_client):
             )
             theme_map[theme.id] = new_theme
 
-        # ---- COPY PAGES AS DRAFT ----
+        # Copy pages
         page_map = {}
         for page in source_pages:
+            # Map old theme to new theme
+            new_theme = theme_map.get(page.theme_id)
+
             new_page = Page.objects.create(
                 title=page.title,
                 status="draft",
-                theme=theme_map.get(page.theme_id),
+                theme=new_theme,
                 published_version=None,
             )
             page_map[page.id] = new_page
 
-        # ---- COPY COMPONENTS AS DRAFT ----
+        # Copy components
         for comp in source_components:
+            # Map old page to new page
+            new_page = page_map.get(comp.page_id)
+
+            # Skip if parent page not found
+            if not new_page:
+                continue
+
             PageComponent.objects.create(
                 status="draft",
-                page=page_map.get(comp.page_id),
+                page=new_page,
                 component_type=comp.component_type,
                 component_id=comp.component_id,
                 data=comp.data,
