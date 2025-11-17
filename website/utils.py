@@ -132,7 +132,7 @@ def clone_file(field):
 
 
 def import_template_to_tenant(template_client, target_client):
-    # 1) READ FROM TEMPLATE SCHEMA
+    # 1) READ TEMPLATE DATA
     with schema_context(template_client.schema_name):
         source_themes = Theme.objects.filter(status="published")
         source_pages = Page.objects.filter(status="published")
@@ -140,18 +140,21 @@ def import_template_to_tenant(template_client, target_client):
 
     # 2) WRITE INTO USER SCHEMA
     with schema_context(target_client.schema_name):
-        # -------- Theme copy (as draft) ----------
-        theme_map = {}  # old_theme_id → new_theme_obj
+        # ---- DELETE OLD USER DATA ----
+        PageComponent.objects.all().delete()
+        Page.objects.all().delete()
+        Theme.objects.all().delete()
 
+        # ---- COPY THEMES AS DRAFT ----
+        theme_map = {}
         for theme in source_themes:
             new_theme = Theme.objects.create(
                 status="draft", data=theme.data, published_version=None
             )
             theme_map[theme.id] = new_theme
 
-        # -------- Page copy (as draft) ----------
-        page_map = {}  # old_page_id → new_page_obj
-
+        # ---- COPY PAGES AS DRAFT ----
+        page_map = {}
         for page in source_pages:
             new_page = Page.objects.create(
                 title=page.title,
@@ -161,7 +164,7 @@ def import_template_to_tenant(template_client, target_client):
             )
             page_map[page.id] = new_page
 
-        # -------- PageComponent copy (as draft) ----------
+        # ---- COPY COMPONENTS AS DRAFT ----
         for comp in source_components:
             PageComponent.objects.create(
                 status="draft",
