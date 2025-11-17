@@ -5,7 +5,7 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from tenant.models import Client
+from tenants.models import Client
 
 from .models import Page, PageComponent, SiteConfig, Theme
 from .serializers import (

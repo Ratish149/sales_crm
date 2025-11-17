@@ -7,7 +7,9 @@ from django_tenants.models import DomainMixin, TenantMixin
 
 class Client(TenantMixin):
     name = models.CharField(max_length=100)
-    owner = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True
+    )
     created_on = models.DateField(auto_now_add=True)
     paid_until = models.DateField(null=True, blank=True)
     pricing_plan = models.ForeignKey(
