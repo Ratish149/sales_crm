@@ -179,6 +179,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh["has_profile_completed"] = has_profile_completed
             refresh["is_template_account"] = client.is_template_account
             refresh["first_login"] = is_first_login
+            refresh["is_onboarding_complete"] = is_onboarding_complete
 
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
@@ -193,7 +194,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 "phone_number": phone_number,
                 "has_profile_completed": has_profile_completed,
                 "first_login": is_first_login,
-                "onboarding_complete": is_onboarding_complete,
+                "is_onboarding_complete": is_onboarding_complete,
             }
         )
 
