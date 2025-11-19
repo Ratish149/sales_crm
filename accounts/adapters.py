@@ -113,11 +113,6 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         is_first_login = getattr(user, "is_first_login", False)
         is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
 
-        # After login, update it to False
-        if is_first_login:
-            user.is_first_login = False
-            user.save(update_fields=["is_first_login"])
-
         # Check if user has a store/profile through direct assignment or many-to-many
         has_direct_store = getattr(user, "store", None) is not None
         has_related_stores = user.stores.exists()
@@ -183,6 +178,11 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
+
+            # After login, update it to False
+            if is_first_login:
+                user.is_first_login = False
+                user.save(update_fields=["is_first_login"])
         except Exception as e:
             print(f"Error creating token: {e}")
 

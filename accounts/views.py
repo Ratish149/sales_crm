@@ -74,7 +74,6 @@ class CustomSignupView(APIView):
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
         is_first_login = data.get("is_first_login", True)
-        is_onboarding_complete = data.get("is_onboarding_complete", False)
         is_template_account = data.get("is_template_account", False)
         template_category_id = data.get("template_category_id")
         template_subcategory_id = data.get("template_subcategory_id")
@@ -144,7 +143,6 @@ class CustomSignupView(APIView):
             user_field(user, "store_name", store_name)
             user_field(user, "phone_number", phone_number)
             user_field(user, "is_first_login", is_first_login)
-            user_field(user, "is_onboarding_complete", is_onboarding_complete)
 
             if password:
                 user.set_password(password)
@@ -200,6 +198,8 @@ class CustomSignupView(APIView):
 
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:
+                        user.is_onboarding_complete = True
+                        user.save()
                         # Get the first available premium plan
                         premium_plan = Pricing.objects.filter(
                             plan_type="premium"
