@@ -2,7 +2,35 @@ from datetime import date, timedelta
 
 from django.conf import settings
 from django.db import models
+from django.utils.text import slugify
 from django_tenants.models import DomainMixin, TenantMixin
+
+
+class TemplateCategory(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True, blank=True, null=True)
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class TemplateSubCategory(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True, blank=True, null=True)
+    category = models.ForeignKey(
+        TemplateCategory, on_delete=models.CASCADE, related_name="subcategories"
+    )
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
 
 
 class Client(TenantMixin):
@@ -23,6 +51,20 @@ class Client(TenantMixin):
         upload_to="template_images", null=True, blank=True
     )
     is_template_account = models.BooleanField(default=False)
+    template_category = models.ForeignKey(
+        TemplateCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clients",
+    )
+    template_subcategory = models.ForeignKey(
+        TemplateSubCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clients",
+    )
 
     auto_create_schema = True  # Required for automatic schema creation
 

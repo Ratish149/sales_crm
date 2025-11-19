@@ -1,6 +1,7 @@
-from django.db import models
-from django.contrib.auth.models import AbstractUser
 import uuid
+
+from django.contrib.auth.models import AbstractUser
+from django.db import models
 
 # Create your models here.
 
@@ -8,15 +9,16 @@ import uuid
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     ROLE_CHOICES = (
-        ('owner', 'Owner'),
-        ('admin', 'Admin'),
-        ('editor', 'Editor'),
-        ('viewer', 'Viewer'),
+        ("owner", "Owner"),
+        ("admin", "Admin"),
+        ("editor", "Editor"),
+        ("viewer", "Viewer"),
     )
-    role = models.CharField(
-        max_length=10, choices=ROLE_CHOICES, default='viewer')
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="viewer")
     phone_number = models.CharField(max_length=255, null=True, blank=True)
     sub_domain = models.CharField(max_length=255, null=True, blank=True)
+    is_first_login = models.BooleanField(default=True)
+    is_onboarding_complete = models.BooleanField(default=False)
 
     def is_owner_of(self, store):
         return self == store.owner
@@ -26,7 +28,7 @@ class CustomUser(AbstractUser):
         Check if user has required permission in the given store.
         Permission hierarchy: owner > admin > editor > viewer
         """
-        role_weights = {'owner': 4, 'admin': 3, 'editor': 2, 'viewer': 1}
+        role_weights = {"owner": 4, "admin": 3, "editor": 2, "viewer": 1}
         user_role = self.role if self in store.users.all() else None
 
         if not user_role:
@@ -40,9 +42,13 @@ class CustomUser(AbstractUser):
 
 class StoreProfile(models.Model):
     owner = models.ForeignKey(
-        'CustomUser', on_delete=models.CASCADE, related_name='owned_stores', null=True, blank=True)
-    users = models.ManyToManyField(
-        'CustomUser', related_name='stores', blank=True)
+        "CustomUser",
+        on_delete=models.CASCADE,
+        related_name="owned_stores",
+        null=True,
+        blank=True,
+    )
+    users = models.ManyToManyField("CustomUser", related_name="stores", blank=True)
     store_name = models.CharField(max_length=255)
     store_address = models.CharField(max_length=255, null=True, blank=True)
     store_number = models.CharField(max_length=255, null=True, blank=True)
@@ -71,16 +77,22 @@ class StoreProfile(models.Model):
 class Invitation(models.Model):
     email = models.EmailField()
     store = models.ForeignKey(
-        StoreProfile, on_delete=models.CASCADE, related_name='invitations', null=True, blank=True)
+        StoreProfile,
+        on_delete=models.CASCADE,
+        related_name="invitations",
+        null=True,
+        blank=True,
+    )
     invited_by = models.ForeignKey(
-        CustomUser, on_delete=models.CASCADE, related_name='sent_invitations')
+        CustomUser, on_delete=models.CASCADE, related_name="sent_invitations"
+    )
     role = models.CharField(max_length=10, choices=CustomUser.ROLE_CHOICES)
     token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     accepted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('email', 'store')
+        unique_together = ("email", "store")
 
     def accept(self, user):
         """Accept the invitation and add user to the store"""
@@ -96,7 +108,7 @@ class Invitation(models.Model):
 
         # If this is the first user (owner), ensure they have the owner role
         if self.store.owner == user:
-            user.role = 'owner'
+            user.role = "owner"
             user.save()
 
         return True

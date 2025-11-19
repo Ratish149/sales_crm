@@ -5,6 +5,10 @@ from .views import (
     DomainDetailView,
     DomainView,
     FacebookWebhookView,
+    TemplateCategoryListCreateView,
+    TemplateCategoryRetrieveUpdateDeleteView,
+    TemplateSubCategoryListCreateView,
+    TemplateSubCategoryRetrieveUpdateDeleteView,
     TemplateTenantListAPIView,
     TemplateTenantRetrieveUpdateDestroyAPIView,
 )
@@ -27,5 +31,26 @@ urlpatterns = [
         "template-tokens/",
         ClientTokenByIdAPIView.as_view(),
         name="template-token-by-id",
+    ),
+    path(
+        "template-categories/",
+        TemplateCategoryListCreateView.as_view(),
+        name="category-list-create",
+    ),
+    path(
+        "template-categories/<str:slug>/",
+        TemplateCategoryRetrieveUpdateDeleteView.as_view(),
+        name="category-detail",
+    ),
+    # SubCategory
+    path(
+        "template-subcategories/",
+        TemplateSubCategoryListCreateView.as_view(),
+        name="subcategory-list-create",
+    ),
+    path(
+        "template-subcategories/<str:slug>/",
+        TemplateSubCategoryRetrieveUpdateDeleteView.as_view(),
+        name="subcategory-detail",
     ),
 ]

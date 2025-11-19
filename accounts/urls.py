@@ -11,6 +11,7 @@ from .views import (
     StoreProfileDetailView,
     StoreProfileView,
     UserWithStoresListAPIView,
+    CompleteOnboardingView,
 )
 
 urlpatterns = [
@@ -36,4 +37,9 @@ urlpatterns = [
         name="store-profile-detail",
     ),
     path("users/", UserWithStoresListAPIView.as_view(), name="users-with-stores"),
+    path(
+        "complete-onboarding/",
+        CompleteOnboardingView.as_view(),
+        name="complete-onboarding",
+    ),
 ]

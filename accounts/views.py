@@ -23,6 +23,7 @@ from django.views.decorators.csrf import csrf_exempt
 from dotenv import load_dotenv
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -35,7 +36,7 @@ from sales_crm.utils.error_handler import (
     server_error,
     validation_error,
 )
-from tenants.models import Client, Domain
+from tenants.models import Client, Domain, TemplateCategory, TemplateSubCategory
 
 from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
@@ -73,6 +74,8 @@ class CustomSignupView(APIView):
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
         is_template_account = data.get("is_template_account", False)
+        template_category_id = data.get("template_category_id")
+        template_subcategory_id = data.get("template_subcategory_id")
 
         # Validate required fields
         if not email:
@@ -87,6 +90,45 @@ class CustomSignupView(APIView):
                 message="A user with this email/username already exists. Please use a different email or try logging in.",
                 params={"email": email},
             )
+
+        # Validate template category and subcategory if provided
+        template_category = None
+        template_subcategory = None
+
+        if template_category_id:
+            try:
+                template_category = TemplateCategory.objects.get(
+                    id=template_category_id
+                )
+            except TemplateCategory.DoesNotExist:
+                return validation_error(
+                    message="Invalid template category selected.",
+                    params={"template_category_id": "Template category not found"},
+                )
+
+        if template_subcategory_id:
+            try:
+                template_subcategory = TemplateSubCategory.objects.get(
+                    id=template_subcategory_id
+                )
+                # Validate that subcategory belongs to the selected category
+                if (
+                    template_category
+                    and template_subcategory.category != template_category
+                ):
+                    return validation_error(
+                        message="Subcategory does not belong to the selected category.",
+                        params={
+                            "template_subcategory_id": "Invalid subcategory for this category"
+                        },
+                    )
+            except TemplateSubCategory.DoesNotExist:
+                return validation_error(
+                    message="Invalid template subcategory selected.",
+                    params={
+                        "template_subcategory_id": "Template subcategory not found"
+                    },
+                )
 
         # Validate unique store_name schema
 
@@ -137,6 +179,8 @@ class CustomSignupView(APIView):
                         name=storeName,
                         owner=user,
                         is_template_account=is_template_account,
+                        template_category=template_category,
+                        template_subcategory=template_subcategory,
                     )
                     EmailAddress.objects.create(
                         email=user.email,
@@ -463,4 +507,22 @@ class UserWithStoresListAPIView(generics.ListAPIView):
             CustomUser.objects.all()
             .prefetch_related("stores")  # prefetch many-to-many stores
             .prefetch_related("owned_stores")  # prefetch owned stores
+        )
+
+
+class CompleteOnboardingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not user.is_onboarding_complete:
+            user.is_onboarding_complete = True
+            user.save(update_fields=["is_onboarding_complete"])
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Onboarding marked as completed",
+                "onboarding_complete": True,
+            }
         )

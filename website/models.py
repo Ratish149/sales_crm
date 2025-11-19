@@ -6,6 +6,10 @@ from solo.models import SingletonModel
 class SiteConfig(SingletonModel):
     favicon = models.FileField(upload_to="favicon", null=True, blank=True)
     logo = models.FileField(upload_to="logo", null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True, null=True)
+    phone = models.CharField(max_length=255, blank=True, null=True)
+    email = models.CharField(max_length=255, blank=True, null=True)
+    working_hours = models.CharField(max_length=255, blank=True, null=True)
     instagram_url = models.URLField(null=True, blank=True)
     facebook_url = models.URLField(null=True, blank=True)
     twitter_url = models.URLField(null=True, blank=True)

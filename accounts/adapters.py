@@ -106,6 +106,18 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         username = user_username(user)
         ret["username"] = username
 
+        # -------------------------------------------------------
+        # FIRST LOGIN CHECK
+        # -------------------------------------------------------
+        # If the user model has is_first_login field
+        is_first_login = getattr(user, "is_first_login", False)
+        is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
+
+        # After login, update it to False
+        if is_first_login:
+            user.is_first_login = False
+            user.save(update_fields=["is_first_login"])
+
         # Check if user has a store/profile through direct assignment or many-to-many
         has_direct_store = getattr(user, "store", None) is not None
         has_related_stores = user.stores.exists()
@@ -166,6 +178,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh["sub_domain"] = sub_domain
             refresh["has_profile_completed"] = has_profile_completed
             refresh["is_template_account"] = client.is_template_account
+            refresh["first_login"] = is_first_login
 
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
@@ -179,6 +192,8 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 "role": role,
                 "phone_number": phone_number,
                 "has_profile_completed": has_profile_completed,
+                "first_login": is_first_login,
+                "onboarding_complete": is_onboarding_complete,
             }
         )
 

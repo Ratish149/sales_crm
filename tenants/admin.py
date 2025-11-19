@@ -1,9 +1,16 @@
 from django.contrib import admin
 
-from .models import Client, Domain, FacebookPageTenantMap
+from .models import Client, Domain, FacebookPageTenantMap, TemplateCategory, TemplateSubCategory
 
 # from unfold.admin import ModelAdmin
 
+@admin.register(TemplateCategory)
+class TemplateCategoryAdmin(admin.ModelAdmin):
+    list_display = ("name",)
+
+@admin.register(TemplateSubCategory)
+class TemplateSubCategoryAdmin(admin.ModelAdmin):
+    list_display = ("name", "category")
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):

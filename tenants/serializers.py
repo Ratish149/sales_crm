@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.serializers import CustomUserSerializer
 
-from .models import Client, Domain
+from .models import Client, Domain, TemplateCategory, TemplateSubCategory
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -21,8 +21,27 @@ class DomainSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class TemplateCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateCategory
+        fields = ["id", "name", "slug"]
+
+
+class TemplateSubCategorySerializer(serializers.ModelSerializer):
+    category = TemplateCategorySerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=TemplateCategory.objects.all(), source="category", write_only=True
+    )
+
+    class Meta:
+        model = TemplateSubCategory
+        fields = ["id", "name", "slug", "category", "category_id"]
+
+
 class TemplateTenantSerializer(serializers.ModelSerializer):
     domains = serializers.SerializerMethodField()
+    template_category = TemplateCategorySerializer(read_only=True)
+    template_subcategory = TemplateSubCategorySerializer(read_only=True)
 
     class Meta:
         model = Client
@@ -35,6 +54,8 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
             "paid_until",
             "template_image",
             "is_template_account",
+            "template_category",
+            "template_subcategory",
             "domains",
         ]
 

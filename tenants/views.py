@@ -11,16 +11,28 @@ from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
+from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
-from rest_framework import generics, status
+from rest_framework import filters, generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from tenants.models import Client, Domain, FacebookPageTenantMap
+from tenants.models import (
+    Client,
+    Domain,
+    FacebookPageTenantMap,
+    TemplateCategory,
+    TemplateSubCategory,
+)
 
-from .serializers import DomainSerializer, TemplateTenantSerializer
+from .serializers import (
+    DomainSerializer,
+    TemplateCategorySerializer,
+    TemplateSubCategorySerializer,
+    TemplateTenantSerializer,
+)
 
 load_dotenv()
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
@@ -35,6 +47,50 @@ class CustomPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 100
+
+
+class TemplateCategoryListCreateView(generics.ListCreateAPIView):
+    queryset = TemplateCategory.objects.all()
+    serializer_class = TemplateCategorySerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["name"]
+
+
+class TemplateCategoryRetrieveUpdateDeleteView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TemplateCategory.objects.all()
+    serializer_class = TemplateCategorySerializer
+    lookup_field = "slug"
+
+
+# ---------------------------
+# TemplateSubCategory Views
+# ---------------------------
+
+
+class SubCategoryFilterSet(django_filters.FilterSet):
+    category = django_filters.NumberFilter(
+        field_name="category__id", lookup_expr="exact"
+    )
+
+    class Meta:
+        model = TemplateSubCategory
+        fields = ["category"]
+
+
+class TemplateSubCategoryListCreateView(generics.ListCreateAPIView):
+    queryset = TemplateSubCategory.objects.all()
+    serializer_class = TemplateSubCategorySerializer
+    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = SubCategoryFilterSet
+    search_fields = ["name"]
+
+
+class TemplateSubCategoryRetrieveUpdateDeleteView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    queryset = TemplateSubCategory.objects.all()
+    serializer_class = TemplateSubCategorySerializer
+    lookup_field = "slug"
 
 
 class DomainView(generics.ListCreateAPIView):
@@ -144,6 +200,19 @@ class FacebookWebhookView(View):
         return HttpResponse("EVENT_RECEIVED", status=200)
 
 
+class TemplateTenantFilter(django_filters.FilterSet):
+    category = django_filters.CharFilter(
+        field_name="template_category__name", lookup_expr="icontains"
+    )
+    subcategory = django_filters.CharFilter(
+        field_name="template_subcategory__name", lookup_expr="icontains"
+    )
+
+    class Meta:
+        model = Client
+        fields = ["category", "subcategory"]
+
+
 class TemplateTenantListAPIView(generics.ListAPIView):
     """
     Get all template tenants with domain info
@@ -151,9 +220,17 @@ class TemplateTenantListAPIView(generics.ListAPIView):
 
     serializer_class = TemplateTenantSerializer
     pagination_class = CustomPagination
+    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = TemplateTenantFilter
+    search_fields = ["name", "owner__owned_stores__store_name"]
 
     def get_queryset(self):
-        return Client.objects.filter(is_template_account=True)
+        return (
+            Client.objects.filter(is_template_account=True)
+            .select_related("owner")
+            .prefetch_related("owner__owned_stores")
+            .distinct()
+        )
 
 
 class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
