@@ -8,6 +8,7 @@ from allauth.account.utils import user_display, user_email, user_field, user_use
 from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.utils import valid_email_or_none
+from django.contrib.auth.models import update_last_login
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -110,7 +111,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         # FIRST LOGIN CHECK
         # -------------------------------------------------------
         # If the user model has is_first_login field
-        is_first_login = getattr(user, "is_first_login", False)
+        is_first_login = user.last_login is None
         is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
 
         # Check if user has a store/profile through direct assignment or many-to-many
@@ -180,9 +181,8 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             ret["refresh_token"] = str(refresh)
 
             # After login, update it to False
-            if is_first_login:
-                user.is_first_login = False
-                user.save(update_fields=["is_first_login"])
+            update_last_login(None, user)
+
         except Exception as e:
             print(f"Error creating token: {e}")
 
