@@ -74,3 +74,14 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
     def get_domains(self, obj):
         domains = Domain.objects.filter(tenant=obj)
         return [domain.domain for domain in domains]
+
+    def update(self, instance, validated_data):
+        # Handles updates for write-only fields
+        instance.template_category = validated_data.get(
+            "template_category", instance.template_category
+        )
+        instance.template_subcategory = validated_data.get(
+            "template_subcategory", instance.template_subcategory
+        )
+
+        return super().update(instance, validated_data)
