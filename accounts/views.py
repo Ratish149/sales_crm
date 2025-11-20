@@ -29,6 +29,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from blog.views import CustomPagination
 from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
     ErrorCode,
@@ -498,6 +499,7 @@ class UserListDestroyAPIView(generics.ListAPIView):
 
     queryset = CustomUser.objects.all()
     serializer_class = UserWithStoresSerializer
+    pagination_class = CustomPagination
 
 
 class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
