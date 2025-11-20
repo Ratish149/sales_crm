@@ -159,9 +159,13 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 client = Client.objects.get(owner=owner)
                 domain = Domain.objects.get(tenant=client)
                 domain_name = domain.domain
-                with schema_context(client.schema_name):  # switch to tenant schema
-                    if not Page.objects.exists():
-                        is_first_login = True
+                if client.is_template_account:
+                    is_first_login = False
+                else:
+                    with schema_context(client.schema_name):
+                        if not Page.objects.exists():
+                            is_first_login = True
+
             except Client.DoesNotExist:
                 client = None
             except Domain.DoesNotExist:
