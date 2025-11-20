@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AcceptInvitationView,
     ChangePasswordView,
+    CompleteOnboardingView,
     CustomSignupView,
     CustomVerifyEmailView,
     InvitationCreateView,
@@ -10,8 +11,9 @@ from .views import (
     ResendInvitationView,
     StoreProfileDetailView,
     StoreProfileView,
+    UserDeleteAPIView,
+    UserListDestroyAPIView,
     UserWithStoresListAPIView,
-    CompleteOnboardingView,
 )
 
 urlpatterns = [
@@ -42,4 +44,6 @@ urlpatterns = [
         CompleteOnboardingView.as_view(),
         name="complete-onboarding",
     ),
+    path("user-lists/", UserListDestroyAPIView.as_view(), name="user-list"),
+    path("user-lists/<int:id>/", UserDeleteAPIView.as_view(), name="user-delete"),
 ]

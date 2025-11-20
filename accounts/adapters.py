@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import StoreProfile
 from tenants.models import Client, Domain
+from website.models import Page
 
 load_dotenv()
 
@@ -111,7 +112,6 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         # FIRST LOGIN CHECK
         # -------------------------------------------------------
         # If the user model has is_first_login field
-        is_first_login = user.last_login is None
         is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
 
         # Check if user has a store/profile through direct assignment or many-to-many
@@ -142,6 +142,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 role = user.role
                 # Get subdomain from store name if available
                 sub_domain = slugify(store_name) if store_name else ""
+
                 # Check profile completion if we have a store profile
                 has_profile_completed = all(
                     [
@@ -164,6 +165,12 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
         # Generate JWT tokens
         try:
+            is_first_login = True
+            has_page = Page.objects.exists()
+
+            if has_page:
+                is_first_login = False
+
             refresh = RefreshToken.for_user(user)
             refresh["email"] = user.email
             refresh["store_name"] = store_name

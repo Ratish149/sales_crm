@@ -17,7 +17,6 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="viewer")
     phone_number = models.CharField(max_length=255, null=True, blank=True)
     sub_domain = models.CharField(max_length=255, null=True, blank=True)
-    is_first_login = models.BooleanField(default=True)
     is_onboarding_complete = models.BooleanField(default=False)
 
     def is_owner_of(self, store):

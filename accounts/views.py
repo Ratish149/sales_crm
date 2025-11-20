@@ -14,12 +14,14 @@ from allauth.account.utils import (
     user_field,
     user_username,
 )
+from django.db import connection, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.template.loader import render_to_string
 from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
+from django_tenants.utils import schema_context
 from dotenv import load_dotenv
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
@@ -41,6 +43,7 @@ from tenants.models import Client, Domain
 from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
     AcceptInvitationSerializer,
+    CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
     UserWithStoresSerializer,
@@ -485,3 +488,56 @@ class CompleteOnboardingView(APIView):
                 "onboarding_complete": True,
             }
         )
+
+
+class UserListDestroyAPIView(generics.ListAPIView):
+    """
+    Lists all users.
+    For deletion, use the UserDeleteAPIView below.
+    """
+
+    queryset = CustomUser.objects.all()
+    serializer_class = UserWithStoresSerializer
+
+
+class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
+    """
+    Deletes a user inside the tenant schema, then drops the tenant schema.
+    """
+
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerializer
+    lookup_field = "id"
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        tenant = Client.objects.filter(owner=user).first()
+
+        try:
+            if not tenant or not tenant.schema_name:
+                # No tenant, just delete the user from public
+                user.delete()
+            else:
+                schema_name = tenant.schema_name
+
+                with transaction.atomic():
+                    # 1️⃣ Delete user inside tenant schema
+                    with schema_context(schema_name):
+                        user.delete()
+
+                    # 2️⃣ Drop the tenant schema
+                    with connection.cursor() as cursor:
+                        cursor.execute(
+                            f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;'
+                        )
+
+            return Response(
+                {"message": "User deleted and tenant schema dropped successfully."},
+                status=status.HTTP_204_NO_CONTENT,
+            )
+
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to delete user and drop tenant schema: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

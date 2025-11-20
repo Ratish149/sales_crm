@@ -4,7 +4,7 @@ import logging
 import os
 
 import requests
-from django.db import connection
+from django.db import connection, transaction
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -12,6 +12,7 @@ from django.utils.text import slugify
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django_filters import rest_framework as django_filters
+from django_tenants.utils import schema_context
 from dotenv import load_dotenv
 from rest_framework import filters, generics, status
 from rest_framework.pagination import PageNumberPagination
@@ -19,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts.models import CustomUser
 from tenants.models import (
     Client,
     Domain,
@@ -236,7 +238,8 @@ class TemplateTenantListAPIView(generics.ListAPIView):
 class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     """
     Retrieve, update, or delete a template tenant (based on owner_id).
-    Drops the corresponding schema on delete.
+    Deletes the owner user inside tenant schema first, then drops the schema,
+    then deletes the tenant object.
     """
 
     queryset = Client.objects.filter(is_template_account=True)
@@ -244,20 +247,23 @@ class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     lookup_field = "owner_id"  # Important!
 
     def destroy(self, request, *args, **kwargs):
-        # Get the tenant by owner_id instead of pk
         owner_id = self.kwargs.get(self.lookup_field)
-        instance = get_object_or_404(
-            Client, owner_id=owner_id, is_template_account=True
-        )
-        schema_name = instance.schema_name
+        tenant = get_object_or_404(Client, owner_id=owner_id, is_template_account=True)
+        schema_name = tenant.schema_name
+        user = CustomUser.objects.get(id=owner_id)
 
         try:
-            # 1️⃣ Drop schema safely
-            with connection.cursor() as cursor:
-                cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;')
+            with transaction.atomic():
+                # 1️⃣ Delete the user inside tenant schema first
+                with schema_context(schema_name):
+                    user.delete()
 
-            # 2️⃣ Delete the tenant object
-            instance.delete()
+                # 2️⃣ Drop the tenant schema
+                with connection.cursor() as cursor:
+                    cursor.execute(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE;')
+
+                # 3️⃣ Delete the tenant object (Client) from public schema
+                tenant.delete()
 
             return Response(
                 {

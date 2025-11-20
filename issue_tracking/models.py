@@ -14,26 +14,26 @@ class IssueCategory(models.Model):
 
 class Issue(models.Model):
     PRIORITY_CHOICES = (
-        ('low', 'Low'),
-        ('medium', 'Medium'),
-        ('high', 'High'),
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
     )
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('open', 'Open'),
-        ('in_progress', 'In Progress'),
-        ('closed', 'Closed'),
+        ("pending", "Pending"),
+        ("open", "Open"),
+        ("in_progress", "In Progress"),
+        ("closed", "Closed"),
     )
-    reported_by = models.ForeignKey('accounts.CustomUser',
-                                    on_delete=models.CASCADE, null=True, blank=True)
+    reported_by = models.ForeignKey(
+        "accounts.CustomUser", on_delete=models.SET_NULL, null=True, blank=True
+    )
     issue_category = models.ForeignKey(
-        'IssueCategory', on_delete=models.CASCADE, null=True, blank=True)
+        "IssueCategory", on_delete=models.CASCADE, null=True, blank=True
+    )
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-    priority = models.CharField(
-        max_length=255, choices=PRIORITY_CHOICES, default='low')
-    status = models.CharField(
-        max_length=255, choices=STATUS_CHOICES, default='open')
+    priority = models.CharField(max_length=255, choices=PRIORITY_CHOICES, default="low")
+    status = models.CharField(max_length=255, choices=STATUS_CHOICES, default="open")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
