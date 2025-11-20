@@ -36,7 +36,7 @@ from sales_crm.utils.error_handler import (
     server_error,
     validation_error,
 )
-from tenants.models import Client, Domain, TemplateCategory, TemplateSubCategory
+from tenants.models import Client, Domain
 
 from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
@@ -73,10 +73,7 @@ class CustomSignupView(APIView):
         username = data.get("username", email)
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
-        is_first_login = data.get("is_first_login", True)
         is_template_account = data.get("is_template_account", False)
-        template_category_id = data.get("template_category_id")
-        template_subcategory_id = data.get("template_subcategory_id")
 
         # Validate required fields
         if not email:
@@ -92,45 +89,6 @@ class CustomSignupView(APIView):
                 params={"email": email},
             )
 
-        # Validate template category and subcategory if provided
-        template_category = None
-        template_subcategory = None
-
-        if template_category_id:
-            try:
-                template_category = TemplateCategory.objects.get(
-                    id=template_category_id
-                )
-            except TemplateCategory.DoesNotExist:
-                return validation_error(
-                    message="Invalid template category selected.",
-                    params={"template_category_id": "Template category not found"},
-                )
-
-        if template_subcategory_id:
-            try:
-                template_subcategory = TemplateSubCategory.objects.get(
-                    id=template_subcategory_id
-                )
-                # Validate that subcategory belongs to the selected category
-                if (
-                    template_category
-                    and template_subcategory.category != template_category
-                ):
-                    return validation_error(
-                        message="Subcategory does not belong to the selected category.",
-                        params={
-                            "template_subcategory_id": "Invalid subcategory for this category"
-                        },
-                    )
-            except TemplateSubCategory.DoesNotExist:
-                return validation_error(
-                    message="Invalid template subcategory selected.",
-                    params={
-                        "template_subcategory_id": "Template subcategory not found"
-                    },
-                )
-
         # Validate unique store_name schema
 
         try:
@@ -142,7 +100,6 @@ class CustomSignupView(APIView):
             user_username(user, username)
             user_field(user, "store_name", store_name)
             user_field(user, "phone_number", phone_number)
-            user_field(user, "is_first_login", is_first_login)
 
             if password:
                 user.set_password(password)
@@ -181,8 +138,6 @@ class CustomSignupView(APIView):
                         name=storeName,
                         owner=user,
                         is_template_account=is_template_account,
-                        template_category=template_category,
-                        template_subcategory=template_subcategory,
                     )
                     EmailAddress.objects.create(
                         email=user.email,
