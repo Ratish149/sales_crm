@@ -13,11 +13,13 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils.text import slugify
+from django_tenants.utils import schema_context
 from dotenv import load_dotenv
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import StoreProfile
 from tenants.models import Client, Domain
+from website.models import Page
 
 load_dotenv()
 
@@ -111,7 +113,6 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         # FIRST LOGIN CHECK
         # -------------------------------------------------------
         # If the user model has is_first_login field
-        is_first_login = user.last_login is None
         is_onboarding_complete = getattr(user, "is_onboarding_complete")
 
         # Check if user has a store/profile through direct assignment or many-to-many
@@ -157,6 +158,9 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
                 client = Client.objects.get(owner=owner)
                 domain = Domain.objects.get(tenant=client)
                 domain_name = domain.domain
+                with schema_context(client.schema_name):  # switch to tenant schema
+                    if not Page.objects.exists():
+                        is_first_login = True
             except Client.DoesNotExist:
                 client = None
             except Domain.DoesNotExist:
