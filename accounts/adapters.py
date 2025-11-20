@@ -18,6 +18,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import StoreProfile
 from tenants.models import Client, Domain
+from website.models import Page
 
 load_dotenv()
 
@@ -111,8 +112,8 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         # FIRST LOGIN CHECK
         # -------------------------------------------------------
         # If the user model has is_first_login field
-        is_first_login = user.last_login is None
-        is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
+        is_first_login = Page.objects.exists()
+        is_onboarding_complete = getattr(user, "is_onboarding_complete",False)
 
         # Check if user has a store/profile through direct assignment or many-to-many
         has_direct_store = getattr(user, "store", None) is not None
