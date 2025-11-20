@@ -129,6 +129,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         store_name = ""
         has_profile_completed = False
         owner = None
+        is_first_login = False  # <--- initialize here
 
         if has_profile:
             # Try to get store profile from direct relationship first, then from many-to-many
