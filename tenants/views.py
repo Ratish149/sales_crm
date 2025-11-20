@@ -202,10 +202,10 @@ class FacebookWebhookView(View):
 
 class TemplateTenantFilter(django_filters.FilterSet):
     category = django_filters.CharFilter(
-        field_name="template_category__name", lookup_expr="icontains"
+        field_name="template_category__slug", lookup_expr="icontains"
     )
     subcategory = django_filters.CharFilter(
-        field_name="template_subcategory__name", lookup_expr="icontains"
+        field_name="template_subcategory__slug", lookup_expr="icontains"
     )
 
     class Meta:
