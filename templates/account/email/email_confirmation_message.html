@@ -1,420 +1,431 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Verify Your Email</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+<!DOCTYPE html><html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>
+  <title> Welcome to Nepdora </title>
+  <!--[if !mso]><!-- -->
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!--<![endif]-->
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style type="text/css">
+    #outlook a {
+      padding: 0;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+    }
+
+    table,
+    td {
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+
+    img {
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+    }
+
+    p {
+      display: block;
+      margin: 13px 0;
+    }
+  </style>
+  <!--[if mso]>
+        <xml>
+        <o:OfficeDocumentSettings>
+          <o:AllowPNG/>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+        </xml>
+        <![endif]-->
+  <!--[if lte mso 11]>
+        <style type="text/css">
+          .mj-outlook-group-fix { width:100% !important; }
+        </style>
+        <![endif]-->
+  <style type="text/css">
+    @media only screen and (min-width:480px) {
+      .mj-column-per-100 {
+        width: 100% !important;
+        max-width: 100%;
+      }
+    }
+  </style>
+  <style type="text/css">
+    @media only screen and (max-width:480px) {
+      table.mj-full-width-mobile {
+        width: 100% !important;
       }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
-        line-height: 1.6;
-        color: #333;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-        padding: 40px 20px;
+      td.mj-full-width-mobile {
+        width: auto !important;
       }
+    }
+  </style>
+  <style type="text/css">
+    a,
+    span,
+    td,
+    th {
+      -webkit-font-smoothing: antialiased !important;
+      -moz-osx-font-smoothing: grayscale !important;
+    }
+  </style>
+<style>@font-face {
+              font-family: 'Open Sans Regular';
+              font-style: normal;
+              font-weight: 400;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/open-sans-v18-latin-regular.woff');
+          }</style><style>@font-face {
+              font-family: 'Open Sans Bold';
+              font-style: normal;
+              font-weight: 800;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/OpenSans-Bold.woff');
+          }</style><style>@font-face {
+              font-family: 'Open Sans ExtraBold';
+              font-style: normal;
+              font-weight: 800;
+              src: url('chrome-extension://gkkdmjjodidppndkbkhhknakbeflbomf/fonts/open_sans/open-sans-v18-latin-800.woff');
+          }</style></head>
 
-      .email-container {
-        max-width: 600px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-        position: relative;
-      }
-
-      .email-container::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #667eea);
-        background-size: 200% 100%;
-        animation: gradient 3s ease infinite;
-      }
-
-      @keyframes gradient {
-        0% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-        100% {
-          background-position: 0% 50%;
-        }
-      }
-
-      .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 50px 40px;
-        text-align: center;
-        color: white;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .header::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
-        opacity: 0.3;
-      }
-
-      .header-content {
-        position: relative;
-        z-index: 2;
-      }
-
-      .logo {
-        width: 60px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 20px;
-        backdrop-filter: blur(10px);
-      }
-
-      .logo svg {
-        width: 30px;
-        height: 30px;
-        fill: white;
-      }
-
-      .header h1 {
-        font-size: 32px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        letter-spacing: -1px;
-      }
-
-      .header p {
-        font-size: 18px;
-        opacity: 0.9;
-        font-weight: 300;
-      }
-
-      .content {
-        padding: 50px 40px;
-      }
-
-      .greeting {
-        font-size: 20px;
-        color: #2d3748;
-        margin-bottom: 25px;
-        font-weight: 600;
-      }
-
-      .main-message {
-        font-size: 16px;
-        color: #4a5568;
-        margin-bottom: 35px;
-        line-height: 1.7;
-      }
-
-      .verification-card {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border: 2px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 40px 30px;
-        margin: 35px 0;
-        text-align: center;
-        position: relative;
-      }
-
-      .verification-icon {
-        width: 80px;
-        height: 80px;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 25px;
-        box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
-      }
-
-      .verification-icon svg {
-        width: 40px;
-        height: 40px;
-        fill: white;
-      }
-
-      .cta-button {
-        display: inline-block;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        text-decoration: none;
-        padding: 18px 45px;
-        border-radius: 50px;
-        font-weight: 700;
-        font-size: 16px;
-        letter-spacing: 0.5px;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        margin: 25px 0;
-        text-transform: uppercase;
-      }
-
-      .cta-button:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 12px 30px rgba(102, 126, 234, 0.5);
-      }
-
-      .fallback-section {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 25px;
-        margin: 35px 0;
-      }
-
-      .fallback-section h4 {
-        color: #2d3748;
-        font-size: 15px;
-        font-weight: 600;
-        margin-bottom: 15px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .url-container {
-        background: white;
-        border: 1px solid #cbd5e0;
-        border-radius: 8px;
-        padding: 15px;
-        margin-top: 10px;
-      }
-
-      .url-text {
-        color: #4a5568;
-        font-size: 14px;
-        word-break: break-all;
-        font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas,
-          "Courier New", monospace;
-        line-height: 1.4;
-      }
-
-      .info-section {
-        background: linear-gradient(
-          135deg,
-          #fff5f5 0%,
-          #fed7d7 20%,
-          #fff5f5 100%
-        );
-        border: 1px solid #feb2b2;
-        border-radius: 12px;
-        padding: 20px;
-        margin: 30px 0;
-        text-align: center;
-      }
-
-      .info-section .icon {
-        width: 24px;
-        height: 24px;
-        margin: 0 auto 10px;
-        fill: #e53e3e;
-      }
-
-      .info-text {
-        font-size: 14px;
-        color: #742a2a;
-        font-weight: 500;
-      }
-
-      .footer {
-        background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-        padding: 40px;
-        text-align: center;
-        border-top: 1px solid #e2e8f0;
-      }
-
-      .signature {
-        color: #4a5568;
-        font-size: 16px;
-        margin-bottom: 20px;
-        line-height: 1.5;
-      }
-
-      .team-name {
-        font-weight: 700;
-        color: #2d3748;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, #cbd5e0, transparent);
-        margin: 25px 0;
-      }
-
-      .security-note {
-        font-size: 12px;
-        color: #a0aec0;
-        line-height: 1.5;
-        max-width: 450px;
-        margin: 0 auto;
-      }
-
-      .email-highlight {
-        color: #667eea;
-        font-weight: 600;
-      }
-
-      @media (max-width: 600px) {
-        body {
-          padding: 20px 10px;
-        }
-
-        .email-container {
-          border-radius: 16px;
-          margin: 0;
-        }
-
-        .content {
-          padding: 35px 25px;
-        }
-
-        .verification-card {
-          padding: 30px 20px;
-        }
-
-        .header {
-          padding: 40px 25px;
-        }
-
-        .header h1 {
-          font-size: 26px;
-        }
-
-        .cta-button {
-          padding: 16px 35px;
-          font-size: 15px;
-        }
-
-        .fallback-section {
-          padding: 20px;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="email-container">
-      <div class="header">
-        <div class="header-content">
-          <div class="logo">
-            <svg viewBox="0 0 24 24">
-              <path
-                d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9H21ZM7 9H21V11H7V9ZM7 13H21V15H7V13ZM7 17H21V19H7V17ZM7 21H21V23H7V21Z"
-              />
-            </svg>
-          </div>
-          <h1>Welcome to {{ site_name|default:"Nepdora" }}!</h1>
-          <p>Just one more step to get started</p>
-        </div>
-      </div>
-
-      <div class="content">
-        <div class="greeting">
-          Hi {% if user %}<span class="email-highlight">{{ user.email }}</span
-          >{% else %}there{% endif %},
-        </div>
-
-        <p class="main-message">
-          Thank you for joining us! To complete your registration and secure
-          your account, please verify your email address by clicking the button
-          below.
-        </p>
-
-        <div class="verification-card">
-          <div class="verification-icon">
-            <svg viewBox="0 0 24 24">
-              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-            </svg>
-          </div>
-          <a href="{{ activate_url }}" class="cta-button"
-            >Verify Email Address</a
-          >
-        </div>
-
-        <div class="fallback-section">
-          <h4>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+<body style="background-color:#ffffff;">
+  <div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;"> Preview - Welcome to Coded Mails </div>
+  <div style="background-color:#ffffff;">
+    <!--[if mso | IE]>
+      <table
+         align="center" border="0" cellpadding="0" cellspacing="0" class="" style="width:600px;" width="600"
+      >
+        <tr>
+          <td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;">
+      <![endif]-->
+    <div style="margin:0px auto;max-width:600px;">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+        <tbody>
+          <tr>
+            <td style="direction:ltr;font-size:0px;padding:20px 0;padding-bottom:0px;text-align:center;">
+              <!--[if mso | IE]>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                
+        <tr>
+      
+            <td
+               class="" style="vertical-align:top;width:600px;"
             >
-              <circle cx="12" cy="12" r="10" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
-            Can't click the button?
-          </h4>
-          <p style="font-size: 14px; color: #718096; margin-bottom: 10px">
-            Copy and paste this link into your browser:
-          </p>
-          <div class="url-container">
-            <div class="url-text">{{ activate_url }}</div>
-          </div>
-        </div>
-
-        <div class="info-section">
-          <svg class="icon" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 6v6l4 2" />
-          </svg>
-          <p class="info-text">
-            This verification link will expire in 48 hours
-          </p>
-        </div>
-
-        <div class="divider"></div>
-
-        <p style="color: #718096; font-size: 14px; line-height: 1.6">
-          If you didn't create an account with us, you can safely ignore this
-          email. Your email address will not be added to our system.
-        </p>
-      </div>
-
-      <div class="footer">
-        <div class="signature">
-          Thanks for choosing us,<br />
-          <span class="team-name"
-            >The {{ site_name|default:"Nepdora" }} Team</span
-          >
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="security-note">
-          This is an automated security email. Please do not reply to this
-          message. For support, visit our help center or contact our team
-          directly.
-        </div>
-      </div>
+          <![endif]-->
+              <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                  <tbody><tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:collapse;border-spacing:0px;">
+                        <tbody>
+                          <tr>
+                            <td style="width:200px;">
+                              <img alt="image description" height="auto" src="https://nepdora.baliyoventures.com/static/logo/fulllogo.svg" style="border:0;display:block;outline:none;text-decoration:none;height:auto;width:100%;font-size:14px;" width="200" />
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:400;line-height:24px;text-align:left;color:#434245;">
+                        <h1 style="margin: 0; font-size: 24px; line-height: normal; font-weight: bold;"> Welcome to <br /> Nepdora! </h1>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody></table>
+              </div>
+              <!--[if mso | IE]>
+            </td>
+          
+        </tr>
+      
+                  </table>
+                <![endif]-->
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-  </body>
-</html>
+    <!--[if mso | IE]>
+          </td>
+        </tr>
+      </table>
+      
+      <table
+         align="center" border="0" cellpadding="0" cellspacing="0" class="" style="width:600px;" width="600"
+      >
+        <tr>
+          <td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;">
+      <![endif]-->
+    <div style="margin:0px auto;max-width:600px;">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+        <tbody>
+          <tr>
+            <td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">
+              <!--[if mso | IE]>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                
+        <tr>
+      
+            <td
+               class="" style="vertical-align:top;width:600px;"
+            >
+          <![endif]-->
+              <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                  <tbody><tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:400;line-height:24px;text-align:left;color:#434245;">We have approved your request and we are really excited to welcome you.</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:400;line-height:24px;text-align:left;color:#434245;">Click on the link below to complete your registration and get started!</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" vertical-align="middle" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse:separate;line-height:100%;">
+                        <tbody><tr>
+                          <td align="center" bgcolor="#2e58ff" role="presentation" style="border:none;border-radius:30px;cursor:auto;mso-padding-alt:10px 25px;background:#2e58ff;" valign="middle">
+                            <a href="{{ activate_url }}" style="display: inline-block; background: #2e58ff; color: #ffffff; font-family: Helvetica, Arial, sans-serif; font-size: 14px; font-weight: bold; line-height: 30px; margin: 0; text-decoration: none; text-transform: uppercase; padding: 10px 25px; mso-padding-alt: 0px; border-radius: 30px;" target="_blank"> Complete registration </a>
+                          </td>
+                        </tr>
+                      </tbody></table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:400;line-height:24px;text-align:left;color:#434245;">If you need any help, don’t hesitate to reach out to us at <a href="mailto:nepdora@gmail.com" style="color: #2e58ff; text-decoration: none;">nepdora@gmail.com.com</a>!</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <p style="font-size: 14px; color: #718096; margin-bottom: 10px;">
+                        Can't click the button? Copy and paste this link into your browser:
+                      </p>
+                      <div style="font-size: 14px; color: #2e58ff; word-break: break-all; margin-bottom: 20px;">
+                        {{ activate_url }}
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:24px;text-align:left;color:#434245;">Team Nepdora</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <!--[if mso | IE]>
+      <table
+         align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"
+      >
+        <tr>
+      
+              <td>
+            <![endif]-->
+                      <!--[if mso | IE]>
+              </td>
+            
+              <td>
+            <![endif]-->
+                      <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="float:none;display:inline-table;">
+                        <tbody><tr>
+                          <td style="padding:4px;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:3px;width:18px;">
+                              <tbody><tr>
+                                <td style="font-size:0;height:18px;vertical-align:middle;width:18px;">
+                                  <a href="https://www.facebook.com/NepdoraWebBuilder" target="_blank" style="color: #2e58ff; text-decoration: none;">
+                                    <img alt="facebook-logo" height="18" src="https://codedmails.com/images/social/black/facebook-logo-transparent-black.png" style="border-radius:3px;display:block;" width="18" />
+                                  </a>
+                                </td>
+                              </tr>
+                            </tbody></table>
+                          </td>
+                        </tr>
+                      </tbody></table>
+                      <!--[if mso | IE]>
+              </td>
+            
+              <td>
+            <![endif]-->
+                      <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="float:none;display:inline-table;">
+                        <tbody><tr>
+                          <td style="padding:4px;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:3px;width:18px;">
+                              <tbody><tr>
+                                <td style="font-size:0;height:18px;vertical-align:middle;width:18px;">
+                                  <a href="https://www.instagram.com/nep_dora/" target="_blank" style="color: #2e58ff; text-decoration: none;">
+                                    <img alt="instagram-logo" height="18" src="https://codedmails.com/images/social/black/instagram-logo-transparent-black.png" style="border-radius:3px;display:block;" width="18" />
+                                  </a>
+                                </td>
+                              </tr>
+                            </tbody></table>
+                          </td>
+                        </tr>
+                      </tbody></table>
+                      <!--[if mso | IE]>
+              </td>
+            
+          </tr>
+        </table>
+      <![endif]-->
+                    </td>
+                  </tr>
+                </tbody></table>
+              </div>
+              <!--[if mso | IE]>
+            </td>
+          
+        </tr>
+      
+                  </table>
+                <![endif]-->
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!--[if mso | IE]>
+          </td>
+        </tr>
+      </table>
+      
+      <table
+         align="center" border="0" cellpadding="0" cellspacing="0" class="" style="width:600px;" width="600"
+      >
+        <tr>
+          <td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;">
+      <![endif]-->
+    <div style="margin:0px auto;max-width:600px;">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+        <tbody>
+          <tr>
+            <td style="direction:ltr;font-size:0px;padding:20px 0;padding-top:0;text-align:center;">
+              <!--[if mso | IE]>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                
+        <tr>
+      
+            <td
+               class="" style="vertical-align:top;width:600px;"
+            >
+          <![endif]-->
+              <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                  <tbody><tr>
+                    <td style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <p style="border-top: dashed 1px lightgrey; font-size: 1px; margin: 0px auto; width: 100%;">
+                      </p>
+                      <!--[if mso | IE]>
+        <table
+           align="center" border="0" cellpadding="0" cellspacing="0" style="border-top:dashed 1px lightgrey;font-size:1px;margin:0px auto;width:550px;" role="presentation" width="550px"
+        >
+          <tr>
+            <td style="height:0;line-height:0;">
+              &nbsp;
+            </td>
+          </tr>
+        </table>
+      <![endif]-->
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:14px;font-weight:400;line-height:24px;text-align:left;color:#999999;">Have questions or need help? Email us at <a href="mailto:nepdora@gmail.com" style="color: #2e58ff; text-decoration: none;"> nepdora@gmail.com </a></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:400;line-height:24px;text-align:left;color:#434245;">Town planning - 6, Sankhamul, Lalitpur <br /> © 2025 [ Nepdora ]</div>
+                    </td>
+                  </tr>
+                </tbody></table>
+              </div>
+              <!--[if mso | IE]>
+            </td>
+          
+        </tr>
+      
+                  </table>
+                <![endif]-->
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!--[if mso | IE]>
+          </td>
+        </tr>
+      </table>
+      
+      <table
+         align="center" border="0" cellpadding="0" cellspacing="0" class="" style="width:600px;" width="600"
+      >
+        <tr>
+          <td style="line-height:0px;font-size:0px;mso-line-height-rule:exactly;">
+      <![endif]-->
+    <div style="margin:0px auto;max-width:600px;">
+      <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;">
+        <tbody>
+          <tr>
+            <td style="direction:ltr;font-size:0px;padding:20px 0;text-align:center;">
+              <!--[if mso | IE]>
+                  <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+                
+        <tr>
+      
+            <td
+               class="" style="vertical-align:top;width:600px;"
+            >
+          <![endif]-->
+              <div class="mj-column-per-100 mj-outlook-group-fix" style="font-size:0px;text-align:left;direction:ltr;display:inline-block;vertical-align:top;width:100%;">
+                <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="vertical-align:top;" width="100%">
+                  <tbody><tr>
+                    <td style="font-size:0px;word-break:break-word;">
+                      <!--[if mso | IE]>
+    
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td height="1" style="vertical-align:top;height:1px;">
+      
+    <![endif]-->
+                      <div style="height:1px;">   </div>
+                      <!--[if mso | IE]>
+    
+        </td></tr></table>
+      
+    <![endif]-->
+                    </td>
+                  </tr>
+                </tbody></table>
+              </div>
+              <!--[if mso | IE]>
+            </td>
+          
+        </tr>
+      
+                  </table>
+                <![endif]-->
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!--[if mso | IE]>
+          </td>
+        </tr>
+      </table>
+      <![endif]-->
+  </div>
+
+
+</body></html>

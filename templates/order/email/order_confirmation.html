@@ -1,270 +1,204 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Your Order Confirmation</title>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:v="urn:schemas-microsoft-com:vml"
+      xmlns:o="urn:schemas-microsoft-com:office:office">
 
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
+<head>
+  <title>Order Confirmation – Nepdora</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style type="text/css">
+    #outlook a {
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #ffffff;
+    }
+    table,
+    td {
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    img {
+      border: 0;
+      height: auto;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+    }
+    p {
+      display: block;
+      margin: 13px 0;
+    }
+
+    @media only screen and (min-width:480px) {
+      .mj-column-per-100 {
+        width: 100% !important;
+        max-width: 100%;
       }
+    }
 
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Oxygen, Ubuntu, Cantarell, sans-serif;
-        line-height: 1.6;
-        color: #333;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 40px 20px;
+    @media only screen and (max-width:480px) {
+      table.mj-full-width-mobile {
+        width: 100% !important;
       }
-
-      .email-container {
-        max-width: 650px;
-        margin: 0 auto;
-        background: white;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
-        position: relative;
+      td.mj-full-width-mobile {
+        width: auto !important;
       }
+    }
+  </style>
+</head>
 
-      .email-container::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #667eea);
-        background-size: 200% 100%;
-        animation: gradient 3s ease infinite;
-      }
+<body>
+  <div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    Order Confirmation – Coded Mails
+  </div>
 
-      @keyframes gradient {
-        0% {
-          background-position: 0% 50%;
-        }
-        50% {
-          background-position: 100% 50%;
-        }
-        100% {
-          background-position: 0% 50%;
-        }
-      }
+  <div style="background-color:#ffffff; max-width:600px; margin:auto;">
 
-      .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 50px 40px;
-        text-align: center;
-        color: white;
-      }
+    <!-- HEADER -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+      <tr>
+        <td style="padding:20px 25px;">
+          <img src="https://nepdora.baliyoventures.com/static/logo/fulllogo.svg"
+               width="200"
+               style="display:block;" />
+        </td>
+      </tr>
+        <td style="padding:10px 25px;">
+          <h1 style="font-family:Arial, sans-serif; font-size:24px; margin:0;">
+            Hi {{ customer_name }},<br>Thank you for your order!
+          </h1>
+        </td>
+      </tr>
+    </table>
 
-      .header h1 {
-        font-size: 32px;
-        font-weight: 700;
-        margin-bottom: 10px;
-        letter-spacing: -1px;
-      }
+    <!-- MESSAGE -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+      <tr>
+        <td style="padding:10px 25px; font-family:Arial; font-size:16px; color:#444;">
+          Your order (#{{ order_number }}) was successfully placed on {{ created_at|date:"F d, Y" }}. Here is your summary:
+        </td>
+      </tr>
+    </table>
+<!-- ORDER SUMMARY -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="font-family:Arial; font-size:14px; color:#000;">
 
-      .header p {
-        font-size: 18px;
-        opacity: 0.9;
-      }
+  <!-- Header -->
+  <tr>
+    <th align="left" style="padding:10px 25px;">Product</th>
+    <th align="right" style="padding:10px 0;">Qty</th>
+    <th align="right" style="padding:10px 25px;">Price</th>
+  </tr>
 
-      .content {
-        padding: 40px 35px;
-      }
+  <!-- Loop items -->
+  {% for item in items %}
+  <tr>
+    <td style="padding:15px 25px;" width="60%">
+      <strong>{{ item.product_name }}</strong>
+      <p style="margin:0; color:#aaa;">{{ item.brand }}</p>
+    </td>
+    <td align="right" style="padding-top:20px;">x{{ item.quantity }}</td>
+    <td align="right" style="padding-top:20px;">Rs. {{ item.price }}</td>
+  </tr>
+  {% endfor %}
 
-      .greeting {
-        font-size: 20px;
-        color: #2d3748;
-        margin-bottom: 20px;
-        font-weight: 600;
-      }
+  <!-- Divider -->
+  <tr>
+    <td colspan="3" style="border-bottom:1px dashed #ddd;"></td>
+  </tr>
 
-      .main-message {
-        font-size: 16px;
-        color: #4a5568;
-        margin-bottom: 25px;
-        line-height: 1.7;
-      }
+  <!-- Totals -->
 
-      .order-box {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 25px;
-        margin: 30px 0;
-      }
+  <tr>
+    <td></td>
+    <td align="right" style="padding-top:10px;">Delivery</td>
+    <td align="right" style="padding-top:10px;">Rs. {{ delivery_charge }}</td>
+  </tr>
+  <tr>
+    <td></td>
+    <td align="right" style="padding-top:20px;"><strong>Total</strong></td>
+    <td align="right" style="padding-top:20px;"><strong>Rs. {{ total_amount }}</strong></td>
+  </tr>
 
-      .order-id {
-        font-size: 18px;
-        font-weight: 700;
-        color: #4c51bf;
-        margin-bottom: 10px;
-      }
+                  <tr>
+                     <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <div style="font-family:Helvetica, Arial, sans-serif;font-size:18px;font-weight:bold;line-height:24px;text-align:left;color:#434245;">Team Nepdora</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="left" style="font-size:0px;padding:10px 25px;word-break:break-word;">
+                      <!--[if mso | IE]>
+      <table
+         align="left" border="0" cellpadding="0" cellspacing="0" role="presentation"
+      >
+        <tr>
+      
+              <td>
+            <![endif]-->
+                      <!--[if mso | IE]>
+              </td>
+            
+              <td>
+            <![endif]-->
+                      <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="float:none;display:inline-table;">
+                        <tbody><tr>
+                          <td style="padding:4px;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:3px;width:18px;">
+                              <tbody><tr>
+                                <td style="font-size:0;height:18px;vertical-align:middle;width:18px;">
+                                  <a href="https://www.facebook.com/NepdoraWebBuilder" target="_blank" style="color: #2e58ff; text-decoration: none;">
+                                    <img alt="facebook-logo" height="18" src="https://codedmails.com/images/social/black/facebook-logo-transparent-black.png" style="border-radius:3px;display:block;" width="18" />
+                                  </a>
+                                </td>
+                              </tr>
+                            </tbody></table>
+                          </td>
+                        </tr>
+                      </tbody></table>
+                      <!--[if mso | IE]>
+              </td>
+            
+              <td>
+            <![endif]-->
+                      <table align="left" border="0" cellpadding="0" cellspacing="0" role="presentation" style="float:none;display:inline-table;">
+                        <tbody><tr>
+                          <td style="padding:4px;">
+                            <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-radius:3px;width:18px;">
+                              <tbody><tr>
+                                <td style="font-size:0;height:18px;vertical-align:middle;width:18px;">
+                                  <a href="https://www.instagram.com/nep_dora/" target="_blank" style="color: #2e58ff; text-decoration: none;">
+                                    <img alt="instagram-logo" height="18" src="https://codedmails.com/images/social/black/instagram-logo-transparent-black.png" style="border-radius:3px;display:block;" width="18" />
+                                  </a>
+                                </td>
+                              </tr>
+                            </tbody></table>
+                          </td>
+                        </tr>
+                      </tbody></table>
 
-      .order-date {
-        font-size: 14px;
-        color: #718096;
-        margin-bottom: 15px;
-      }
 
-      .summary-title {
-        font-size: 18px;
-        font-weight: 700;
-        color: #2d3748;
-        margin: 30px 0 12px;
-      }
+    <!-- FOOTER -->
+     
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center"
+           style="margin-top:20px; font-family:Arial; font-size:12px; color:#888;">
+      <tr>
+        <td align="center" style="padding:10px;">
+          © 2025 Nepdora – All rights reserved.
+        </td>
+      </tr>
+    </table>
 
-      table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-      }
+  </div>
 
-      th {
-        background: #edf2f7;
-        color: #2d3748;
-        padding: 12px;
-        font-size: 14px;
-        text-align: left;
-      }
-
-      td {
-        padding: 12px;
-        border-bottom: 1px solid #e2e8f0;
-        font-size: 14px;
-        color: #4a5568;
-      }
-
-      .total-box {
-        margin-top: 25px;
-        padding: 18px;
-        background: #f7fafc;
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-      }
-
-      .total-text {
-        font-size: 16px;
-        font-weight: 700;
-        color: #2d3748;
-      }
-
-      .footer {
-        background: #f7fafc;
-        text-align: center;
-        padding: 40px;
-        border-top: 1px solid #e2e8f0;
-      }
-
-      .signature {
-        color: #4a5568;
-        font-size: 16px;
-        margin-bottom: 20px;
-      }
-
-      .team-name {
-        font-weight: 700;
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-      }
-
-      .security-note {
-        font-size: 12px;
-        color: #a0aec0;
-        max-width: 450px;
-        margin: 0 auto;
-        line-height: 1.6;
-      }
-
-      @media (max-width: 600px) {
-        .content {
-          padding: 30px 20px;
-        }
-        table th,
-        table td {
-          padding: 10px;
-        }
-      }
-    </style>
-  </head>
-
-  <body>
-    <div class="email-container">
-      <div class="header">
-        <h1>Order Confirmed 🎉</h1>
-        <p>Thank you for shopping with {{ site_name|default:"Nepdora" }}!</p>
-      </div>
-
-      <div class="content">
-        <div class="greeting">
-          Hi {{ customer_name }}, your order has been received!
-        </div>
-
-        <p class="main-message">
-          We’re excited to let you know that your order has been successfully
-          placed. Below is a summary of your purchase.
-        </p>
-
-        <div class="order-box">
-          <div class="order-id">Order #{{ order_number }}</div>
-          <div class="order-date">
-            Placed on: {{ created_at|default:"Today" }}
-          </div>
-        </div>
-
-        <h3 class="summary-title">Order Summary</h3>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Qty</th>
-              <th style="text-align:right;">Price</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {% for item in items %}
-            <tr>
-              <td>{{ item.product_name }}</td>
-              <td>{{ item.quantity }}</td>
-              <td style="text-align:right;">Rs. {{ item.price }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-
-        <div class="total-box">
-          <p class="total-text">
-            Total Amount: Rs. {{ total_amount }} <br />
-            Delivery Charge: Rs. {{ delivery_charge }}
-          </p>
-        </div>
-
-        <p class="main-message" style="margin-top: 30px;">
-          We will notify you once your order is shipped.  
-          Thank you for choosing <strong>{{ site_name|default:"Nepdora" }}</strong>!
-        </p>
-      </div>
-
-      <div class="footer">
-        <div class="signature">
-          Warm regards,<br />
-          <span class="team-name">{{ site_name|default:"Nepdora" }} Team</span>
-        </div>
-
-        <div class="security-note">
-          This is an automated message regarding your recent order.  
-          If you did not make this purchase, please contact support immediately.
-        </div>
-      </div>
-    </div>
-  </body>
+</body>
 </html>
