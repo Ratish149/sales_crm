@@ -41,6 +41,16 @@ class TemplateSubCategorySerializer(serializers.ModelSerializer):
 class TemplateTenantSerializer(serializers.ModelSerializer):
     domains = serializers.SerializerMethodField()
     template_category = TemplateCategorySerializer(read_only=True)
+    template_category_id = serializers.PrimaryKeyRelatedField(
+        queryset=TemplateCategory.objects.all(),
+        source="template_category",
+        write_only=True,
+    )
+    template_subcategory_id = serializers.PrimaryKeyRelatedField(
+        queryset=TemplateSubCategory.objects.all(),
+        source="template_subcategory",
+        write_only=True,
+    )
     template_subcategory = TemplateSubCategorySerializer(read_only=True)
 
     class Meta:
@@ -55,7 +65,9 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
             "template_image",
             "is_template_account",
             "template_category",
+            "template_category_id",
             "template_subcategory",
+            "template_subcategory_id",
             "domains",
         ]
 
