@@ -346,7 +346,7 @@ HEADLESS_FRONTEND_URLS = {
     #
     # "https://app.project.org/account/email/verify-email?token={key}",
     "account_reset_password": "https://www.nepdora.com/account/password/reset",
-    "account_reset_password_from_key": "https://www.nepdora.com/account/password/reset/key/{key}/",
+    "account_reset_password_from_key": "https://www.nepdora.com/account/password/reset/{key}/",
     "account_signup": "https://www.nepdora.com/account/signup",
     # Fallback in case the state containing the `next` URL is lost and the handshake
     # with the third-party provider fails.
