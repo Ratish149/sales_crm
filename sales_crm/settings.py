@@ -339,6 +339,12 @@ SOCIALACCOUNT_PROVIDERS = {
 #     # with the third-party provider fails.
 # }
 
+CORS_ALLOW_HEADERS = [
+    "X-Password-Reset-Key",
+    "Content-Type",
+    "Authorization",
+]
+
 HEADLESS_FRONTEND_URLS = {
     "account_confirm_email": "https://www.nepdora.com/account/verify-email/{key}",
     # Key placeholders are automatically populated. You are free to adjust this
