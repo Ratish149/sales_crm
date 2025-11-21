@@ -7,8 +7,10 @@ from .views import (
     CustomSignupView,
     CustomVerifyEmailView,
     InvitationCreateView,
+    RequestPasswordResetAPIView,
     ResendEmailVerificationView,
     ResendInvitationView,
+    ResetPasswordConfirmAPIView,
     StoreProfileDetailView,
     StoreProfileView,
     UserDeleteAPIView,
@@ -46,4 +48,14 @@ urlpatterns = [
     ),
     path("user-lists/", UserListDestroyAPIView.as_view(), name="user-list"),
     path("user-lists/<int:id>/", UserDeleteAPIView.as_view(), name="user-delete"),
+    path(
+        "reset-password-request/",
+        RequestPasswordResetAPIView.as_view(),
+        name="reset-password-request",
+    ),
+    path(
+        "reset-password-confirm/",
+        ResetPasswordConfirmAPIView.as_view(),
+        name="reset-password-confirm",
+    ),
 ]
