@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import date, timedelta
 from uuid import uuid4
 
 import resend
@@ -144,11 +145,16 @@ class CustomSignupView(APIView):
                     user.role = "owner" if created else "viewer"
                     user.save()
 
+                    free_plan = Pricing.objects.filter(plan_type="free").first()
+                    paid_until = date.today() + timedelta(days=30)
+
                     tenant = Client.objects.create(
                         schema_name=storeName,
                         name=storeName,
                         owner=user,
                         is_template_account=is_template_account,
+                        pricing_plan=free_plan,
+                        paid_until=paid_until,
                     )
                     EmailAddress.objects.create(
                         email=user.email,
@@ -600,7 +606,7 @@ class RequestPasswordResetAPIView(APIView):
         # Send email using Resend
         try:
             params = {
-                "from": "nepdora@baliyoventures.com",
+                "from": "Nepdora <nepdora@baliyoventures.com>",
                 "to": [email],
                 "subject": subject,
                 "html": html_body,

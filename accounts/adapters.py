@@ -316,7 +316,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             # In production, you would verify your domain and use your own domain
 
             params = {
-                "from": "nepdora@baliyoventures.com",
+                "from": "Nepdora <nepdora@baliyoventures.com>",
                 "to": [email],  # Send to verified email for testing
                 "subject": subject,
                 "html": html_body,

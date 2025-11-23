@@ -99,7 +99,9 @@ class UserSubscription(models.Model):
     payment_type = models.CharField(
         max_length=50, choices=PAYMENT_CHOICES, default="cash", blank=True, null=True
     )
-    amount = models.DecimalField(max_digits=10, decimal_places=2, default=0, blank=True, null=True)
+    amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, blank=True, null=True
+    )
     started_on = models.DateField(default=date.today)
     expires_on = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
