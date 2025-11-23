@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import FAQ, FAQCategory
+from .models import FAQ, FAQCategory, NepdoraTestimonial
 
 
 class FAQCategorySerializer(serializers.ModelSerializer):
@@ -22,3 +22,9 @@ class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ["id", "question", "answer", "category", "category_id"]
+
+
+class NepdoraTestimonialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NepdoraTestimonial
+        fields = ["id", "name", "designation", "image", "comment"]

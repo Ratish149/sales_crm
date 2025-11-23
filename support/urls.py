@@ -5,6 +5,8 @@ from .views import (
     FAQCategoryRetrieveUpdateDestroyView,
     FAQListCreateView,
     FAQRetrieveUpdateDestroyView,
+    NepdoraTestimonialListCreateView,
+    NepdoraTestimonialRetrieveUpdateDestroyView,
 )
 
 urlpatterns = [
@@ -23,5 +25,15 @@ urlpatterns = [
         "faq/<int:pk>/",
         FAQRetrieveUpdateDestroyView.as_view(),
         name="faq-retrieve-update-destroy",
+    ),
+    path(
+        "nepdora-testimonial/",
+        NepdoraTestimonialListCreateView.as_view(),
+        name="nepdora-testimonial-list-create",
+    ),
+    path(
+        "nepdora-testimonial/<int:pk>/",
+        NepdoraTestimonialRetrieveUpdateDestroyView.as_view(),
+        name="nepdora-testimonial-retrieve-update-destroy",
     ),
 ]
