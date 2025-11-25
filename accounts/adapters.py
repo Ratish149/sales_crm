@@ -45,7 +45,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         email = data.get("email")
         username = data.get("username", email)
         phone_number = extra.get("app", {}).get("phone")
-        website_type = data.get("website_type") or "ecommerce"
+        website_type = extra.get("app", {}).get("website_type") or "ecommerce"
 
         user_username(user, username)
         user_email(user, email or "")
