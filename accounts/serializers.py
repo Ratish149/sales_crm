@@ -1,9 +1,12 @@
-from rest_framework import serializers
-from .models import Invitation, CustomUser, StoreProfile
+import os
+
 import cloudinary
 import cloudinary.uploader
-import os
 from dotenv import load_dotenv
+from rest_framework import serializers
+
+from .models import CustomUser, Invitation, StoreProfile
+
 load_dotenv()
 
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
@@ -14,21 +17,20 @@ cloudinary.config(
     cloud_name=CLOUDINARY_CLOUD_NAME,
     api_key=CLOUDINARY_API_KEY,
     api_secret=CLOUDINARY_API_SECRET,
-    secure=True
+    secure=True,
 )
 
 
 class InvitationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invitation
-        fields = ['id', 'email', 'store', 'role',
-                  'token', 'accepted', 'created_at']
-        read_only_fields = ['id', 'token', 'accepted', 'created_at']
+        fields = ["id", "email", "store", "role", "token", "accepted", "created_at"]
+        read_only_fields = ["id", "token", "accepted", "created_at"]
 
     def create(self, validated_data):
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            validated_data['invited_by'] = request.user
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            validated_data["invited_by"] = request.user
         return super().create(validated_data)
 
 
@@ -41,25 +43,20 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
     def validate(self, data):
         try:
-            invitation = Invitation.objects.get(
-                token=data['token'],
-                accepted=False
-            )
+            invitation = Invitation.objects.get(token=data["token"], accepted=False)
             # Check if user with this email already exists
             if CustomUser.objects.filter(email=invitation.email).exists():
                 raise serializers.ValidationError(
                     "A user with this email already exists. Please log in instead."
                 )
-            data['invitation'] = invitation
+            data["invitation"] = invitation
             return data
         except Invitation.DoesNotExist:
-            raise serializers.ValidationError(
-                "Invalid or expired invitation token."
-            )
+            raise serializers.ValidationError("Invalid or expired invitation token.")
 
     def create(self, validated_data):
-        invitation = validated_data['invitation']
-        password = validated_data['password']
+        invitation = validated_data["invitation"]
+        password = validated_data["password"]
 
         # Create the user
         user = CustomUser.objects.create_user(
@@ -67,9 +64,9 @@ class AcceptInvitationSerializer(serializers.Serializer):
             password=password,
             role=invitation.role,
             username=invitation.email,
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            phone_number=validated_data.get('phone_number', '')
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+            phone_number=validated_data.get("phone_number", ""),
         )
 
         # Accept the invitation (this will add user to store and handle roles)
@@ -79,50 +76,63 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
 
 class StoreProfileSerializer(serializers.ModelSerializer):
-
     logo_file = serializers.FileField(write_only=True, required=False)
     document_file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = StoreProfile
-        fields = ['id', 'store_name', 'store_address', 'store_number', 'logo_file', 'logo',
-                  'business_category', 'facebook_url', 'instagram_url', 'twitter_url', 'tiktok_url', 'whatsapp_number', 'document_url', 'document_file']
-        read_only_fields = ['logo']
+        fields = [
+            "id",
+            "store_name",
+            "store_address",
+            "store_number",
+            "logo_file",
+            "logo",
+            "business_category",
+            "facebook_url",
+            "instagram_url",
+            "twitter_url",
+            "tiktok_url",
+            "whatsapp_number",
+            "document_url",
+            "document_file",
+        ]
+        read_only_fields = ["logo"]
 
     def create(self, validated_data):
-        logo_file = validated_data.pop('logo_file', None)
+        logo_file = validated_data.pop("logo_file", None)
         if logo_file:
             upload_result = cloudinary.uploader.upload(
                 logo_file,
-                folder=f"store_logos",
+                folder="store_logos",
                 public_id=f"store_logo_{validated_data['store_name']}",
                 overwrite=True,
-                resource_type="image"
+                resource_type="image",
             )
-            validated_data['logo'] = upload_result['secure_url']
+            validated_data["logo"] = upload_result["secure_url"]
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
-        logo_file = validated_data.pop('logo_file', None)
+        logo_file = validated_data.pop("logo_file", None)
         if logo_file:
             upload_result = cloudinary.uploader.upload(
                 logo_file,
-                folder=f"store_logos",
+                folder="store_logos",
                 public_id=f"store_logo_{instance.store_name}",
                 overwrite=True,
-                resource_type="image"
+                resource_type="image",
             )
-            validated_data['logo'] = upload_result['secure_url']
-        document_file = validated_data.pop('document_file', None)
+            validated_data["logo"] = upload_result["secure_url"]
+        document_file = validated_data.pop("document_file", None)
         if document_file:
             upload_result = cloudinary.uploader.upload(
                 document_file,
-                folder=f"kyc_documents",
+                folder="kyc_documents",
                 public_id=f"kyc_document_{instance.store_name}",
                 overwrite=True,
-                resource_type="raw"
+                resource_type="raw",
             )
-            validated_data['document_url'] = upload_result['secure_url']
+            validated_data["document_url"] = upload_result["secure_url"]
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
@@ -132,7 +142,7 @@ class StoreProfileSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'role', 'phone_number']
+        fields = ["id", "email", "role", "phone_number"]
 
 
 class StoreUserSerializer(serializers.ModelSerializer):
@@ -140,31 +150,37 @@ class StoreUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StoreProfile
-        fields = ('id', 'store_name', 'store_address', 'store_number', 'role')
+        fields = ("id", "store_name", "store_address", "store_number", "role")
 
     def get_role(self, store):
-        user = self.context.get('user')
+        user = self.context.get("user")
         if not user:
             return None
         if store.owner == user:
-            return 'owner'
+            return "owner"
         # If user is in the users M2M but not owner, return their role
         return user.role if user in store.users.all() else None
 
 
 class UserWithStoresSerializer(serializers.ModelSerializer):
     stores = serializers.SerializerMethodField()
+    schema_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "email", "role", "stores")
+        fields = ("id", "email", "role", "stores", "schema_name")
 
     def get_stores(self, user):
         # Both owned and joined stores are already prefetched in queryset
         stores = list(user.stores.all()) + list(user.owned_stores.all())
         # Remove duplicates if any
         stores = list({store.id: store for store in stores}.values())
-        serializer = StoreUserSerializer(
-            stores, many=True, context={"user": user})
+        serializer = StoreUserSerializer(stores, many=True, context={"user": user})
         return serializer.data
 
+    def get_schema_name(self, user):
+        # Get the schema name from the Client model
+        try:
+            return user.client.schema_name
+        except AttributeError:
+            return None
