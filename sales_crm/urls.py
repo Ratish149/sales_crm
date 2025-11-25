@@ -27,10 +27,10 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("accounts/", include("allauth.urls")),
     # Allauth headless for API endpoints
     path("_allauth/", include("allauth.headless.urls")),
     # Regular Allauth for email confirmation and other features
-    path("accounts/", include("allauth.account.urls")),
     path("api/", include("accounts.urls")),
     path("api/", include("website.urls")),
     path("api/", include("product.urls")),

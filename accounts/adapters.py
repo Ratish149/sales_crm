@@ -1,13 +1,16 @@
+import base64
+import json
 import os
+from datetime import date, timedelta
 from typing import Any, Dict
 
+import requests
 import resend
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
 from allauth.account.utils import user_display, user_email, user_field, user_username
 from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from allauth.utils import valid_email_or_none
 from django.contrib.auth.models import update_last_login
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -18,6 +21,7 @@ from dotenv import load_dotenv
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import StoreProfile
+from pricing.models import Pricing
 from tenants.models import Client, Domain
 from website.models import Page
 
@@ -29,151 +33,150 @@ backend_url = os.getenv("BACKEND_URL")
 
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def populate_user(self, request, sociallogin, data):
-        """
-        Hook that can be used to further populate the user instance.
-
-        For convenience, we populate several common fields.
-
-        Note that the user instance being populated represents a
-        suggested User instance that represents the social user that is
-        in the process of being logged in.
-
-        The User instance need not be completely valid and conflict
-        free. For example, verifying whether or not the username
-        already exists, is not a responsibility.
-        """
-        email = data.get("email")
-        store_name = data.get("store_name").lower()
-        username = data.get("username", email)
-        phone_number = data.get("phone")
+        """Populate basic user fields only (no DB side-effects)."""
         user = sociallogin.user
+
+        try:
+            body = json.loads(request.body.decode("utf-8"))
+            extra = body.get("data", {})
+        except Exception as e:
+            raise ValueError(f"Error parsing request body in populate_user: {e}")
+
+        email = data.get("email")
+        username = data.get("username", email)
+        phone_number = extra.get("app", {}).get("phone")
+        website_type = data.get("website_type") or "ecommerce"
+
         user_username(user, username)
-        user_email(user, valid_email_or_none(email) or "")
+        user_email(user, email or "")
         user_field(user, "phone_number", phone_number)
+        user_field(user, "website_type", website_type)
 
-        if store_name:
-            store_profile, created = StoreProfile.objects.get_or_create(
-                store_name=store_name
-            )
-            user.store = store_profile
-            if created:
-                user.role = "owner"
-            else:
-                user.role = "viewer"
-            user.save()
+        return user
 
-            schema_name = store_name
+    def save_user(self, request, sociallogin, form=None):
+        """Called after the user is created in the main DB. Create tenant if needed."""
+        user = super().save_user(request, sociallogin, form)
 
-            # Check if schema name already exists
-            if Client.objects.filter(schema_name=schema_name).exists():
-                raise ValidationError(
-                    f"Store name '{store_name}' is already taken. Please choose a different name."
-                )
+        try:
+            body = json.loads(request.body.decode("utf-8"))
+            extra = body.get("data", {})
+        except Exception as e:
+            raise ValueError(f"Error parsing request body in save_user: {e}")
 
-            # Prevent schema from being a reserved word
-            if schema_name in ["public", "default", "postgres"]:
+        store_name = extra.get("app", {}).get("store_name")
+        is_template_account = extra.get("is_template_account", False)
+
+        if not store_name:
+            return user
+
+        store_name = store_name.lower()
+
+        # Create or fetch StoreProfile
+        store_profile, created = StoreProfile.objects.get_or_create(
+            store_name=store_name, defaults={"owner": user}
+        )
+
+        if store_profile.owner == user:
+            user.role = "owner"
+        else:
+            user.role = "viewer"
+            store_profile.users.add(user)
+
+        user.save()
+
+        if created:
+            schema_name = slugify(store_name)
+            if Client.objects.filter(
+                schema_name=schema_name
+            ).exists() or schema_name in ["public", "default", "postgres"]:
                 schema_name = f"{schema_name}-user{user.id}"
 
-            # Create tenant (Client)
+            free_plan = Pricing.objects.filter(plan_type="free").first()
+            paid_until = date.today() + timedelta(days=30)
+
             tenant = Client.objects.create(
                 schema_name=schema_name,
-                name=store_name,
+                name=schema_name,
                 owner=user,
+                is_template_account=is_template_account,
+                pricing_plan=free_plan,
+                paid_until=paid_until,
             )
 
-            # Create domain for the tenant
-            Domain.objects.create(
-                domain=f"{schema_name}.{backend_url}",
-                tenant=tenant,
-                is_primary=True,
-            )
-        else:
-            user.save()
+            domain_url = f"{schema_name}.{backend_url}"
+            Domain.objects.create(domain=domain_url, tenant=tenant, is_primary=True)
+
         return user
 
 
 class CustomHeadlessAdapter(DefaultHeadlessAdapter):
-    """
-    Custom headless adapter that extends DefaultHeadlessAdapter to include token functionality.
-    """
-
     def serialize_user(self, user) -> Dict[str, Any]:
-        """
-        Returns the basic user data along with JWT tokens and store info.
-        """
-        ret = {
+        ret: Dict[str, Any] = {
             "display": user_display(user),
             "has_usable_password": user.has_usable_password(),
+            "username": user_username(user),
         }
 
-        username = user_username(user)
-        ret["username"] = username
-
-        # -------------------------------------------------------
-        # FIRST LOGIN CHECK
-        # -------------------------------------------------------
-        # If the user model has is_first_login field
-        is_onboarding_complete = getattr(user, "is_onboarding_complete")
-
-        # Check if user has a store/profile through direct assignment or many-to-many
-        has_direct_store = getattr(user, "store", None) is not None
-        has_related_stores = user.stores.exists()
-        has_profile = has_direct_store or has_related_stores
-        ret["has_profile"] = has_profile
-
-        # Initialize extra variables
+        is_onboarding_complete = getattr(user, "is_onboarding_complete", False)
+        store_profile = None
+        has_profile = False
         domain_name = ""
         sub_domain = ""
-        role = ""
-        phone_number = user.phone_number or ""
+        role = getattr(user, "role", "viewer")
+        phone_number = getattr(user, "phone_number", "") or ""
         store_name = ""
         has_profile_completed = False
         owner = None
-        is_first_login = False  # <--- initialize here
+        is_first_login = False
+        website_type = getattr(user, "website_type", "") or ""
+        client = None
+        domain = None
 
-        if has_profile:
-            # Try to get store profile from direct relationship first, then from many-to-many
-            store_profile = StoreProfile.objects.filter(users=user).first()
-            if not store_profile and hasattr(user, "store"):
-                store_profile = user.store
+        try:
+            store_profile = user.owned_stores.first() or user.stores.first()
+            has_profile = store_profile is not None
+        except Exception as e:
+            raise ValueError(f"Error fetching store profile: {e}")
 
-            if store_profile:
-                store_name = store_profile.store_name
-                owner = store_profile.owner
-                # Get role from user's role field
-                role = user.role
-                # Get subdomain from store name if available
-                sub_domain = slugify(store_name) if store_name else ""
-                # Check profile completion if we have a store profile
-                has_profile_completed = all(
-                    [
-                        store_profile.logo,
-                        store_profile.store_number,
-                        store_profile.store_address,
-                        store_profile.business_category,
-                    ]
-                )
+        if has_profile and store_profile:
+            store_name = getattr(store_profile, "store_name", "") or ""
+            owner = getattr(store_profile, "owner", None)
+            sub_domain = slugify(store_name) if store_name else ""
+            has_profile_completed = all(
+                [
+                    bool(getattr(store_profile, "logo", None)),
+                    bool(getattr(store_profile, "store_number", None)),
+                    bool(getattr(store_profile, "store_address", None)),
+                    bool(getattr(store_profile, "business_category", None)),
+                ]
+            )
 
-            # Get tenant and domain safely
             try:
-                client = Client.objects.get(owner=owner)
-                domain = Domain.objects.get(tenant=client)
-                domain_name = domain.domain
-                if client.is_template_account:
-                    is_first_login = False
-                else:
-                    with schema_context(client.schema_name):
-                        if not Page.objects.exists():
-                            is_first_login = True
+                if owner:
+                    client = Client.objects.filter(owner=owner).first()
+                    if client:
+                        domain = Domain.objects.filter(
+                            tenant=client, is_primary=True
+                        ).first()
+                        domain_name = getattr(domain, "domain", "") or ""
+                        is_template = getattr(client, "is_template_account", False)
+                        if is_template:
+                            is_first_login = False
+                        else:
+                            schema_name = getattr(client, "schema_name", None)
+                            if schema_name:
+                                with schema_context(schema_name):
+                                    is_first_login = not Page.objects.exists()
+            except Exception as e:
+                raise ValueError(f"Error fetching client/domain info: {e}")
 
-            except Client.DoesNotExist:
-                client = None
-            except Domain.DoesNotExist:
-                domain = None
-
-        # Generate JWT tokens
         try:
             refresh = RefreshToken.for_user(user)
+            is_template_flag = (
+                getattr(client, "is_template_account", False) if client else False
+            )
+
             refresh["email"] = user.email
             refresh["store_name"] = store_name
             refresh["has_profile"] = has_profile
@@ -182,28 +185,28 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh["domain"] = domain_name
             refresh["sub_domain"] = sub_domain
             refresh["has_profile_completed"] = has_profile_completed
-            refresh["is_template_account"] = client.is_template_account
+            refresh["is_template_account"] = is_template_flag
             refresh["first_login"] = is_first_login
             refresh["is_onboarding_complete"] = is_onboarding_complete
+            refresh["website_type"] = website_type
 
             ret["access_token"] = str(refresh.access_token)
             ret["refresh_token"] = str(refresh)
-
-            # After login, update it to False
             update_last_login(None, user)
-
         except Exception as e:
-            print(f"Error creating token: {e}")
+            raise ValueError(f"Error generating JWT token: {e}")
 
-        # Add store-related info
         ret.update(
             {
                 "store_name": store_name,
                 "role": role,
                 "phone_number": phone_number,
+                "domain": domain_name,
+                "sub_domain": sub_domain,
                 "has_profile_completed": has_profile_completed,
                 "first_login": is_first_login,
                 "is_onboarding_complete": is_onboarding_complete,
+                "website_type": website_type,
             }
         )
 
@@ -212,36 +215,22 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
 
 class CustomAccountAdapter(DefaultAccountAdapter):
     def get_phone(self, user):
-        """
-        Return (phone_number, verified) tuple to satisfy Allauth's expectations.
-        Always mark as verified since we don't require phone verification.
-        """
         return getattr(user, "phone_number", None), True
 
     def save_user(self, request, user, form, commit=True):
-        """
-        Saves a new User instance using information provided in the
-        signup form.
-        """
-        import json
-
-        # Parse the JSON data from request.body
         try:
             data = json.loads(request.body)
-        except json.JSONDecodeError:
-            # If request.body is already parsed (e.g. by middleware), use it directly
-            data = request.body
-        print("User adapter")
-        print("data", data)
-        # Default to learner if not specified
+        except Exception:
+            data = request.POST.dict() if hasattr(request, "POST") else {}
+
         email = data.get("email")
-        store_name = data.get("store_name", "").lower()
-        # Use email as username if not provided
+        store_name_raw = data.get("store_name", "") or ""
+        store_name = store_name_raw.lower()
         username = data.get("username", email)
         is_template_account = data.get("is_template_account", False)
+
         user_email(user, email)
         user_username(user, username)
-        user_field(user, "store_name", store_name)
 
         if "password1" in data:
             user.set_password(data["password1"])
@@ -249,41 +238,34 @@ class CustomAccountAdapter(DefaultAccountAdapter):
             user.set_password(data["password"])
         else:
             user.set_unusable_password()
+
         self.populate_username(request, user)
 
         if commit:
             user.save()
 
             if store_name:
-                store_profile, created = StoreProfile.objects.get_or_create(
-                    store_name=store_name
-                )
-                user.store = store_profile
-                if created:
-                    user.role = "owner"
-                else:
-                    user.role = "viewer"
-                user.save()
-
-                schema_name = store_name.slugify()
-
-                # Check if schema name already exists
+                schema_name = slugify(store_name)
                 if Client.objects.filter(schema_name=schema_name).exists():
                     raise ValidationError(
-                        f"Store name '{store_name}' is already taken. Please choose a different name."
+                        f"Store name '{store_name}' is already taken."
                     )
-
-                # Prevent schema from being a reserved word
                 if schema_name in ["public", "default", "postgres"]:
                     schema_name = f"{schema_name}-user{user.id}"
 
-                    # Create tenant (Client)
+                store_profile = StoreProfile.objects.create(
+                    store_name=store_name, owner=user
+                )
+                user.role = "owner"
+                user.save()
+
                 tenant = Client.objects.create(
                     schema_name=schema_name,
                     name=store_name,
                     owner=user,
                     is_template_account=is_template_account,
                 )
+
                 EmailAddress.objects.create(
                     email=user.email,
                     user=user,
@@ -291,12 +273,9 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                     verified=is_template_account,
                 )
 
-                # Create domain for the tenant
-                Domain.objects.create(
-                    domain=f"{schema_name}.{backend_url}",
-                    tenant=tenant,
-                    is_primary=True,
-                )
+                domain_url = f"{schema_name}.{backend_url}"
+                Domain.objects.create(domain=domain_url, tenant=tenant, is_primary=True)
+
         return user
 
     def send_mail(self, template_prefix, email, context):
@@ -311,30 +290,60 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                     "account/email/email_confirmation_message.html", context
                 )
                 subject = "Sales CRM - Email Verification"
-            # test_email = "sikchhu.baliyo@gmail.com"
-            # For testing, send to the verified email address
-            # In production, you would verify your domain and use your own domain
 
-            params = {
-                "from": "Nepdora <nepdora@baliyoventures.com>",
-                "to": [email],  # Send to verified email for testing
-                "subject": subject,
-                "html": html_body,
-            }
+            def get_image_base64(url):
+                try:
+                    response = requests.get(url, timeout=5)
+                    return base64.b64encode(response.content).decode()
+                except Exception:
+                    return None
 
-            resend.Emails.send(params)
+            logo_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
+            )
+            fb_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
+            )
+            ig_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
+            )
+
+            attachments = (
+                [
+                    {"filename": "logo.png", "content": logo_b64, "content_id": "logo"},
+                    {
+                        "filename": "facebook.png",
+                        "content": fb_b64,
+                        "content_id": "facebook",
+                    },
+                    {
+                        "filename": "instagram.png",
+                        "content": ig_b64,
+                        "content_id": "instagram",
+                    },
+                ]
+                if logo_b64
+                else []
+            )
+
+            resend.Emails.send(
+                {
+                    "from": "Nepdora <nepdora@baliyoventures.com>",
+                    "to": [email],
+                    "subject": subject,
+                    "html": html_body,
+                    "reply_to": "nepdora@gmail.com",
+                    "attachments": attachments,
+                }
+            )
 
         except Exception:
             # Fallback to default email sending if Resend fails
             super().send_mail(template_prefix, email, context)
 
     def respond_email_verification_sent(self, request, user):
-        # Force session creation (even if not logged in yet)
         request.session.save()
         sessionid = request.session.session_key
-
-        # Optionally log the user in here (if you want immediate session)
-        # login(request, user)
 
         return JsonResponse(
             {

@@ -7,8 +7,15 @@ from django_tenants.models import DomainMixin, TenantMixin
 
 
 class TemplateCategory(models.Model):
+    WEBSITE_TYPE = (
+        ("ecommerce", "ecommerce"),
+        ("service", "service"),
+    )
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True, blank=True, null=True)
+    website_type = models.CharField(
+        max_length=10, choices=WEBSITE_TYPE, null=True, blank=True
+    )
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.name)

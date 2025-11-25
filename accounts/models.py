@@ -14,8 +14,15 @@ class CustomUser(AbstractUser):
         ("editor", "Editor"),
         ("viewer", "Viewer"),
     )
+    WEBSITE_TYPE = (
+        ("ecommerce", "ecommerce"),
+        ("service", "service"),
+    )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="viewer")
     phone_number = models.CharField(max_length=255, null=True, blank=True)
+    website_type = models.CharField(
+        max_length=10, choices=WEBSITE_TYPE, null=True, blank=True
+    )
     sub_domain = models.CharField(max_length=255, null=True, blank=True)
     is_first_login = models.BooleanField(default=True)
     is_onboarding_complete = models.BooleanField(default=False)

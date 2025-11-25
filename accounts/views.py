@@ -1,8 +1,10 @@
+import base64
 import json
 import os
 from datetime import date, timedelta
 from uuid import uuid4
 
+import requests
 import resend
 from allauth.account.models import (
     EmailAddress,
@@ -85,6 +87,7 @@ class CustomSignupView(APIView):
         username = data.get("username", email)
         password = data.get("password1") or data.get("password")
         phone_number = data.get("phone")
+        website_type = data.get("website_type", None)
         is_template_account = data.get("is_template_account", False)
 
         # Validate required fields
@@ -112,6 +115,7 @@ class CustomSignupView(APIView):
             user_username(user, username)
             user_field(user, "store_name", store_name)
             user_field(user, "phone_number", phone_number)
+            user_field(user, "website_type", website_type)
 
             if password:
                 user.set_password(password)
@@ -193,12 +197,10 @@ class CustomSignupView(APIView):
             try:
                 send_email_confirmation(request, user)
             except Exception as e:
-                # Log the error but don't fail the signup
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to send verification email: {str(e)}")
-
+                return server_error(
+                    message="Failed to send verification email",
+                    params={"error": str(e)},
+                )
             # Return success response
             return Response(
                 {
@@ -347,6 +349,24 @@ class InvitationCreateView(generics.ListCreateAPIView):
         resend.api_key = os.getenv("RESEND_API_KEY")
         FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         invite_url = f"{FRONTEND_URL}/user/invite/{invitation.token}"
+
+        def get_image_base64(url):
+            try:
+                response = requests.get(url, timeout=5)
+                return base64.b64encode(response.content).decode()
+            except:
+                return None
+
+        logo_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
+        )
+        fb_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
+        )
+        ig_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
+        )
+
         # Prepare email content using a template
         html_body = render_to_string(
             "account/email/invitation_message.html",
@@ -357,10 +377,29 @@ class InvitationCreateView(generics.ListCreateAPIView):
             },
         )
         params = {
-            "from": "sales@baliyoventures.com",
+            "from": "Nepdora <nepdora@baliyoventures.com>",
             "to": [invitation.email],
             "subject": f"You are invited by {invitation.invited_by.email} to join {invitation.store.store_name}!",
             "html": html_body,
+            "attachments": [
+                {
+                    "filename": "logo.png",
+                    "content": logo_b64,
+                    "content_id": "logo",  # Use cid:logo in HTML
+                },
+                {
+                    "filename": "facebook.png",
+                    "content": fb_b64,
+                    "content_id": "facebook",
+                },
+                {
+                    "filename": "instagram.png",
+                    "content": ig_b64,
+                    "content_id": "instagram",
+                },
+            ]
+            if logo_b64
+            else [],  # Only add if images loaded successfully
         }
         try:
             resend.Emails.send(params)
@@ -591,6 +630,23 @@ class RequestPasswordResetAPIView(APIView):
             f"https://www.nepdora.com/account/password/reset?uid={uid}&token={token}"
         )
 
+        def get_image_base64(url):
+            try:
+                response = requests.get(url, timeout=5)
+                return base64.b64encode(response.content).decode()
+            except:
+                return None
+
+        logo_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
+        )
+        fb_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
+        )
+        ig_b64 = get_image_base64(
+            "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
+        )
+
         # Context for your template
         context = {
             "user": user,
@@ -610,10 +666,28 @@ class RequestPasswordResetAPIView(APIView):
                 "to": [email],
                 "subject": subject,
                 "html": html_body,
+                "attachments": [
+                    {
+                        "filename": "logo.png",
+                        "content": logo_b64,
+                        "content_id": "logo",  # Use cid:logo in HTML
+                    },
+                    {
+                        "filename": "facebook.png",
+                        "content": fb_b64,
+                        "content_id": "facebook",
+                    },
+                    {
+                        "filename": "instagram.png",
+                        "content": ig_b64,
+                        "content_id": "instagram",
+                    },
+                ]
+                if logo_b64
+                else [],  # Only add if images loaded successfully
             }
             resend.Emails.send(params)
-        except Exception as e:
-            print(f"Error sending email via Resend: {e}")
+        except Exception:
             return Response(
                 {"status": 500, "error": "Failed to send email"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

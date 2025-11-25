@@ -170,6 +170,7 @@ CHANNEL_LAYERS = {
         "PASSWORD": "123",
         "HOST": "localhost",
         "PORT": "5433",
+        "CONN_MAX_AGE": 0,  # <--- New
         "OPTIONS": {
             "options": "-c search_path=public"  # important for first migration
         },
@@ -199,7 +200,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://mainly-arrivals-subscriptions-investigation.trycloudflare.com",
+    "https://collectable-incantatory-fredricka.ngrok-free.dev",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
@@ -207,7 +208,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://mainly-arrivals-subscriptions-investigation.trycloudflare.com",
+    "https://collectable-incantatory-fredricka.ngrok-free.dev",
 ]
 
 # Password validation
