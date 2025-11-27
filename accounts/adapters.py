@@ -38,18 +38,13 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         Invoked just after a user successfully authenticates via a social provider,
         but before the login is actually processed.
         """
-        print(
-            f"DEBUG: pre_social_login called. is_existing={sociallogin.is_existing}, user_authenticated={request.user.is_authenticated}"
-        )
 
         # If social account already exists, allow.
         if sociallogin.is_existing:
-            print("DEBUG: Social account exists. Allowing login.")
             return
 
         # If user is already logged in (connecting account), allow.
         if request.user.is_authenticated:
-            print("DEBUG: User is authenticated. Allowing connection.")
             return
 
         # Check if this is a signup attempt (with store_name) or login attempt (without store_name)
@@ -57,21 +52,15 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             body = json.loads(request.body.decode("utf-8"))
             extra = body.get("data", {})
             store_name = extra.get("app", {}).get("store_name")
-            print(f"DEBUG: store_name from request: {store_name}")
-        except Exception as e:
-            print(f"DEBUG: Error parsing request body: {e}")
+        except Exception:
             store_name = None
 
         # If a user with this email already exists, link the account and allow login.
         email = sociallogin.user.email
-        print(f"DEBUG: Checking for existing user with email: {email}")
         if email:
             User = get_user_model()
             try:
                 user = User.objects.get(email=email)
-                print(
-                    f"DEBUG: User found with email {email}. Auto-linking Google account."
-                )
                 sociallogin.connect(request, user)
                 return
             except User.DoesNotExist:
@@ -79,15 +68,9 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
         # If store_name is provided, this is a signup attempt - allow it to proceed
         if store_name:
-            print(
-                f"DEBUG: Signup attempt with store_name '{store_name}'. Allowing signup."
-            )
             return
 
         # Otherwise, this is a login attempt without existing user - block it
-        print(
-            "DEBUG: No existing user found and no store_name provided. Blocking login."
-        )
         raise ValidationError("Account does not exist. Please sign up first.")
 
     def populate_user(self, request, sociallogin, data):
