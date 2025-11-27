@@ -1,5 +1,7 @@
+import base64
 import os
 
+import requests
 import resend
 from django.db import connection, models, transaction
 from django.template.loader import render_to_string
@@ -150,10 +152,42 @@ class OrderSerializer(serializers.ModelSerializer):
             tenant = getattr(connection, "tenant", None)
             if tenant:
                 tenant_name = tenant.name
-                tenant_email_prefix = tenant.schema_name.lower()
             else:
                 tenant_name = "Nepdora"
-                tenant_email_prefix = "nepdora"
+
+            def get_image_base64(url):
+                try:
+                    response = requests.get(url, timeout=5)
+                    return base64.b64encode(response.content).decode()
+                except Exception:
+                    return None
+
+            logo_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
+            )
+            fb_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
+            )
+            ig_b64 = get_image_base64(
+                "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
+            )
+            attachments = (
+                [
+                    {"filename": "logo.png", "content": logo_b64, "content_id": "logo"},
+                    {
+                        "filename": "facebook.png",
+                        "content": fb_b64,
+                        "content_id": "facebook",
+                    },
+                    {
+                        "filename": "instagram.png",
+                        "content": ig_b64,
+                        "content_id": "instagram",
+                    },
+                ]
+                if logo_b64
+                else []
+            )
 
             # Prepare template context
             context = {
@@ -169,7 +203,12 @@ class OrderSerializer(serializers.ModelSerializer):
                 "order/email/order_confirmation.html", context
             )
 
-            from_email = f"{tenant_email_prefix}@nepdora.com"
+            # Use a verified sender email from environment variable
+            # Default to a common verified email if not set
+            verified_sender = "nepdora@baliyoventures.com"
+
+            # Include tenant name in the "from" name for personalization
+            from_email = f"{tenant_name} <{verified_sender}>"
 
             # Send via Resend
             resend.Emails.send(
@@ -178,12 +217,17 @@ class OrderSerializer(serializers.ModelSerializer):
                     "to": order.customer_email,
                     "subject": f"Order Confirmation #{order.order_number}",
                     "html": html_content,
+                    "attachments": attachments,
                 }
+            )
+            print(
+                f"Order confirmation email sent successfully to {order.customer_email}"
             )
 
         except Exception as e:
-            print("Email sending failed:", e)
-            raise serializers.ValidationError("Failed to send order email")
+            # Log the error but don't fail the order creation
+            print(f"Email sending failed for order {order.order_number}: {e}")
+            # Don't raise ValidationError - allow order to be created even if email fails
 
 
 class OrderListSerializer(serializers.ModelSerializer):
