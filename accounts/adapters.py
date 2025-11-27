@@ -11,6 +11,7 @@ from allauth.account.models import EmailAddress
 from allauth.account.utils import user_display, user_email, user_field, user_username
 from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import update_last_login
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
@@ -32,6 +33,34 @@ backend_url = os.getenv("BACKEND_URL")
 
 
 class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
+    def pre_social_login(self, request, sociallogin):
+        """
+        Invoked just after a user successfully authenticates via a social provider,
+        but before the login is actually processed.
+        """
+
+        # If social account already exists, allow.
+        if sociallogin.is_existing:
+            return
+
+        # If user is already logged in (connecting account), allow.
+        if request.user.is_authenticated:
+            return
+
+        # If a user with this email already exists, link the account and allow login.
+        email = sociallogin.user.email
+        if email:
+            User = get_user_model()
+            try:
+                user = User.objects.get(email=email)
+                sociallogin.connect(request, user)
+                return
+            except User.DoesNotExist:
+                pass
+
+        # Otherwise, block new signups.
+        raise ValidationError("Account does not exist. Please sign up first.")
+
     def populate_user(self, request, sociallogin, data):
         """Populate basic user fields only (no DB side-effects)."""
         user = sociallogin.user
