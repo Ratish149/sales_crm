@@ -24,9 +24,7 @@ class Issue(models.Model):
         ("in_progress", "In Progress"),
         ("closed", "Closed"),
     )
-    reported_by = models.ForeignKey(
-        "accounts.CustomUser", on_delete=models.SET_NULL, null=True, blank=True
-    )
+
     issue_category = models.ForeignKey(
         "IssueCategory", on_delete=models.CASCADE, null=True, blank=True
     )
