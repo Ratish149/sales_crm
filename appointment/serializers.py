@@ -15,6 +15,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
         queryset=AppointmentReason.objects.all(),
         write_only=True,
         required=False,
+        source="reason",
     )
 
     class Meta:
