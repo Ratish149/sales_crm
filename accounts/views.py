@@ -296,6 +296,14 @@ class ResendEmailVerificationView(APIView):
         )
 
 
+def get_image_base64(url):
+    try:
+        response = requests.get(url, timeout=5)
+        return base64.b64encode(response.content).decode()
+    except Exception as e:
+        return e
+
+
 class InvitationCreateView(generics.ListCreateAPIView):
     serializer_class = InvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -349,13 +357,6 @@ class InvitationCreateView(generics.ListCreateAPIView):
         resend.api_key = os.getenv("RESEND_API_KEY")
         FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         invite_url = f"{FRONTEND_URL}/user/invite/{invitation.token}"
-
-        def get_image_base64(url):
-            try:
-                response = requests.get(url, timeout=5)
-                return base64.b64encode(response.content).decode()
-            except:
-                return None
 
         logo_b64 = get_image_base64(
             "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
@@ -629,13 +630,6 @@ class RequestPasswordResetAPIView(APIView):
         reset_link = (
             f"https://www.nepdora.com/account/password/reset?uid={uid}&token={token}"
         )
-
-        def get_image_base64(url):
-            try:
-                response = requests.get(url, timeout=5)
-                return base64.b64encode(response.content).decode()
-            except:
-                return None
 
         logo_b64 = get_image_base64(
             "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
