@@ -96,6 +96,7 @@ TENANT_APPS = [
     "delivery_charge",
     "google_analytic",
     "facebook",
+    "our_client",
     "appointment",
 ]
 

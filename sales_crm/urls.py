@@ -57,6 +57,7 @@ urlpatterns = [
     path("api/", include("facebook.urls")),
     path("api/", include("pricing.urls")),
     path("api/", include("appointment.urls")),
+    path("api/", include("our_client.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
