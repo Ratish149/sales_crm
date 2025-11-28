@@ -30,6 +30,7 @@ class OurPricingSerializer(serializers.ModelSerializer):
             "name",
             "price",
             "description",
+            "is_popular",
             "features",
             "created_at",
             "updated_at",
