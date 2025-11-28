@@ -56,6 +56,7 @@ class OurPricingSerializer(serializers.ModelSerializer):
         instance.name = validated_data.get("name", instance.name)
         instance.price = validated_data.get("price", instance.price)
         instance.description = validated_data.get("description", instance.description)
+        instance.is_popular = validated_data.get("is_popular", instance.is_popular)
         instance.save()
 
         # Update features if provided
