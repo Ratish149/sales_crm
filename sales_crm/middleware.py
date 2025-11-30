@@ -14,8 +14,13 @@ EXEMPT_PATHS = [
     "/api/upgrade",
 ]
 
-RATE_LIMIT = 1000  # requests per minute
-RATE_LIMIT_BLOCK_SECONDS = 86400  # 1 day block (24 hours)
+RATE_LIMIT = (
+    3000  # requests per minute (50 req/sec) - suitable for active website building
+)
+
+RATE_LIMIT_BLOCK_SECONDS = (
+    3600  # 1 hour block (allows recovery from accidental triggers)
+)
 
 
 class RateLimitMiddleware(MiddlewareMixin):
