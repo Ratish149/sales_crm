@@ -14,7 +14,7 @@ EXEMPT_PATHS = [
     "/api/upgrade",
 ]
 
-RATE_LIMIT = 100  # requests per minute
+RATE_LIMIT = 1000  # requests per minute
 RATE_LIMIT_BLOCK_SECONDS = 86400  # 1 day block (24 hours)
 
 
