@@ -15,6 +15,7 @@ from .views import (
     StoreProfileView,
     UserDeleteAPIView,
     UserListDestroyAPIView,
+    UserUpdateAPIView,
     UserWithStoresListAPIView,
 )
 
@@ -41,6 +42,7 @@ urlpatterns = [
         name="store-profile-detail",
     ),
     path("users/", UserWithStoresListAPIView.as_view(), name="users-with-stores"),
+    path("users/me/", UserUpdateAPIView.as_view(), name="user-me"),
     path(
         "complete-onboarding/",
         CompleteOnboardingView.as_view(),

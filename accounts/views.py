@@ -526,6 +526,16 @@ class UserWithStoresListAPIView(generics.ListAPIView):
         )
 
 
+class UserUpdateAPIView(generics.UpdateAPIView):
+    serializer_class = CustomUserSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = CustomUser.objects.all()
+
+    def get_object(self):
+        # Return the authenticated user from the token
+        return self.request.user
+
+
 class CompleteOnboardingView(APIView):
     permission_classes = [IsAuthenticated]
 
