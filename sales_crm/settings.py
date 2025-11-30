@@ -110,6 +110,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
+    "sales_crm.middleware.RateLimitMiddleware",
     "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -153,6 +154,14 @@ CHANNEL_LAYERS = {
             "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
         },
     },
+}
+
+# Caching
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/2",
+    }
 }
 
 # Database

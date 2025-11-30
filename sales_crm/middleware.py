@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 
@@ -12,6 +13,49 @@ EXEMPT_PATHS = [
     "/signup",
     "/api/upgrade",
 ]
+
+RATE_LIMIT = 100  # requests per minute
+RATE_LIMIT_BLOCK_SECONDS = 86400  # 1 day block (24 hours)
+
+
+class RateLimitMiddleware(MiddlewareMixin):
+    """
+    Rate limit requests based on IP address.
+    """
+
+    def process_request(self, request):
+        ip = self.get_client_ip(request)
+        if not ip:
+            return None
+
+        # Check if IP is blocked
+        if cache.get(f"blocked:{ip}"):
+            return JsonResponse(
+                {"detail": "Too Many Requests - IP Blocked"},
+                status=429,
+            )
+
+        # Increment request count
+        key = f"ratelimit:{ip}"
+        cache.get_or_set(key, 0, timeout=60)
+        count = cache.incr(key)
+
+        if count > RATE_LIMIT:
+            cache.set(f"blocked:{ip}", True, timeout=RATE_LIMIT_BLOCK_SECONDS)
+            return JsonResponse(
+                {"detail": "Too Many Requests - IP Blocked"},
+                status=429,
+            )
+
+        return None
+
+    def get_client_ip(self, request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(",")[0]
+        else:
+            ip = request.META.get("REMOTE_ADDR")
+        return ip
 
 
 class CSRFExemptForAllauthHeadless:
