@@ -99,6 +99,7 @@ TENANT_APPS = [
     "appointment",
     "videos",
     "our_pricing",
+    "collection",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -182,7 +183,6 @@ CACHES = {
         "PASSWORD": "123",
         "HOST": "localhost",
         "PORT": "5433",
-        "CONN_MAX_AGE": 0,  # <--- New
         "OPTIONS": {
             "options": "-c search_path=public"  # important for first migration
         },

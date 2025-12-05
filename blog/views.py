@@ -46,3 +46,9 @@ class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Tags.objects.all()
     serializer_class = TagsSerializer
     lookup_field = "slug"
+
+
+# Get recent blogs api
+class RecentBlogsView(generics.ListAPIView):
+    queryset = Blog.objects.all().order_by("-created_at")[:5]
+    serializer_class = BlogSerializer
