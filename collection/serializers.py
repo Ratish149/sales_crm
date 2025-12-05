@@ -42,7 +42,7 @@ class CollectionSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Fields must be a list")
 
         field_names = []
-        valid_types = ["text", "number", "date", "boolean", "email"]
+        valid_types = ["text", "number", "date", "boolean", "email", "image"]
 
         # Reserved field names (default fields)
         reserved_names = ["name", "content", "slug"]
