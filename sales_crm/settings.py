@@ -18,10 +18,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "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")
-TEMPLATE_REPO_URL = os.getenv(
-    "TEMPLATE_REPO_URL", "https://github.com/nepdora-nepal/template.git"
-)
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
 
 USE_SPACES = False
 
