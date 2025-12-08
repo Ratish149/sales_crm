@@ -18,6 +18,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "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")
+TEMPLATE_REPO_URL = os.getenv(
+    "TEMPLATE_REPO_URL", "https://github.com/nepdora-nepal/template.git"
+)
+
 USE_SPACES = False
 
 
@@ -100,6 +105,7 @@ TENANT_APPS = [
     "videos",
     "our_pricing",
     "collection",
+    "builder",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -465,9 +471,11 @@ TINYMCE_DEFAULT_CONFIG = {
 
 if USE_SPACES:
     # settings
+
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
     # Endpoint should be just region, NOT bucket + region
     AWS_S3_ENDPOINT_URL = "https://blr1.digitaloceanspaces.com"

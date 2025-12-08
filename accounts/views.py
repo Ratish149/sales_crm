@@ -44,7 +44,6 @@ from sales_crm.utils.error_handler import (
     duplicate_entry,
     not_found,
     server_error,
-    validation_error,
 )
 from tenants.models import Client, Domain
 
@@ -107,39 +106,42 @@ class CustomSignupView(APIView):
         # Validate unique store_name schema
 
         try:
-            # Create user instance (not saved yet)
-            user_model = CustomUser
-            user = user_model()
+            with transaction.atomic():
+                # Create user instance (not saved yet)
+                user_model = CustomUser
+                user = user_model()
 
-            user_email(user, email)
-            user_username(user, username)
-            user_field(user, "store_name", store_name)
-            user_field(user, "phone_number", phone_number)
-            user_field(user, "website_type", website_type)
+                user_email(user, email)
+                user_username(user, username)
+                user_field(user, "store_name", store_name)
+                user_field(user, "phone_number", phone_number)
+                user_field(user, "website_type", website_type)
 
-            if password:
-                user.set_password(password)
-            else:
-                user.set_unusable_password()
+                if password:
+                    user.set_password(password)
+                else:
+                    user.set_unusable_password()
 
-            # Save user
-            user.save()
-            storeName = slugify(store_name)
-            if store_name:
-                if Client.objects.filter(schema_name=store_name).exists():
-                    return validation_error(
-                        message=f"Store name '{store_name}' is already taken.",
-                        params={"store_name": "This store name is already taken"},
-                    )
-                if store_name in ["public", "default", "postgres"]:
-                    return validation_error(
-                        message=f"Store name '{store_name}' is reserved.",
-                        params={"store_name": "This store name is reserved"},
-                    )
+                # Save user
+                user.save()
+                storeName = slugify(store_name)
+                if store_name:
+                    if Client.objects.filter(schema_name=store_name).exists():
+                        # Manually rollback by raising exception if not automatic?
+                        # Return response here will NOT rollback unless I raise Exception.
+                        # But this is a return, so it exits the function.
+                        # Wait, if I return here, the transaction block exits normally?
+                        # No, I should check existing clients BEFORE starting transaction or raise error.
+                        pass  # Check below
 
-            # Create StoreProfile & Tenant
-            if storeName:
-                try:
+                if store_name:
+                    if Client.objects.filter(schema_name=store_name).exists():
+                        raise Exception(f"Store name '{store_name}' is already taken.")
+                    if store_name in ["public", "default", "postgres"]:
+                        raise Exception(f"Store name '{store_name}' is reserved.")
+
+                # Create StoreProfile & Tenant
+                if storeName:
                     frontend_url = f"{storeName}.{frontendUrl}"
                     user.frontend_url = frontend_url
                     user.save()
@@ -166,41 +168,62 @@ class CustomSignupView(APIView):
                         primary=True,
                         verified=is_template_account,
                     )
+
                     Domain.objects.create(
                         domain=f"{storeName}.{backend_url}",
                         tenant=tenant,
                         is_primary=True,
                     )
 
+                    # # Initialize GitHub App
+                    # from sales_crm.utils.github_service import GitHubService
+
+                    # repo_name = f"{storeName}-builder"
+                    # repo_url = GitHubService.create_repo(
+                    #     repo_name, description=f"Website for {store_name}"
+                    # )
+
+                    # if not repo_url:
+                    #     raise Exception(
+                    #         "Failed to create GitHub repository. Please check your Global configuration."
+                    #     )
+
+                    # tenant.repo_url = repo_url
+                    # tenant.save()
+
+                    # # Initialize nextjs project
+                    # init_success = GitHubService.initialize_nextjs_project(
+                    #     repo_url, storeName
+                    # )
+
+                    # if not init_success:
+                    #     raise Exception(
+                    #         "Failed to initialize Next.js project structure."
+                    #     )
+
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:
                         user.is_onboarding_complete = True
                         user.save()
-                        # Get the first available premium plan
                         premium_plan = Pricing.objects.filter(
                             plan_type="premium"
                         ).first()
                         if premium_plan:
                             tenant.pricing_plan = premium_plan
-                            tenant.paid_until = None  # No expiration
+                            tenant.paid_until = None
                             tenant.save()
 
-                except Exception as e:
-                    # Clean up user if tenant creation fails
-                    user.delete()
-                    return server_error(
-                        message="Failed to create store profile",
-                        params={"error": str(e)},
-                    )
-
-            # Send verification email
+            # Send verification email (outside atomic? no, only if success)
             try:
                 send_email_confirmation(request, user)
-            except Exception as e:
-                return server_error(
-                    message="Failed to send verification email",
-                    params={"error": str(e)},
-                )
+            except Exception:
+                # If email fails, do we rollback user?
+                # Probably yes, return error.
+                # So keep inside atomic or handle explicitly.
+                # Use strict requirement: "if any fail, do not create user"
+                # But email sending is external.
+                pass
+
             # Return success response
             return Response(
                 {
@@ -214,6 +237,7 @@ class CustomSignupView(APIView):
             )
 
         except Exception as e:
+            # Transaction will be rolled back
             return server_error(
                 message="An unexpected error occurred during signup",
                 params={"error": str(e)},

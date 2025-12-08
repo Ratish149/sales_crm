@@ -65,6 +65,7 @@ class Client(TenantMixin):
         blank=True,
         related_name="clients",
     )
+
     template_subcategory = models.ForeignKey(
         TemplateSubCategory,
         on_delete=models.SET_NULL,
@@ -72,6 +73,7 @@ class Client(TenantMixin):
         blank=True,
         related_name="clients",
     )
+    repo_url = models.URLField(max_length=255, null=True, blank=True)
 
     auto_create_schema = True  # Required for automatic schema creation
 

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Builder IDE</title>
+    <!-- CodeMirror & Theme -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css"
+    />
+
+    <style>
+      :root {
+          --bg-dark: #1e1e1e;
+          --bg-sidebar: #252526;
+          --bg-active: #37373d;
+          --text-main: #cccccc;
+          --accent: #007acc;
+          --border: #333;
+      }
+      body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg-dark); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+      .header { height: 40px; background: #333333; display: flex; items-center; padding: 0 10px; justify-content: space-between; border-bottom: 1px solid #111; }
+      .header-title { font-weight: bold; font-size: 14px; }
+      .controls { display: flex; gap: 10px; align-items: center; }
+
+      .main-container { display: flex; flex: 1; height: calc(100vh - 40px); }
+
+      .sidebar { width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+      .sidebar-header { padding: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; font-weight: bold; }
+      .file-tree { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+
+      /* Tree Items */
+      .tree-item { padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; font-size: 13px; }
+      .tree-item:hover { background: #2a2d2e; }
+      .tree-item.active { background: var(--bg-active); }
+      .tree-item .icon { width: 16px; text-align: center; color: #aaa; }
+      .tree-indent { margin-left: 15px; }
+
+      .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
+      .tabs { height: 35px; background: #2d2d2d; display: flex; align-items: flex-end; overflow-x: auto; }
+      .tab { padding: 8px 15px; background: #2d2d2d; color: #888; border-right: 1px solid #1e1e1e; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+      .tab.active { background: var(--bg-dark); color: white; border-top: 2px solid var(--accent); }
+      .tab-close { font-size: 12px; border-radius: 50%; padding: 0 4px; }
+      .tab-close:hover { background: #444; }
+
+      #editor-container { flex: 1; position: relative; }
+      .CodeMirror { position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; font-family: 'Consolas', 'Monaco', monospace; font-size: 14px; }
+
+      button { background: var(--accent); color: white; border: none; padding: 5px 12px; border-radius: 2px; cursor: pointer; font-size: 12px; }
+      button:hover { opacity: 0.9; }
+      button.danger { background: #d9534f; }
+
+      input { background: #3c3c3c; border: 1px solid #555; color: white; padding: 4px 8px; border-radius: 2px; }
+
+      .status-bar { height: 22px; background: var(--accent); color: white; font-size: 12px; display: flex; items-center; padding: 0 10px; }
+
+      .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; }
+      .modal-content { background: #252526; padding: 20px; border-radius: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); width: 400px; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="header-title">Web Builder IDE</div>
+      <div class="controls">
+        <div class="controls">
+          <span style="font-size: 12px; color: #888">Tenant URL: </span>
+          <input
+            type="text"
+            id="tenantUrl"
+            placeholder="https://store.nepdora.com"
+            style="
+              width: 200px;
+              background: #3c3c3c;
+              border: 1px solid #555;
+              color: white;
+              padding: 4px 8px;
+              border-radius: 2px;
+            "
+          />
+          <button onclick="loadTenantFromUrl()">Go</button>
+
+          <span style="font-size: 12px; color: #888; margin-left: 10px"
+            >Workspace:
+          </span>
+          <input
+            type="text"
+            id="workspaceId"
+            value="{{ workspace_id }}"
+            readonly
+            style="
+              width: 80px;
+              border: none;
+              color: var(--accent);
+              font-weight: bold;
+              background: transparent;
+            "
+          />
+          <button onclick="openGithubModal()">GitHub</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-container">
+      <div class="sidebar">
+        <div class="sidebar-header">Explorer</div>
+        <div id="file-tree" class="file-tree">
+          <div style="padding: 20px; color: #666; text-align: center">
+            Connect to load files
+          </div>
+        </div>
+      </div>
+      <div class="editor-area">
+        <div class="tabs" id="tabs-container"></div>
+        <div id="editor-container"></div>
+      </div>
+    </div>
+
+    <div class="status-bar" id="status-bar">Ready</div>
+
+    <!-- GitHub Modal -->
+    <div id="github-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 style="margin-top: 0">GitHub Integration</h3>
+        <div style="margin-bottom: 10px">
+          <label style="display: block; margin-bottom: 5px; font-size: 12px"
+            >Repo URL</label
+          >
+          <input
+            type="text"
+            id="repoUrl"
+            value="{{ repo_url|default:'' }}"
+            style="width: 100%; box-sizing: border-box"
+          />
+        </div>
+        <div style="margin-bottom: 20px">
+          <label style="display: block; margin-bottom: 5px; font-size: 12px"
+            >Personal Access Token</label
+          >
+          <input
+            type="password"
+            id="ghToken"
+            style="width: 100%; box-sizing: border-box"
+          />
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px">
+          <button onclick="closeGithubModal()" style="background: #555">
+            Cancel
+          </button>
+          <button onclick="cloneRepo()">Clone</button>
+          <button onclick="pushChanges()" class="danger">
+            Publish & Delete
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/jsx/jsx.min.js"></script>
+
+    <script>
+      let ws;
+      let editor;
+      let currentFile = null;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        editor = CodeMirror(document.getElementById("editor-container"), {
+          mode: "javascript",
+          theme: "dracula",
+          lineNumbers: true,
+          autoCloseBrackets: true,
+          matchBrackets: true,
+          tabSize: 2,
+        });
+
+        let debounceTimer;
+
+        editor.on("change", () => {
+          if (!currentFile) return;
+          setStatus("Unsaved changes...", "#d4ac0d"); // yellow
+
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            saveFile();
+          }, 1000);
+        });
+
+        // Auto-connect
+        connect();
+      });
+
+      function setStatus(msg, color) {
+        const sb = document.getElementById("status-bar");
+        sb.innerText = msg;
+        sb.style.background = color || "#007acc";
+      }
+
+      function connect() {
+        const id = document.getElementById("workspaceId").value;
+        // Use window.location.host to dynamically match server (dev/prod)
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/ws/workspace/${id}/`;
+
+        console.log("Connecting to", wsUrl);
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          setStatus("Connected");
+          document.getElementById("btn-connect").style.display = "none";
+        };
+
+        ws.onerror = (e) => {
+          console.error("WS Error:", e);
+          setStatus("Connection Error", "red");
+        };
+
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+
+          if (msg.action === "tree") {
+            renderTree(msg.items);
+          } else if (msg.action === "file_content") {
+            loadFileToEditor(msg.path, msg.content);
+          } else if (msg.action === "file_updated") {
+            console.log("File updated:", msg.path);
+          } else if (msg.action === "workspace_deleted") {
+            alert("Workspace deleted!");
+            location.reload();
+          } else if (msg.error) {
+            alert("Error: " + msg.error);
+          }
+        };
+      }
+
+      function renderTree(
+        items,
+        container = document.getElementById("file-tree")
+      ) {
+        container.innerHTML = "";
+
+        function createNode(item) {
+          const div = document.createElement("div");
+          div.className = "tree-item";
+
+          const icon = document.createElement("span");
+          icon.className = "icon";
+          icon.innerText = item.type === "folder" ? "📁" : "📄";
+
+          const name = document.createElement("span");
+          name.innerText = item.name;
+
+          div.appendChild(icon);
+          div.appendChild(name);
+
+          const wrapper = document.createElement("div");
+          wrapper.appendChild(div);
+
+          if (item.type === "folder") {
+            const childrenContainer = document.createElement("div");
+            childrenContainer.className = "tree-indent hidden";
+            if (item.children) {
+              item.children.forEach((child) =>
+                childrenContainer.appendChild(createNode(child))
+              );
+            }
+            wrapper.appendChild(childrenContainer);
+
+            div.onclick = () => {
+              childrenContainer.classList.toggle("hidden");
+              icon.innerText = childrenContainer.classList.contains("hidden")
+                ? "📁"
+                : "📂";
+            };
+          } else {
+            div.onclick = () => {
+              document
+                .querySelectorAll(".tree-item")
+                .forEach((el) => el.classList.remove("active"));
+              div.classList.add("active");
+              openFile(item.path);
+            };
+          }
+          return wrapper;
+        }
+
+        items.forEach((item) => container.appendChild(createNode(item)));
+      }
+
+      function openFile(path) {
+        currentFile = path;
+        ws.send(JSON.stringify({ action: "open_file", path: path }));
+        setStatus(`Loading ${path}...`);
+        const tabs = document.getElementById("tabs-container");
+        tabs.innerHTML = `<div class="tab active"><span>${path
+          .split("/")
+          .pop()}</span></div>`;
+      }
+
+      function loadFileToEditor(path, content) {
+        let mode = "javascript";
+        if (path.endsWith(".html")) mode = "htmlmixed";
+        else if (path.endsWith(".css")) mode = "css";
+        else if (path.endsWith(".json")) mode = "application/json";
+        else if (path.endsWith(".tsx") || path.endsWith(".jsx")) mode = "jsx";
+
+        editor.setValue(content);
+        editor.setOption("mode", mode);
+        setStatus("Ready");
+      }
+
+      function saveFile() {
+        if (!currentFile) return;
+
+        const content = editor.getValue();
+        ws.send(
+          JSON.stringify({
+            action: "update_file",
+            path: currentFile,
+            content: content,
+          })
+        );
+        setStatus("Saved", "#28a745");
+      }
+
+      function openGithubModal() {
+        document.getElementById("github-modal").classList.remove("hidden");
+      }
+      function closeGithubModal() {
+        document.getElementById("github-modal").classList.add("hidden");
+      }
+
+      function cloneRepo() {
+        const url = document.getElementById("repoUrl").value;
+        const token = document.getElementById("ghToken").value;
+        ws.send(
+          JSON.stringify({
+            action: "github_clone",
+            repo_url: url,
+            token: token,
+          })
+        );
+        setStatus("Cloning...");
+        closeGithubModal();
+      }
+
+      function pushChanges() {
+        if (!confirm("Publish & Delete?")) return;
+        const token = document.getElementById("ghToken").value;
+
+        ws.send(
+          JSON.stringify({
+            action: "github_push",
+            message: "Update",
+            token: token,
+          })
+        );
+        setStatus("Pushing...");
+        closeGithubModal();
+      }
+
+      function loadTenantFromUrl() {
+        let url = document.getElementById("tenantUrl").value.trim();
+        if (!url) return;
+        if (!url.startsWith("http")) url = "http://" + url;
+        // Ensure it points to builder
+        if (!url.includes("/builder")) {
+          url = url.replace(/\/$/, "") + "/builder/";
+        }
+        window.location.href = url;
+      }
+    </script>
+  </body>
+</html>
