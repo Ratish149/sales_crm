@@ -22,6 +22,8 @@ class CollectionSerializer(serializers.ModelSerializer):
             "all_fields",
             "created_at",
             "updated_at",
+            "send_email",
+            "admin_email",
         ]
         read_only_fields = [
             "id",

@@ -1,3 +1,6 @@
+import os
+
+import resend
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
@@ -86,7 +89,56 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
         """Automatically set the collection from URL slug"""
         slug = self.kwargs.get("slug")
         collection = get_object_or_404(Collection, slug=slug)
-        serializer.save(collection=collection)
+        instance = serializer.save(collection=collection)
+
+        # Send email if enabled
+        if collection.send_email and collection.admin_email:
+            resend.api_key = os.getenv("RESEND_API_KEY")
+
+            # Format data for email
+            data_html = "<ul>"
+
+            # Add name, slug, and description/content from default fields if present
+            name = instance.data.get("name")
+            if name:
+                data_html += f"<li><strong>Name:</strong> {name}</li>"
+
+            slug_val = instance.data.get("slug")
+            if slug_val:
+                data_html += f"<li><strong>Slug:</strong> {slug_val}</li>"
+
+            # User refers to 'content' default field as description
+            description = instance.data.get("description") or instance.data.get(
+                "content"
+            )
+            if description:
+                data_html += f"<li><strong>Description:</strong> {description}</li>"
+
+            # Add remaining fields
+            for key, value in instance.data.items():
+                if key in ["name", "slug", "description", "content"]:
+                    continue
+                data_html += f"<li><strong>{key}:</strong> {value}</li>"
+            data_html += "</ul>"
+
+            html_body = f"""
+            <h2>New Submission for {collection.name}</h2>
+            <p>You have received a new submission.</p>
+            {data_html}
+            """
+
+            params = {
+                "from": "Nepdora <nepdora@baliyoventures.com>",
+                "to": [collection.admin_email],
+                "subject": f"New Submission Received: {collection.name}",
+                "html": html_body,
+            }
+
+            try:
+                resend.Emails.send(params)
+            except Exception as e:
+                # Log error or handle silently to not disrupt the response
+                print(f"Failed to send email: {str(e)}")
 
     def get_serializer_context(self):
         """Pass collection to serializer context for validation"""

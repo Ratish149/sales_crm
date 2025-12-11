@@ -10,6 +10,8 @@ class Collection(models.Model):
 
     name = models.CharField(max_length=100, unique=True)
     slug = models.SlugField(max_length=120, unique=True, null=True, blank=True)
+    send_email = models.BooleanField(default=False)
+    admin_email = models.EmailField(null=True, blank=True)
 
     # Default fields that are always present (like Framer CMS)
     default_fields = models.JSONField(
