@@ -83,6 +83,24 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                     text_data=json.dumps({"action": "file_updated", "path": path})
                 )
 
+            elif action == "delete_file":
+                path = data.get("path")
+                print(f"Deleting file: {path}")
+                await sync_to_async(self.file_service.delete_file)(path)
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "file_deleted_event",
+                        "path": path,
+                        "sender_channel_name": self.channel_name,
+                    },
+                )
+
+                await self.send(
+                    text_data=json.dumps({"action": "file_deleted", "path": path})
+                )
+
             elif action == "get_tree":
                 print("Generating tree...")
                 tree = await sync_to_async(self.file_service.generate_tree)()
@@ -122,3 +140,9 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
 
     async def workspace_deleted_event(self, event):
         await self.send(text_data=json.dumps({"action": "workspace_deleted"}))
+
+    async def file_deleted_event(self, event):
+        if self.channel_name != event.get("sender_channel_name"):
+            await self.send(
+                text_data=json.dumps({"action": "file_deleted", "path": event["path"]})
+            )

@@ -175,31 +175,31 @@ class CustomSignupView(APIView):
                         is_primary=True,
                     )
 
-                    # # Initialize GitHub App
-                    # from sales_crm.utils.github_service import GitHubService
+                    # Initialize GitHub App
+                    from sales_crm.utils.github_service import GitHubService
 
-                    # repo_name = f"{storeName}-builder"
-                    # repo_url = GitHubService.create_repo(
-                    #     repo_name, description=f"Website for {store_name}"
-                    # )
+                    repo_name = f"{storeName}-builder"
+                    repo_url = GitHubService.create_repo(
+                        repo_name, description=f"Website for {store_name}"
+                    )
 
-                    # if not repo_url:
-                    #     raise Exception(
-                    #         "Failed to create GitHub repository. Please check your Global configuration."
-                    #     )
+                    if not repo_url:
+                        raise Exception(
+                            "Failed to create GitHub repository. Please check your Global configuration."
+                        )
 
-                    # tenant.repo_url = repo_url
-                    # tenant.save()
+                    tenant.repo_url = repo_url
+                    tenant.save()
 
-                    # # Initialize nextjs project
-                    # init_success = GitHubService.initialize_nextjs_project(
-                    #     repo_url, storeName
-                    # )
+                    # Initialize nextjs project
+                    init_success = GitHubService.initialize_nextjs_project(
+                        repo_url, storeName
+                    )
 
-                    # if not init_success:
-                    #     raise Exception(
-                    #         "Failed to initialize Next.js project structure."
-                    #     )
+                    if not init_success:
+                        raise Exception(
+                            "Failed to initialize Next.js project structure."
+                        )
 
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:

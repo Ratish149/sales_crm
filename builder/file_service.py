@@ -8,7 +8,7 @@ import git
 from django.conf import settings
 
 
-class  FileService:
+class FileService:
     def __init__(self, workspace_id):
         self.workspace_id = workspace_id
         # Adapt for multi-tenant if needed, but keeping simple for now
@@ -155,7 +155,20 @@ class  FileService:
             f.write(content)
         return True
 
-    def generate_tree(self):
+    def delete_file(self, path):
+        full_path = self._get_safe_path(path)
+        if not full_path.exists():
+            raise FileNotFoundError(f"File not found: {path}")
+
+        if full_path.is_dir():
+            import shutil
+
+            shutil.rmtree(full_path)
+        else:
+            os.remove(full_path)
+        return True
+
+    def generate_tree(self, include_content=True):
         if not self.base_path.exists():
             return {"action": "tree", "items": []}
 
@@ -191,6 +204,13 @@ class  FileService:
                         item["children"] = build_tree(entry.path)
                     else:
                         item["type"] = "file"
+                        if include_content:
+                            try:
+                                with open(entry.path, "r", encoding="utf-8") as f:
+                                    item["content"] = f.read()
+                            except (UnicodeDecodeError, IOError):
+                                # Skip binary files or unreadable files
+                                item["content"] = None
                     items.append(item)
             except OSError:
                 pass
