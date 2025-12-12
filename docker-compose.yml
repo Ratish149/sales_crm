@@ -16,11 +16,16 @@ services:
       - SERVER_IP=0.0.0.0
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis
     volumes:
       - coolify_workspaces:/app/media/workspaces
       - coolify_static:/app/static
     command: >
-      bash -c "python manage.py migrate && python manage.py collectstatic --noinput && exec daphne -b 0.0.0.0 -p 8000 sales_crm.asgi:application"
+      bash -c "
+      ./wait-for-it.sh redis:6379 -- 
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      exec daphne -b 0.0.0.0 -p 8000 sales_crm.asgi:application"
     depends_on:
       - redis
 

@@ -157,7 +157,8 @@ ASGI_APPLICATION = "sales_crm.asgi.application"
 
 REDIS_HOST = "redis"
 REDIS_PORT = 6379
-REDIS_PASSWORD = "redis"
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "redis")
+
 
 # Caching
 CACHES = {
