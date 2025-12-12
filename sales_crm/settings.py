@@ -208,6 +208,18 @@ DATABASES = {
     }
 }
 
+# coolify database setting
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "postgres",
+        "USER": "postgres",
+        "PASSWORD": "GJSFkz56luy8698E1q2zgc9Iu4HGnjmk8nU85ZWqP22twWreLLWRw6TfTuPqG5hI",
+        "HOST": "cwoogccow4s00gkg80ws8wwc",
+        "PORT": "5432",
+    }
+}
+
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
 CORS_ALLOW_ALL_ORIGINS = True
