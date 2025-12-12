@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Install system dependencies (including git)
 RUN apt-get update && \
-    apt-get install -y git build-essential && \
+    apt-get install -y git build-essential nodejs npm redis-tools && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy project code
