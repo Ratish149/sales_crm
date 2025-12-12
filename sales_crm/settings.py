@@ -73,7 +73,10 @@ SHARED_APPS = [
     "tinymce",
     "support",
     "pricing",
+    "ai_builder",  # AI Builder app
+    "project_runner",
 ]
+
 
 TENANT_APPS = [
     "django.contrib.contenttypes",
