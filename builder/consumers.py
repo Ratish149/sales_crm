@@ -130,7 +130,7 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
             elif action == "run_project":
                 print("Running project...")
 
-                from .services import RunnerService
+                from project_runner.services import RunnerService
 
                 try:
                     runner = await sync_to_async(RunnerService)(self.workspace_id)
