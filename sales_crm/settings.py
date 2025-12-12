@@ -211,7 +211,7 @@ DATABASES = {
 # coolify database setting
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
+        "ENGINE": "django_tenants.postgresql_backend",
         "NAME": "postgres",
         "USER": "postgres",
         "PASSWORD": "GJSFkz56luy8698E1q2zgc9Iu4HGnjmk8nU85ZWqP22twWreLLWRw6TfTuPqG5hI",
