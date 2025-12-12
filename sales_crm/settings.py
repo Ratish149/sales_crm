@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import quote_plus
 
 # from dotenv import load_dotenv
 
@@ -160,13 +161,12 @@ REDIS_PORT = 6379
 REDIS_PASSWORD = os.environ.get(
     "REDIS_PASSWORD", "wzjp4NUl+I8QthONqJKwnRL8cNFusnS0DtVG6n/hfug="
 )
+encoded_redis_password = quote_plus(REDIS_PASSWORD)
 
-
-# Caching
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/2",
+        "LOCATION": f"redis://:{encoded_redis_password}@coolify-redis:6379/2",
     }
 }
 
@@ -175,14 +175,14 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0"],
+            "hosts": [f"redis://:{encoded_redis_password}@coolify-redis:6379/0"],
         },
     },
 }
 
 # Celery
-CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/0"
-CELERY_RESULT_BACKEND = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/1"
+CELERY_BROKER_URL = f"redis://:{encoded_redis_password}@coolify-redis:6379/0"
+CELERY_RESULT_BACKEND = f"redis://:{encoded_redis_password}@coolify-redis:6379/1"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
