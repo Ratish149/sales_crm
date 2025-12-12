@@ -14,9 +14,9 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
-load_dotenv()
+# load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
@@ -155,9 +155,9 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "redis")
+REDIS_HOST = "redis"
+REDIS_PORT = 6379
+REDIS_PASSWORD = "redis"
 
 # Caching
 CACHES = {
