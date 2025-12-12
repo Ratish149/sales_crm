@@ -153,6 +153,33 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                         text_data=json.dumps({"action": "error", "message": str(e)})
                     )
 
+            elif action == "stop_project":
+                print("Stopping project...")
+                from project_runner.services import RunnerService
+
+                try:
+                    runner = await sync_to_async(RunnerService)(self.workspace_id)
+                    success, message = await sync_to_async(runner.stop_project)()
+
+                    if success:
+                        await self.send(
+                            text_data=json.dumps(
+                                {"action": "project_stopped", "message": message}
+                            )
+                        )
+                    else:
+                        await self.send(
+                            text_data=json.dumps(
+                                {"action": "error", "message": message}
+                            )
+                        )
+
+                except Exception as e:
+                    print("Error stopping project:", e)
+                    await self.send(
+                        text_data=json.dumps({"action": "error", "message": str(e)})
+                    )
+
         except Exception as e:
             print(f"Error in consumer: {e}")
             await self.send(text_data=json.dumps({"error": str(e)}))
