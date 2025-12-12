@@ -13,4 +13,4 @@ RUN pip install -r requirements.txt
 EXPOSE 8000
 
 # Default CMD (fallback, overridden by docker-compose)
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "sales_crm.asgi:application"]

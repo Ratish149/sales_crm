@@ -19,7 +19,7 @@ services:
       - coolify_workspaces:/app/media/workspaces
       - coolify_static:/app/static
     command: >
-      bash -c "python manage.py migrate && python manage.py collectstatic --noinput && exec daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+      bash -c "python manage.py migrate && python manage.py collectstatic --noinput && exec daphne -b 0.0.0.0 -p 8000 sales_crm.asgi:application"
     depends_on:
       - redis
 
