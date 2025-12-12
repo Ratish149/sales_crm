@@ -156,14 +156,13 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 
 # Channels
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(REDIS_HOST, 6379, REDIS_PASSWORD)],
+            "hosts": [(REDIS_HOST, 6379)],
         },
     },
 }
@@ -172,13 +171,13 @@ CHANNEL_LAYERS = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:6379/2",
+        "LOCATION": f"redis://{REDIS_HOST}:6379/2",  # Removed REDIS_PASSWORD
     }
 }
 
 # Celery
-CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:6379/0"
-CELERY_RESULT_BACKEND = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:6379/1"
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379/0"  # Removed REDIS_PASSWORD
+CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:6379/1"  # Removed REDIS_PASSWORD
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
