@@ -8,5 +8,7 @@ default_tenant = Client.objects.create(
 
 # Create a domain for the tenant
 domain = Domain.objects.create(
-    domain="127.0.0.1", tenant=default_tenant, is_primary=True
+    domain="pscow0g48c0k04o8kookgk8w.52.230.96.168.sslip.io",
+    tenant=default_tenant,
+    is_primary=True,
 )
