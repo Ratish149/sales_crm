@@ -155,20 +155,24 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379/0"
+CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:6379/1"
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
+            "hosts": [(REDIS_HOST, 6379)],
         },
     },
 }
 
-# Caching
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://localhost:6379/2",
+        "LOCATION": f"redis://{REDIS_HOST}:6379/2",
     }
 }
 
