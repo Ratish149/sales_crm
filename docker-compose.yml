@@ -16,13 +16,16 @@ services:
       - SERVER_IP=0.0.0.0
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=redis
+      - REDIS_PASSWORD=wzjp4NUl+I8QthONqJKwnRL8cNFusnS0DtVG6n/hfug=
     volumes:
       - coolify_workspaces:/app/media/workspaces
       - coolify_static:/app/static
     command: >
       bash -c "
-      ./wait-for-it.sh redis:6379 -- 
+      echo 'Waiting for Redis...' &&
+      until redis-cli -h redis -p 6379 -a $REDIS_PASSWORD ping; do
+        sleep 1
+      done &&
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
       exec daphne -b 0.0.0.0 -p 8000 sales_crm.asgi:application"
