@@ -66,10 +66,10 @@ class RunnerService:
                 return False
 
     def find_free_port(self):
-        for port in range(3000, 4000):
+        for port in range(3000, 3011):
             if not self.is_port_in_use(port):
                 return port
-        raise Exception("No free ports available in range 3000–4000")
+        raise Exception("No free ports available in range 3000–3010")
 
     # --------------------------
     # MAIN RUNNER
