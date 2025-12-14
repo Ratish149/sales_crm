@@ -255,7 +255,10 @@ class RunnerService:
                 print(f"Updating existing Caddy route {route_id}...")
                 route_payload = {
                     "@id": route_id,
-                    "match": [{"host": [host]}],
+                    "match": [
+                        {"host": [host]},
+                        {"header": {"X-Forwarded-Host": [host]}},
+                    ],
                     "handle": [
                         {
                             "handler": "reverse_proxy",
@@ -270,6 +273,12 @@ class RunnerService:
                 print(
                     f"DEBUG: Update payload sent. Response: {resp.status_code} {resp.text}"
                 )
+
+                # Validation: Dump config
+                debug_check = requests.get(
+                    "http://localhost:2019/config/apps/http/servers/srv0/routes"
+                )
+                print(f"DEBUG: FULL ROUTES DUMP: {debug_check.text}")
                 return
             else:
                 print(
