@@ -117,15 +117,20 @@ class RunnerService:
 
             # Validate process
             if self.is_process_running(pid):
-                # Ensure Caddy route exists (idempotent)
-                self.configure_caddy(host, port)
-
-                # Update URL if host changed
+                target_host = None
                 if host:
-                    url = f"https://{host}"  # HTTPS handled by Traefik/Coolify
+                    clean_host = host.split(":")[0]
+                    target_host = f"{self.workspace_id}.{clean_host}"
+
+                    # Ensure Caddy route exists (idempotent)
+                    self.configure_caddy(target_host, port)
+
+                    # Update URL
+                    url = f"https://{target_host}"
                     proc_info["url"] = url
                     processes[self.workspace_id] = proc_info
                     save_processes(processes)
+
                 return {
                     "port": port,
                     "url": url,
@@ -174,12 +179,18 @@ class RunnerService:
         )
 
         # Configure Caddy (The Magic)
-        self.configure_caddy(host, port)
+        # We want to route <workspace_id>.<base_host> -> localhost:<port>
+        target_host = None
+        if host:
+            clean_host = host.split(":")[0]
+            # Construct subdomain: workspace_id.clean_host
+            # e.g. ip-store.admin.nepdora.com
+            target_host = f"{self.workspace_id}.{clean_host}"
+            self.configure_caddy(target_host, port)
 
         # URL construction
-        # Now it is purely the subdomain, no port
-        if host:
-            url = f"https://{host}"
+        if target_host:
+            url = f"https://{target_host}"
         else:
             url = f"http://localhost:{port}"  # Fallback
 
