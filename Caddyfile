@@ -4,6 +4,12 @@
 }
 
 :8000 {
+    # Enable Access Logs
+    log {
+        output stdout
+        format json
+    }
+
     # Route main domain to Django (Internal 8001)
     @admin host admin.nepdora.com
     handle @admin {

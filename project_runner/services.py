@@ -223,25 +223,32 @@ class RunnerService:
 
         import requests
 
+        print(f"DEBUG: configure_caddy called for {host} -> {port}")
         route_id = f"route_{self.workspace_id}"
         target_dial = f"127.0.0.1:{port}"
 
         # 1. OPTIMIZATION: Check if route already exists and is correct
         try:
+            print(f"DEBUG: Checking if route {route_id} exists...")
             curr_resp = requests.get(f"http://localhost:2019/id/{route_id}")
             if curr_resp.status_code == 200:
+                print(f"DEBUG: Route {route_id} exists. Checking config...")
                 curr_config = curr_resp.json()
                 # Check if it matches what we want
-                # Navigate: handle[0] -> upstreams[0] -> dial
                 try:
                     curr_dial = curr_config["handle"][0]["upstreams"][0]["dial"]
                     curr_host = curr_config["match"][0]["host"][0]
                     if curr_dial == target_dial and curr_host == host:
                         print(
-                            f"Caddy route {route_id} already correct. Skipping reload."
+                            f"DEBUG: Caddy route {route_id} correct. Skipping reload."
                         )
                         return
-                except (KeyError, IndexError):
+                    else:
+                        print(
+                            f"DEBUG: Route mismatch. Curr: {curr_host}->{curr_dial}, Target: {host}->{target_dial}"
+                        )
+                except (KeyError, IndexError) as e:
+                    print(f"DEBUG: Route structure mismatch: {e}")
                     pass  # Structure mismatch, proceed to update
 
                 # If we are here, it exists but is different. Update in place.
@@ -257,10 +264,17 @@ class RunnerService:
                     ],
                     "terminal": True,
                 }
-                requests.post(
+                resp = requests.post(
                     f"http://localhost:2019/id/{route_id}", json=route_payload
                 )
+                print(
+                    f"DEBUG: Update payload sent. Response: {resp.status_code} {resp.text}"
+                )
                 return
+            else:
+                print(
+                    f"DEBUG: Route {route_id} not found (Status {curr_resp.status_code})"
+                )
 
         except Exception as e:
             print(f"Error checking Caddy route: {e}")
