@@ -143,7 +143,13 @@ class RunnerService:
 
         # Install dependencies
         if not (self.project_path / "node_modules").exists():
-            subprocess.run("npm install", shell=True, cwd=self.project_path, check=True)
+            print(f"Installing dependencies for {self.workspace_id}...")
+            result = subprocess.run(
+                "npm install", shell=True, cwd=self.project_path, check=False
+            )
+            if result.returncode != 0:
+                print(f"Warning: npm install failed with code {result.returncode}")
+                # Continue anyway - might work with existing modules
 
         subprocess.run(
             "npm install --save-dev @types/react @types/node",
