@@ -216,61 +216,88 @@ class RunnerService:
 
     def configure_caddy(self, host, port):
         """
-        Sends configuration to Caddy Sidecar
+        Sends configuration to Caddy Sidecar - Idempotent
         """
         if not host:
             return
 
         import requests
 
-        # 1. Find the Caddy server listening on :8000 (Main Entrypoint)
+        route_id = f"route_{self.workspace_id}"
+        target_dial = f"127.0.0.1:{port}"
+
+        # 1. OPTIMIZATION: Check if route already exists and is correct
+        try:
+            curr_resp = requests.get(f"http://localhost:2019/id/{route_id}")
+            if curr_resp.status_code == 200:
+                curr_config = curr_resp.json()
+                # Check if it matches what we want
+                # Navigate: handle[0] -> upstreams[0] -> dial
+                try:
+                    curr_dial = curr_config["handle"][0]["upstreams"][0]["dial"]
+                    curr_host = curr_config["match"][0]["host"][0]
+                    if curr_dial == target_dial and curr_host == host:
+                        print(
+                            f"Caddy route {route_id} already correct. Skipping reload."
+                        )
+                        return
+                except (KeyError, IndexError):
+                    pass  # Structure mismatch, proceed to update
+
+                # If we are here, it exists but is different. Update in place.
+                print(f"Updating existing Caddy route {route_id}...")
+                route_payload = {
+                    "@id": route_id,
+                    "match": [{"host": [host]}],
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            "upstreams": [{"dial": target_dial}],
+                        }
+                    ],
+                    "terminal": True,
+                }
+                requests.post(
+                    f"http://localhost:2019/id/{route_id}", json=route_payload
+                )
+                return
+
+        except Exception as e:
+            print(f"Error checking Caddy route: {e}")
+
+        # 2. If valid server not found? (Shouldn't happen with GET /id/)
+        # We need to find the server to INSERT into if it's new.
+
+        print(f"Adding new Caddy route {route_id}...")
         base_url = "http://localhost:2019/config/apps/http/servers"
-        server_name = "srv0"  # Default assumption
+        server_name = "srv0"
 
         try:
             r = requests.get(base_url)
             if r.status_code == 200:
                 servers = r.json()
                 for name, srv in servers.items():
-                    # Check listen addresses
                     if ":8000" in srv.get("listen", []):
                         server_name = name
                         break
-        except Exception as e:
-            print(f"Error fetching Caddy config: {e}")
+        except Exception:
+            pass
 
-        # 2. Add the route
-        # IMPORTANT: We PREPEND (insert at index 0) to ensure specific subdomains
-        # are matched BEFORE any wildcard or fallback routes.
+        # 3. Insert NEW route at the top
         routes_url = f"{base_url}/{server_name}/routes/0"
-
-        route_id = f"route_{self.workspace_id}"
 
         route_payload = {
             "@id": route_id,
             "match": [{"host": [host]}],
             "handle": [
-                {
-                    "handler": "reverse_proxy",
-                    "upstreams": [{"dial": f"127.0.0.1:{port}"}],
-                }
+                {"handler": "reverse_proxy", "upstreams": [{"dial": target_dial}]}
             ],
-            "terminal": True,  # Stop processing if matched
+            "terminal": True,
         }
 
         try:
-            # Ideally we delete old route by ID first, but direct prepending might duplicate if ID differs.
-            # Since we use ID, we can try to delete just in case.
-            try:
-                requests.delete(f"http://localhost:2019/id/{route_id}")
-            except:
-                pass
-
-            # Insert at top of chain
             resp = requests.put(routes_url, json=route_payload)
-            if resp.status_code == 200:
-                print(f"Caddy configured: {host} -> {port}")
-            else:
+            if resp.status_code != 200:
                 print(f"Caddy config failed: {resp.text}")
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
