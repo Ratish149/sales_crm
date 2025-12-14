@@ -200,10 +200,14 @@ class RunnerService:
     # --------------------------
     # CORRECTED CADDY CONFIGURATION
     # --------------------------
+    # --------------------------
+    # CORRECTED CADDY CONFIGURATION
+    # --------------------------
     def configure_caddy(self, host, port):
         """
-        Sends configuration to Caddy Sidecar - Idempotent
-        Uses PUT /id/{route_id} to ensure a single, correct route exists.
+        Idempotently configures Caddy:
+        1. Tries PUT (update) by ID.
+        2. If 404 (route not found), performs POST (insert) to /routes/0.
         """
         if not host:
             return
@@ -213,8 +217,10 @@ class RunnerService:
         target_dial = f"127.0.0.1:{port}"
         base_url = "http://localhost:2019"
 
-        # The URL for idempotent creation/replacement of a route by ID
+        # URL for idempotent creation/replacement of a route by ID
         id_url = f"{base_url}/id/{route_id}"
+        # URL for inserting a new route at the top of the srv0 server
+        routes_url = f"{base_url}/config/apps/http/servers/srv0/routes/0"
 
         route_payload = {
             "@id": route_id,
@@ -227,23 +233,38 @@ class RunnerService:
         }
 
         try:
-            # PUT to /id/{route_id} will create the route if it doesn't exist,
-            # or update/replace it if it does. This is the fix for duplication.
+            # 1. ATTEMPT UPDATE (PUT): This will fail if the route is new (status 404)
             resp = requests.put(id_url, json=route_payload)
 
-            if resp.status_code not in (200, 201):
+            if resp.status_code in (200, 201):
                 print(
-                    f"Caddy config failed for {id_url}. Status: {resp.status_code}. Response: {resp.text}"
-                )
-            else:
-                print(
-                    f"Caddy route '{host}' configured successfully on port {port}. Status: {resp.status_code}"
+                    f"Caddy route '{host}' UPDATED successfully. Status: {resp.status_code}"
                 )
 
-            # Optional debug check after update
+            elif resp.status_code == 404:
+                # 2. IF 404, ATTEMPT INSERT (POST) at the top of the route list
+                print(f"Route {route_id} not found. Inserting new route at index 0...")
+                resp = requests.post(routes_url, json=route_payload)
+
+                if resp.status_code not in (200, 201):
+                    print(
+                        f"Caddy INSERT failed. Status: {resp.status_code}. Response: {resp.text}"
+                    )
+                else:
+                    print(
+                        f"Caddy route '{host}' INSERTED successfully. Status: {resp.status_code}"
+                    )
+
+            else:
+                # Handle other unexpected errors
+                print(
+                    f"Caddy config failed: Status: {resp.status_code}. Response: {resp.text}"
+                )
+
+            # Optional debug check after operation
             debug_url = f"{base_url}/config/apps/http/servers/srv0/routes"
             debug_check = requests.get(debug_url)
-            print(f"DEBUG: FULL ROUTES DUMP AFTER UPDATE: {debug_check.text}")
+            print(f"DEBUG: FULL ROUTES DUMP AFTER OPERATION: {debug_check.text}")
 
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
