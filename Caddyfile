@@ -9,16 +9,16 @@
         format json
     }
 
-    # 1. Static Route for the main domain
+    # 1. Route for admin.nepdora.com (including WebSockets)
     @admin_host host admin.nepdora.com
     handle @admin_host {
-        reverse_proxy localhost:8001
+        # This single line handles all HTTP and WebSocket traffic to localhost:8001
+        reverse_proxy localhost:8001 
     }
 
-    # 2. Add an explicit error handler at the end.
-    #    This is only reached if no previous route (including API-injected ones) matched.
-    handle_errors {
-        @404 status 404
-        respond @404 "Sales CRM Gateway: Route not found for {host}" 404
+    # 2. Fallback Route: This 'handle' block catches all requests that did not match 
+    #    the 'admin_host' route above. It acts as your custom 404 page.
+    handle {
+        respond "Sales CRM Gateway: Route not found for {host}" 404
     }
 }
