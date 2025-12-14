@@ -4,6 +4,7 @@ import socket
 import subprocess
 import sys
 
+import requests  # <--- ADD THIS IMPORT
 from django.conf import settings
 
 # Path to persistent process store file
@@ -74,32 +75,8 @@ class RunnerService:
     # --------------------------
     # MAIN RUNNER
     # --------------------------
-    # --------------------------
-    # MAIN RUNNER
-    # --------------------------
+    # Placeholder function (not used in run_project)
     def add_caddy_route(self, host, port):
-        """
-        Dynamically adds a route to Caddy:
-        host -> localhost:port
-        """
-
-        route_id = f"route_{self.workspace_id}"
-
-        # Caddy JSON Config for a new route
-        # Using the standard "reverse_proxy" handler
-        # We append to the existing routes in the :3000 server
-        # Note: This is a simplified approach using Caddy's /config/ endpoint
-
-        # However, simpler approach for "add/remove" is using /id/ API if we set IDs.
-        # But we started with a simplistic Caddyfile which is harder to patch via JSON.
-        # BETTER: Use Caddy's /load API or just /config/apps/http/servers/srv0/routes
-
-        # Let's try the simplest: PUT to /config/apps/http/servers/srv0/routes/...
-        # But we don't know the exact structure of the Caddyfile adapter output.
-
-        # FALLBACK: We will assume Caddy is running with a config that allows dynamic updates?
-        # No, Caddyfile adapter is read-only.
-        # FIX: We will use the 'caddy-api' to ADD a route.
         pass
 
     def run_project(self, host=None):
@@ -220,100 +197,24 @@ class RunnerService:
                 return port
         raise Exception("No free internal ports")
 
+    # --------------------------
+    # CORRECTED CADDY CONFIGURATION
+    # --------------------------
     def configure_caddy(self, host, port):
         """
         Sends configuration to Caddy Sidecar - Idempotent
+        Uses PUT /id/{route_id} to ensure a single, correct route exists.
         """
         if not host:
             return
 
-        import requests
-
         print(f"DEBUG: configure_caddy called for {host} -> {port}")
         route_id = f"route_{self.workspace_id}"
         target_dial = f"127.0.0.1:{port}"
+        base_url = "http://localhost:2019"
 
-        # 1. OPTIMIZATION: Check if route already exists and is correct
-        try:
-            print(f"DEBUG: Checking if route {route_id} exists...")
-            curr_resp = requests.get(f"http://localhost:2019/id/{route_id}")
-            if curr_resp.status_code == 200:
-                print(f"DEBUG: Route {route_id} exists. Checking config...")
-                curr_config = curr_resp.json()
-                # Check if it matches what we want
-                try:
-                    curr_dial = curr_config["handle"][0]["upstreams"][0]["dial"]
-                    curr_host = curr_config["match"][0]["host"][0]
-                    if curr_dial == target_dial and curr_host == host:
-                        print(
-                            f"DEBUG: Caddy route {route_id} correct. Skipping reload."
-                        )
-                        return
-                    else:
-                        print(
-                            f"DEBUG: Route mismatch. Curr: {curr_host}->{curr_dial}, Target: {host}->{target_dial}"
-                        )
-                except (KeyError, IndexError) as e:
-                    print(f"DEBUG: Route structure mismatch: {e}")
-                    pass  # Structure mismatch, proceed to update
-
-                # If we are here, it exists but is different. Update in place.
-                print(f"Updating existing Caddy route {route_id}...")
-                route_payload = {
-                    "@id": route_id,
-                    "match": [
-                        {"host": [host]},
-                        {"header": {"X-Forwarded-Host": [host]}},
-                    ],
-                    "handle": [
-                        {
-                            "handler": "reverse_proxy",
-                            "upstreams": [{"dial": target_dial}],
-                        }
-                    ],
-                    "terminal": True,
-                }
-                resp = requests.post(
-                    f"http://localhost:2019/id/{route_id}", json=route_payload
-                )
-                print(
-                    f"DEBUG: Update payload sent. Response: {resp.status_code} {resp.text}"
-                )
-
-                # Validation: Dump config
-                debug_check = requests.get(
-                    "http://localhost:2019/config/apps/http/servers/srv0/routes"
-                )
-                print(f"DEBUG: FULL ROUTES DUMP: {debug_check.text}")
-                return
-            else:
-                print(
-                    f"DEBUG: Route {route_id} not found (Status {curr_resp.status_code})"
-                )
-
-        except Exception as e:
-            print(f"Error checking Caddy route: {e}")
-
-        # 2. If valid server not found? (Shouldn't happen with GET /id/)
-        # We need to find the server to INSERT into if it's new.
-
-        print(f"Adding new Caddy route {route_id}...")
-        base_url = "http://localhost:2019/config/apps/http/servers"
-        server_name = "srv0"
-
-        try:
-            r = requests.get(base_url)
-            if r.status_code == 200:
-                servers = r.json()
-                for name, srv in servers.items():
-                    if ":8000" in srv.get("listen", []):
-                        server_name = name
-                        break
-        except Exception:
-            pass
-
-        # 3. Insert NEW route at the top
-        routes_url = f"{base_url}/{server_name}/routes/0"
+        # The URL for idempotent creation/replacement of a route by ID
+        id_url = f"{base_url}/id/{route_id}"
 
         route_payload = {
             "@id": route_id,
@@ -321,13 +222,29 @@ class RunnerService:
             "handle": [
                 {"handler": "reverse_proxy", "upstreams": [{"dial": target_dial}]}
             ],
+            # Terminal means no other routes will be checked if this one matches
             "terminal": True,
         }
 
         try:
-            resp = requests.put(routes_url, json=route_payload)
-            if resp.status_code != 200:
-                print(f"Caddy config failed: {resp.text}")
+            # PUT to /id/{route_id} will create the route if it doesn't exist,
+            # or update/replace it if it does. This is the fix for duplication.
+            resp = requests.put(id_url, json=route_payload)
+
+            if resp.status_code not in (200, 201):
+                print(
+                    f"Caddy config failed for {id_url}. Status: {resp.status_code}. Response: {resp.text}"
+                )
+            else:
+                print(
+                    f"Caddy route '{host}' configured successfully on port {port}. Status: {resp.status_code}"
+                )
+
+            # Optional debug check after update
+            debug_url = f"{base_url}/config/apps/http/servers/srv0/routes"
+            debug_check = requests.get(debug_url)
+            print(f"DEBUG: FULL ROUTES DUMP AFTER UPDATE: {debug_check.text}")
+
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
 
@@ -357,6 +274,16 @@ class RunnerService:
 
             del processes[self.workspace_id]
             save_processes(processes)
+
+            # --- Caddy Cleanup (Recommended, though not strictly required for the fix) ---
+            route_id = f"route_{self.workspace_id}"
+            try:
+                # DELETE the route upon stop
+                requests.delete(f"http://localhost:2019/id/{route_id}")
+                print(f"Caddy route {route_id} deleted successfully.")
+            except Exception as e:
+                print(f"Warning: Could not delete Caddy route {route_id}: {e}")
+            # --------------------------------------------------------------------------
 
             return True, "Stopped successfully"
 
