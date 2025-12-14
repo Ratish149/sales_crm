@@ -132,9 +132,16 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
 
                 from project_runner.services import RunnerService
 
+                # Extract host from headers
+                host = None
+                for header, value in self.scope.get("headers", []):
+                    if header == b"host":
+                        host = value.decode("utf-8")
+                        break
+
                 try:
                     runner = await sync_to_async(RunnerService)(self.workspace_id)
-                    result = await sync_to_async(runner.run_project)()
+                    result = await sync_to_async(runner.run_project)(host=host)
 
                     await self.send(
                         text_data=json.dumps(

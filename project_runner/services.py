@@ -74,7 +74,7 @@ class RunnerService:
     # --------------------------
     # MAIN RUNNER
     # --------------------------
-    def run_project(self):
+    def run_project(self, host=None):
         if not self.project_path.exists():
             raise FileNotFoundError(f"Workspace path not found: {self.project_path}")
 
@@ -86,6 +86,16 @@ class RunnerService:
             pid = proc_info.get("pid")
             port = proc_info.get("port")
             url = proc_info.get("url")
+
+            # Update URL if host changed/provided
+            if host:
+                # Remove port from host if present
+                clean_host = host.split(":")[0]
+                url = f"http://{clean_host}:{port}"
+                # Update stored URL
+                proc_info["url"] = url
+                processes[self.workspace_id] = proc_info
+                save_processes(processes)
 
             if self.is_process_running(pid):
                 return {
@@ -120,7 +130,8 @@ class RunnerService:
         # Prepare logs
         log_out = open(self.log_file, "a")
 
-        cmd = f"npx next dev -p {port}"
+        # Bind to 0.0.0.0 so it's accessible externally
+        cmd = f"npx next dev -p {port} -H 0.0.0.0"
 
         kwargs = {}
         if sys.platform == "win32":
@@ -141,10 +152,13 @@ class RunnerService:
         print("Process started with PID:", process.pid)
         print("Process started with command:", cmd)
 
-        # --- IMPORTANT ---
-        # For Coolify / Docker support: use SERVER_IP env var
-        SERVER_IP = os.environ.get("SERVER_IP", "127.0.0.1")
-        url = f"http://{SERVER_IP}:{port}"
+        # Construct URL
+        if host:
+            clean_host = host.split(":")[0]
+            url = f"http://{clean_host}:{port}"
+        else:
+            SERVER_IP = os.environ.get("SERVER_IP", "127.0.0.1")
+            url = f"http://{SERVER_IP}:{port}"
 
         # Save process entry
         processes[self.workspace_id] = {
@@ -152,7 +166,7 @@ class RunnerService:
             "port": port,
             "url": url,
         }
-        save_processes(processes)
+        save_processes(processes)  # Save updated process info
 
         return {
             "port": port,
