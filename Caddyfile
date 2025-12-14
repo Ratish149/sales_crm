@@ -1,4 +1,5 @@
 {
+    auto_https off
     admin localhost:2019
 }
 
