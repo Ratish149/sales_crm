@@ -156,6 +156,7 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                     print(
                         f"[{self.workspace_id}] Executing run_project with host={host}"
                     )
+                    # This uses sync_to_async to prevent blocking the WS thread (correct)
                     result = await sync_to_async(runner.run_project)(host=host)
 
                     print(

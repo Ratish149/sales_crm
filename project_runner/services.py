@@ -4,7 +4,7 @@ import socket
 import subprocess
 import sys
 
-import requests  # <--- ADD THIS IMPORT
+import requests  # Added import
 from django.conf import settings
 
 # Path to persistent process store file
@@ -75,10 +75,6 @@ class RunnerService:
     # --------------------------
     # MAIN RUNNER
     # --------------------------
-    # Placeholder function (not used in run_project)
-    def add_caddy_route(self, host, port):
-        pass
-
     def run_project(self, host=None):
         if not self.project_path.exists():
             raise FileNotFoundError(f"Workspace path not found: {self.project_path}")
@@ -142,9 +138,8 @@ class RunnerService:
 
         log_out = open(self.log_file, "a")
 
-        # Bind to 127.0.0.1 (Internal only)
-        # Caddy will proxy to this.
-        cmd = f"npx next dev -p {port} -H 127.0.0.1"
+        # FIX: Bind to 0.0.0.0 (All interfaces) so Caddy can access it
+        cmd = f"npx next dev -p {port} -H 0.0.0.0"  # CHANGED: from 127.0.0.1 to 0.0.0.0
 
         kwargs = {}
         if sys.platform == "win32":
@@ -197,16 +192,10 @@ class RunnerService:
                 return port
         raise Exception("No free internal ports")
 
-    # --------------------------
-    # CORRECTED CADDY CONFIGURATION
-    # --------------------------
-    # --------------------------
-    # CORRECTED CADDY CONFIGURATION
-    # --------------------------
     def configure_caddy(self, host, port):
         """
         Idempotently configures Caddy:
-        1. Tries PUT (update) by ID.
+        1. Tries PUT (update/replace) by ID.
         2. If 404 (route not found), performs POST (insert) to /routes/0.
         """
         if not host:
@@ -214,6 +203,7 @@ class RunnerService:
 
         print(f"DEBUG: configure_caddy called for {host} -> {port}")
         route_id = f"route_{self.workspace_id}"
+        # Caddy sidecar connects to 127.0.0.1 (local) for the app process
         target_dial = f"127.0.0.1:{port}"
         base_url = "http://localhost:2019"
 
@@ -233,7 +223,7 @@ class RunnerService:
         }
 
         try:
-            # 1. ATTEMPT UPDATE (PUT): This will fail if the route is new (status 404)
+            # 1. ATTEMPT UPDATE/REPLACE (PUT): This will fail if the route is new (status 404)
             resp = requests.put(id_url, json=route_payload)
 
             if resp.status_code in (200, 201):
@@ -246,13 +236,13 @@ class RunnerService:
                 print(f"Route {route_id} not found. Inserting new route at index 0...")
                 resp = requests.post(routes_url, json=route_payload)
 
-                if resp.status_code not in (200, 201):
+                if resp.status_code in (200, 201):
                     print(
-                        f"Caddy INSERT failed. Status: {resp.status_code}. Response: {resp.text}"
+                        f"Caddy route '{host}' INSERTED successfully. Status: {resp.status_code}"
                     )
                 else:
                     print(
-                        f"Caddy route '{host}' INSERTED successfully. Status: {resp.status_code}"
+                        f"Caddy INSERT failed. Status: {resp.status_code}. Response: {resp.text}"
                     )
 
             else:
@@ -260,11 +250,6 @@ class RunnerService:
                 print(
                     f"Caddy config failed: Status: {resp.status_code}. Response: {resp.text}"
                 )
-
-            # Optional debug check after operation
-            debug_url = f"{base_url}/config/apps/http/servers/srv0/routes"
-            debug_check = requests.get(debug_url)
-            print(f"DEBUG: FULL ROUTES DUMP AFTER OPERATION: {debug_check.text}")
 
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
@@ -295,16 +280,6 @@ class RunnerService:
 
             del processes[self.workspace_id]
             save_processes(processes)
-
-            # --- Caddy Cleanup (Recommended, though not strictly required for the fix) ---
-            route_id = f"route_{self.workspace_id}"
-            try:
-                # DELETE the route upon stop
-                requests.delete(f"http://localhost:2019/id/{route_id}")
-                print(f"Caddy route {route_id} deleted successfully.")
-            except Exception as e:
-                print(f"Warning: Could not delete Caddy route {route_id}: {e}")
-            # --------------------------------------------------------------------------
 
             return True, "Stopped successfully"
 
