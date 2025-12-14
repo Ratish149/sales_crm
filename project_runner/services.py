@@ -223,21 +223,32 @@ class RunnerService:
 
         import requests
 
-        # We use Caddy's dynamic config API to map:
-        # Host: <host> -> Reverse Proxy: localhost:<port>
+        # 1. Find the Caddy server listening on :3000
+        # The Caddyfile adapter names servers like srv0, srv1...
+        # We need to find the one handling port 3000.
+        base_url = "http://localhost:2019/config/apps/http/servers"
+        server_name = "srv0"  # Default assumption
 
-        # Caddy API endpoint for adding a route
-        # We need to construct a JSON route object
-        # This is complex without a base config.
-        # SIMPLIFICATION:
-        # We will assume a base config created by Python that listens on :3000.
+        try:
+            r = requests.get(base_url)
+            if r.status_code == 200:
+                servers = r.json()
+                for name, srv in servers.items():
+                    # Check listen addresses
+                    if ":3000" in srv.get("listen", []):
+                        server_name = name
+                        break
+        except Exception as e:
+            print(f"Error fetching Caddy config: {e}")
+            # Fallback to srv0
 
-        caddy_url = "http://localhost:2019/config/apps/http/servers/srv0/routes"
+        # 2. Add the route
+        routes_url = f"{base_url}/{server_name}/routes"
 
-        # Check if route already exists? proper way is giving it an ID
         route_id = f"route_{self.workspace_id}"
 
-        payload = {
+        # Route logic: Match host -> Reverse Proxy
+        route_payload = {
             "@id": route_id,
             "match": [{"host": [host]}],
             "handle": [
@@ -246,12 +257,29 @@ class RunnerService:
                     "upstreams": [{"dial": f"127.0.0.1:{port}"}],
                 }
             ],
+            "terminal": True,  # Stop processing (don't fall through to default)
         }
 
-        # We PUT to the ID to create or update
+        # We try to UPDATE first (using ID), if fail, we ADD.
+        # Check if route exists?
+        # Actually in Caddy, you can PUT to /id/<id> IF it exists.
+        # But if it's new, we must insert it into the routes list.
+
+        # Simple strategy: POST to routes (append).
+        # But we don't want duplicates.
+        # Try to delete old one first?
         try:
-            requests.put(f"http://localhost:2019/id/{route_id}", json=payload)
-            print(f"Caddy configured: {host} -> {port}")
+            requests.delete(f"http://localhost:2019/id/{route_id}")
+        except:
+            pass
+
+        try:
+            # Append the new route
+            resp = requests.post(routes_url, json=route_payload)
+            if resp.status_code == 200:
+                print(f"Caddy configured: {host} -> {port}")
+            else:
+                print(f"Caddy config failed: {resp.text}")
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
 
