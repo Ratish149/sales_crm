@@ -3,6 +3,14 @@
     admin localhost:2019
 }
 
-:3000 {
-    respond "Sales CRM Gateway Active" 200
+:8000 {
+    # Route main domain to Django (Internal 8001)
+    @admin host admin.nepdora.com
+    handle @admin {
+        reverse_proxy localhost:8001
+    }
+    
+    # All other traffic (subdomains) falls through here
+    # Start with a default 404 until configured by Python
+    respond "Sales CRM Gateway: Route not found" 404
 }

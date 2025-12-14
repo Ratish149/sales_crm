@@ -24,9 +24,9 @@ COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Expose ports (8000=Django, 3000=Caddy Gateway, 2019=Caddy API)
+# Expose ports (8000=Caddy Gateway, 2019=Caddy API)
+# Django runs internally on 8001
 EXPOSE 8000
-EXPOSE 3000
 EXPOSE 2019
 
 # Run Entrypoint

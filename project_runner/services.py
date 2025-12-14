@@ -223,9 +223,7 @@ class RunnerService:
 
         import requests
 
-        # 1. Find the Caddy server listening on :3000
-        # The Caddyfile adapter names servers like srv0, srv1...
-        # We need to find the one handling port 3000.
+        # 1. Find the Caddy server listening on :8000 (Main Entrypoint)
         base_url = "http://localhost:2019/config/apps/http/servers"
         server_name = "srv0"  # Default assumption
 
@@ -235,19 +233,19 @@ class RunnerService:
                 servers = r.json()
                 for name, srv in servers.items():
                     # Check listen addresses
-                    if ":3000" in srv.get("listen", []):
+                    if ":8000" in srv.get("listen", []):
                         server_name = name
                         break
         except Exception as e:
             print(f"Error fetching Caddy config: {e}")
-            # Fallback to srv0
 
         # 2. Add the route
-        routes_url = f"{base_url}/{server_name}/routes"
+        # IMPORTANT: We PREPEND (insert at index 0) to ensure specific subdomains
+        # are matched BEFORE any wildcard or fallback routes.
+        routes_url = f"{base_url}/{server_name}/routes/0"
 
         route_id = f"route_{self.workspace_id}"
 
-        # Route logic: Match host -> Reverse Proxy
         route_payload = {
             "@id": route_id,
             "match": [{"host": [host]}],
@@ -257,25 +255,19 @@ class RunnerService:
                     "upstreams": [{"dial": f"127.0.0.1:{port}"}],
                 }
             ],
-            "terminal": True,  # Stop processing (don't fall through to default)
+            "terminal": True,  # Stop processing if matched
         }
 
-        # We try to UPDATE first (using ID), if fail, we ADD.
-        # Check if route exists?
-        # Actually in Caddy, you can PUT to /id/<id> IF it exists.
-        # But if it's new, we must insert it into the routes list.
-
-        # Simple strategy: POST to routes (append).
-        # But we don't want duplicates.
-        # Try to delete old one first?
         try:
-            requests.delete(f"http://localhost:2019/id/{route_id}")
-        except:
-            pass
+            # Ideally we delete old route by ID first, but direct prepending might duplicate if ID differs.
+            # Since we use ID, we can try to delete just in case.
+            try:
+                requests.delete(f"http://localhost:2019/id/{route_id}")
+            except:
+                pass
 
-        try:
-            # Append the new route
-            resp = requests.post(routes_url, json=route_payload)
+            # Insert at top of chain
+            resp = requests.put(routes_url, json=route_payload)
             if resp.status_code == 200:
                 print(f"Caddy configured: {host} -> {port}")
             else:
