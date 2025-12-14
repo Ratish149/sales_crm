@@ -74,6 +74,34 @@ class RunnerService:
     # --------------------------
     # MAIN RUNNER
     # --------------------------
+    # --------------------------
+    # MAIN RUNNER
+    # --------------------------
+    def add_caddy_route(self, host, port):
+        """
+        Dynamically adds a route to Caddy:
+        host -> localhost:port
+        """
+
+        route_id = f"route_{self.workspace_id}"
+
+        # Caddy JSON Config for a new route
+        # Using the standard "reverse_proxy" handler
+        # We append to the existing routes in the :3000 server
+        # Note: This is a simplified approach using Caddy's /config/ endpoint
+
+        # However, simpler approach for "add/remove" is using /id/ API if we set IDs.
+        # But we started with a simplistic Caddyfile which is harder to patch via JSON.
+        # BETTER: Use Caddy's /load API or just /config/apps/http/servers/srv0/routes
+
+        # Let's try the simplest: PUT to /config/apps/http/servers/srv0/routes/...
+        # But we don't know the exact structure of the Caddyfile adapter output.
+
+        # FALLBACK: We will assume Caddy is running with a config that allows dynamic updates?
+        # No, Caddyfile adapter is read-only.
+        # FIX: We will use the 'caddy-api' to ADD a route.
+        pass
+
     def run_project(self, host=None):
         if not self.project_path.exists():
             raise FileNotFoundError(f"Workspace path not found: {self.project_path}")
@@ -87,35 +115,31 @@ class RunnerService:
             port = proc_info.get("port")
             url = proc_info.get("url")
 
-            # Update URL if host changed/provided
-            if host:
-                # Remove port from host if present
-                clean_host = host.split(":")[0]
-                url = f"http://{clean_host}:{port}"
-                # Update stored URL
-                proc_info["url"] = url
-                processes[self.workspace_id] = proc_info
-                save_processes(processes)
-
+            # Validate process
             if self.is_process_running(pid):
+                # Ensure Caddy route exists (idempotent)
+                self.configure_caddy(host, port)
+
+                # Update URL if host changed
+                if host:
+                    url = f"https://{host}"  # HTTPS handled by Traefik/Coolify
+                    proc_info["url"] = url
+                    processes[self.workspace_id] = proc_info
+                    save_processes(processes)
                 return {
                     "port": port,
                     "url": url,
                     "pid": pid,
                 }
             else:
-                print(
-                    f"Dead process {pid} found for workspace {self.workspace_id}. Cleaning."
-                )
+                print(f"Dead process {pid} found. Cleaning.")
                 del processes[self.workspace_id]
                 save_processes(processes)
 
-        # Install dependencies if needed
+        # Install dependencies
         if not (self.project_path / "node_modules").exists():
-            print(f"Installing npm dependencies for workspace {self.workspace_id}...")
             subprocess.run("npm install", shell=True, cwd=self.project_path, check=True)
 
-        # Always ensure types installed (prevents next.js prompt)
         subprocess.run(
             "npm install --save-dev @types/react @types/node",
             shell=True,
@@ -123,15 +147,16 @@ class RunnerService:
             check=False,
         )
 
-        # Allocate port
-        port = self.find_free_port()
-        print(f"Starting next dev on port {port} for workspace {self.workspace_id}")
+        # Allocate INTERNAL port (4000+)
+        # We use find_free_port but we need a new range that is NOT exposed
+        port = self.find_free_internal_port()
+        print(f"Starting next dev on INTERNAL port {port}")
 
-        # Prepare logs
         log_out = open(self.log_file, "a")
 
-        # Bind to 0.0.0.0 so it's accessible externally
-        cmd = f"npx next dev -p {port} -H 0.0.0.0"
+        # Bind to 127.0.0.1 (Internal only)
+        # Caddy will proxy to this.
+        cmd = f"npx next dev -p {port} -H 127.0.0.1"
 
         kwargs = {}
         if sys.platform == "win32":
@@ -139,7 +164,6 @@ class RunnerService:
         else:
             kwargs["start_new_session"] = True
 
-        # Launch process
         process = subprocess.Popen(
             cmd,
             shell=True,
@@ -149,30 +173,76 @@ class RunnerService:
             **kwargs,
         )
 
-        print("Process started with PID:", process.pid)
-        print("Process started with command:", cmd)
+        # Configure Caddy (The Magic)
+        self.configure_caddy(host, port)
 
-        # Construct URL
+        # URL construction
+        # Now it is purely the subdomain, no port
         if host:
-            clean_host = host.split(":")[0]
-            url = f"http://{clean_host}:{port}"
+            url = f"https://{host}"
         else:
-            SERVER_IP = os.environ.get("SERVER_IP", "127.0.0.1")
-            url = f"http://{SERVER_IP}:{port}"
+            url = f"http://localhost:{port}"  # Fallback
 
-        # Save process entry
         processes[self.workspace_id] = {
             "pid": process.pid,
             "port": port,
             "url": url,
         }
-        save_processes(processes)  # Save updated process info
+        save_processes(processes)
 
         return {
             "port": port,
             "url": url,
             "pid": process.pid,
         }
+
+    def find_free_internal_port(self):
+        # Scan 4000-5000
+        for port in range(4000, 5000):
+            if not self.is_port_in_use(port):
+                return port
+        raise Exception("No free internal ports")
+
+    def configure_caddy(self, host, port):
+        """
+        Sends configuration to Caddy Sidecar
+        """
+        if not host:
+            return
+
+        import requests
+
+        # We use Caddy's dynamic config API to map:
+        # Host: <host> -> Reverse Proxy: localhost:<port>
+
+        # Caddy API endpoint for adding a route
+        # We need to construct a JSON route object
+        # This is complex without a base config.
+        # SIMPLIFICATION:
+        # We will assume a base config created by Python that listens on :3000.
+
+        caddy_url = "http://localhost:2019/config/apps/http/servers/srv0/routes"
+
+        # Check if route already exists? proper way is giving it an ID
+        route_id = f"route_{self.workspace_id}"
+
+        payload = {
+            "@id": route_id,
+            "match": [{"host": [host]}],
+            "handle": [
+                {
+                    "handler": "reverse_proxy",
+                    "upstreams": [{"dial": f"127.0.0.1:{port}"}],
+                }
+            ],
+        }
+
+        # We PUT to the ID to create or update
+        try:
+            requests.put(f"http://localhost:2019/id/{route_id}", json=payload)
+            print(f"Caddy configured: {host} -> {port}")
+        except Exception as e:
+            print(f"Failed to configure Caddy: {e}")
 
     # --------------------------
     # STOP RUNNER

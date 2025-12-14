@@ -3,9 +3,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies (including git)
+# Install system dependencies (including git and Caddy)
 RUN apt-get update && \
-    apt-get install -y git build-essential nodejs npm redis-tools && \
+    apt-get install -y git build-essential nodejs npm redis-tools curl debian-keyring debian-archive-keyring apt-transport-https && \
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg && \
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list && \
+    apt-get update && \
+    apt-get install -y caddy && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy project code
@@ -15,9 +19,15 @@ COPY . .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-# Expose port
+# Copy entrypoint and Caddyfile
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Expose ports (8000=Django, 3000=Caddy Gateway, 2019=Caddy API)
 EXPOSE 8000
 EXPOSE 3000
+EXPOSE 2019
 
-# Run Daphne
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "sales_crm.asgi:application"]
+# Run Entrypoint
+CMD ["/entrypoint.sh"]
