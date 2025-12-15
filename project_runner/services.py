@@ -221,7 +221,7 @@ class RunnerService:
         """
         Sends configuration to Caddy Sidecar - Idempotent
 
-        MODIFICATION: Added www_host to the match list.
+        MODIFICATION: Added www_host to the match list and CRITICAL WebSocket/Proxy headers.
         """
         if not host:
             return
@@ -287,10 +287,14 @@ class RunnerService:
                         {
                             "handler": "reverse_proxy",
                             "upstreams": [{"dial": target_dial}],
+                            # CRITICAL: Add proxy and WebSocket headers
                             "headers": {
                                 "request": {
-                                    "set": {"Host": ["{http.request.host}"]},
-                                    # CRITICAL: Include HMR headers for Next.js live-reload
+                                    "set": {
+                                        "Host": ["{http.request.host}"],
+                                        "X-Forwarded-For": ["{remote_ip}"],
+                                        "X-Forwarded-Proto": ["{http.request.scheme}"],
+                                    },
                                     "copy": ["Upgrade", "Connection"],
                                 }
                             },
@@ -344,7 +348,21 @@ class RunnerService:
             "@id": route_id,
             "match": [{"host": [host, www_host]}],  # MODIFIED: Include both hosts
             "handle": [
-                {"handler": "reverse_proxy", "upstreams": [{"dial": target_dial}]}
+                {
+                    "handler": "reverse_proxy",
+                    "upstreams": [{"dial": target_dial}],
+                    # CRITICAL: Add proxy and WebSocket headers
+                    "headers": {
+                        "request": {
+                            "set": {
+                                "Host": ["{http.request.host}"],
+                                "X-Forwarded-For": ["{remote_ip}"],
+                                "X-Forwarded-Proto": ["{http.request.scheme}"],
+                            },
+                            "copy": ["Upgrade", "Connection"],
+                        }
+                    },
+                }
             ],
             "terminal": True,
         }

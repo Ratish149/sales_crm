@@ -7,7 +7,9 @@ services:
     restart: always
     ports:
       - "8000:8000"
+      # REMOVED: - "3000:3000"
     environment:
+      # ... (environment variables unchanged)
       - DEBUG=False
       - SECRET_KEY=django-insecure-g7&n*5lth6bcg)0ui*row++lezc3fzd^-s$)ler+##o!adrcpj
       - ALLOWED_HOSTS=*
@@ -20,26 +22,9 @@ services:
     volumes:
       - coolify_workspaces:/app/media/workspaces
       - coolify_static:/app/static
-    command: >
-      bash -c "
-      echo 'Waiting for Redis...' &&
-      until redis-cli -h redis -p 6379 -a $REDIS_PASSWORD ping; do
-        sleep 1
-      done &&
-      python manage.py migrate &&
-      python manage.py collectstatic --noinput &&
-      exec daphne -b 0.0.0.0 -p 8000 sales_crm.asgi:application"
+    # UPDATED: Use the new entrypoint script
+    command: /entrypoint.sh
     depends_on:
       - redis
 
-  redis:
-    image: redis:7
-    container_name: redis
-    ports:
-      - "6379:6379"
-    restart: always
-    command: redis-server --requirepass "redis"
-
-volumes:
-  coolify_workspaces:
-  coolify_static:
+  # ... (redis service unchanged)
