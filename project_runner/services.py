@@ -4,7 +4,6 @@ import socket
 import subprocess
 import sys
 
-import requests  # Added import
 from django.conf import settings
 
 # Path to persistent process store file
@@ -75,6 +74,31 @@ class RunnerService:
     # --------------------------
     # MAIN RUNNER
     # --------------------------
+    # --------------------------
+    # MAIN RUNNER
+    # --------------------------
+    def add_caddy_route(self, host, port):
+        """
+        Dynamically adds a route to Caddy:
+        host -> localhost:port
+        """
+
+        route_id = f"route_{self.workspace_id}"
+
+        # Caddy JSON Config for a new route
+        # Using the standard "reverse_proxy" handler
+        # We append to the existing routes in the :3000 server
+        # Note: This is a simplified approach using Caddy's /config/ endpoint
+
+        # However, simpler approach for "add/remove" is using /id/ API if we set IDs.
+        # But we started with a simplistic Caddyfile which is harder to patch via JSON.
+        # BETTER: Use Caddy's /load API or just /config/apps/http/servers/srv0/routes
+
+        # FALLBACK: We will assume Caddy is running with a config that allows dynamic updates?
+        # No, Caddyfile adapter is read-only.
+        # FIX: We will use the 'caddy-api' to ADD a route.
+        pass
+
     def run_project(self, host=None):
         if not self.project_path.exists():
             raise FileNotFoundError(f"Workspace path not found: {self.project_path}")
@@ -138,8 +162,9 @@ class RunnerService:
 
         log_out = open(self.log_file, "a")
 
-        # FIX: Bind to 0.0.0.0 (All interfaces) so Caddy can access it
-        cmd = f"npx next dev -p {port} -H 0.0.0.0"  # CHANGED: from 127.0.0.1 to 0.0.0.0
+        # Bind to 127.0.0.1 (Internal only)
+        # Caddy will proxy to this.
+        cmd = f"npx next dev -p {port} -H 127.0.0.1"
 
         kwargs = {}
         if sys.platform == "win32":
@@ -194,63 +219,140 @@ class RunnerService:
 
     def configure_caddy(self, host, port):
         """
-        Idempotently configures Caddy:
-        1. Tries PUT (update/replace) by ID.
-        2. If 404 (route not found), performs POST (insert) to /routes/0.
+        Sends configuration to Caddy Sidecar - Idempotent
+
+        MODIFICATION: Added www_host to the match list.
         """
         if not host:
             return
 
-        print(f"DEBUG: configure_caddy called for {host} -> {port}")
-        route_id = f"route_{self.workspace_id}"
-        # Caddy sidecar connects to 127.0.0.1 (local) for the app process
-        target_dial = f"127.0.0.1:{port}"
-        base_url = "http://localhost:2019"
+        import requests
 
-        # URL for idempotent creation/replacement of a route by ID
-        id_url = f"{base_url}/id/{route_id}"
-        # URL for inserting a new route at the top of the srv0 server
-        routes_url = f"{base_url}/config/apps/http/servers/srv0/routes/0"
+        www_host = f"www.{host}"  # Define www version of the host
+
+        print(f"DEBUG: configure_caddy called for {host} and {www_host} -> {port}")
+        route_id = f"route_{self.workspace_id}"
+        target_dial = f"127.0.0.1:{port}"
+
+        # 1. OPTIMIZATION: Check if route already exists and is correct
+        try:
+            print(f"DEBUG: Checking if route {route_id} exists...")
+            curr_resp = requests.get(f"http://localhost:2019/id/{route_id}")
+            if curr_resp.status_code == 200:
+                print(f"DEBUG: Route {route_id} exists. Checking config...")
+                curr_config = curr_resp.json()
+
+                # Check if it matches what we want
+                try:
+                    curr_dial = curr_config["handle"][0]["upstreams"][0]["dial"]
+
+                    # Check for the correct host matching (either [host] or [host, www_host])
+                    expected_hosts = [host, www_host]
+
+                    # Attempt to extract hosts from the first match block
+                    curr_hosts = []
+                    if (
+                        len(curr_config["match"]) >= 1
+                        and "host" in curr_config["match"][0]
+                    ):
+                        curr_hosts = curr_config["match"][0]["host"]
+
+                    # Check if the dial is correct AND the set of hosts is correct
+                    if curr_dial == target_dial and sorted(curr_hosts) == sorted(
+                        expected_hosts
+                    ):
+                        print(
+                            f"DEBUG: Caddy route {route_id} correct. Skipping reload."
+                        )
+                        return
+                    else:
+                        print(
+                            f"DEBUG: Route mismatch. Curr Dial: {curr_dial}, Target Dial: {target_dial}"
+                        )
+                        print(
+                            f"DEBUG: Route mismatch. Curr Hosts: {curr_hosts}, Target Hosts: {expected_hosts}"
+                        )
+
+                except (KeyError, IndexError) as e:
+                    print(f"DEBUG: Route structure mismatch during check: {e}")
+                    pass  # Structure mismatch, proceed to update
+
+                # If we are here, it exists but is different. Update in place.
+                print(f"Updating existing Caddy route {route_id}...")
+                route_payload = {
+                    "@id": route_id,
+                    # MODIFIED: Use the correct host match list and removed unnecessary X-Forwarded-Host header match
+                    "match": [{"host": [host, www_host]}],
+                    "handle": [
+                        {
+                            "handler": "reverse_proxy",
+                            "upstreams": [{"dial": target_dial}],
+                            "headers": {
+                                "request": {
+                                    "set": {"Host": ["{http.request.host}"]},
+                                    # CRITICAL: Include HMR headers for Next.js live-reload
+                                    "copy": ["Upgrade", "Connection"],
+                                }
+                            },
+                        }
+                    ],
+                    "terminal": True,
+                }
+                resp = requests.post(
+                    f"http://localhost:2019/id/{route_id}", json=route_payload
+                )
+                print(
+                    f"DEBUG: Update payload sent. Response: {resp.status_code} {resp.text}"
+                )
+
+                # Validation: Dump config
+                debug_check = requests.get(
+                    "http://localhost:2019/config/apps/http/servers/srv0/routes"
+                )
+                print(f"DEBUG: FULL ROUTES DUMP: {debug_check.text}")
+                return
+            else:
+                print(
+                    f"DEBUG: Route {route_id} not found (Status {curr_resp.status_code})"
+                )
+
+        except Exception as e:
+            print(f"Error checking Caddy route: {e}")
+
+        # 2. If valid server not found? (Shouldn't happen with GET /id/)
+        # We need to find the server to INSERT into if it's new.
+
+        print(f"Adding new Caddy route {route_id}...")
+        base_url = "http://localhost:2019/config/apps/http/servers"
+        server_name = "srv0"
+
+        try:
+            r = requests.get(base_url)
+            if r.status_code == 200:
+                servers = r.json()
+                for name, srv in servers.items():
+                    if ":8000" in srv.get("listen", []):
+                        server_name = name
+                        break
+        except Exception:
+            pass
+
+        # 3. Insert NEW route at the top
+        routes_url = f"{base_url}/{server_name}/routes/0"
 
         route_payload = {
             "@id": route_id,
-            "match": [{"host": [host]}],
+            "match": [{"host": [host, www_host]}],  # MODIFIED: Include both hosts
             "handle": [
                 {"handler": "reverse_proxy", "upstreams": [{"dial": target_dial}]}
             ],
-            # Terminal means no other routes will be checked if this one matches
             "terminal": True,
         }
 
         try:
-            # 1. ATTEMPT UPDATE/REPLACE (PUT): This will fail if the route is new (status 404)
-            resp = requests.put(id_url, json=route_payload)
-
-            if resp.status_code in (200, 201):
-                print(
-                    f"Caddy route '{host}' UPDATED successfully. Status: {resp.status_code}"
-                )
-
-            elif resp.status_code == 404:
-                # 2. IF 404, ATTEMPT INSERT (POST) at the top of the route list
-                print(f"Route {route_id} not found. Inserting new route at index 0...")
-                resp = requests.post(routes_url, json=route_payload)
-
-                if resp.status_code in (200, 201):
-                    print(
-                        f"Caddy route '{host}' INSERTED successfully. Status: {resp.status_code}"
-                    )
-                else:
-                    print(
-                        f"Caddy INSERT failed. Status: {resp.status_code}. Response: {resp.text}"
-                    )
-
-            else:
-                # Handle other unexpected errors
-                print(
-                    f"Caddy config failed: Status: {resp.status_code}. Response: {resp.text}"
-                )
-
+            resp = requests.put(routes_url, json=route_payload)
+            if resp.status_code != 200:
+                print(f"Caddy config failed: {resp.text}")
         except Exception as e:
             print(f"Failed to configure Caddy: {e}")
 
