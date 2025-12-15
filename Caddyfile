@@ -12,7 +12,7 @@
     # 1. Route for admin.nepdora.com (including WebSockets)
     @admin_host host admin.nepdora.com
     handle @admin_host {
-        # This single line handles all HTTP and WebSocket traffic to localhost:8001
+        # Proxying to the internal Daphne port 8001
         reverse_proxy localhost:8001 {
              # CRITICAL: Pass WebSocket headers for Daphne Channels
              header_up Upgrade {header.Upgrade}
@@ -24,9 +24,7 @@
         }
     }
 
-    # 2. Fallback Route: This 'handle' block catches all requests that did not match 
-    #    the 'admin_host' route above.
-    # It acts as your custom 404 page.
+    # 2. Fallback Route
     handle {
         respond "Sales CRM Gateway: Route not found for {host}" 404
     }

@@ -6,13 +6,15 @@ services:
     container_name: django_backend
     restart: always
     ports:
+      # Caddy listens on 8000 and the container exposes it
       - "8000:8000"
       # REMOVED: - "3000:3000"
     environment:
-      # ... (environment variables unchanged)
+      # ... (other environment variables)
       - DEBUG=False
       - SECRET_KEY=django-insecure-g7&n*5lth6bcg)0ui*row++lezc3fzd^-s$)ler+##o!adrcpj
       - ALLOWED_HOSTS=*
+      # CRITICAL: These are the environment variables for settings.py to read
       - MEDIA_ROOT=/app/media
       - STATIC_ROOT=/app/static
       - SERVER_IP=0.0.0.0
