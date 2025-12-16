@@ -110,9 +110,9 @@ class CustomerRequestPasswordResetView(APIView):
         uid = urlsafe_base64_encode(force_bytes(customer.pk))
         token = customer_token_generator.make_token(customer)
 
-        reset_link = (
-            f"https://www.nepdora.com/customer/password/reset?uid={uid}&token={token}"
-        )
+        tenant_subdomain = request.tenant.schema_name
+        FRONTEND_URL = os.getenv("FRONTEND_URL")
+        reset_link = f"https://www.{tenant_subdomain}.{FRONTEND_URL}/customer/password/reset?uid={uid}&token={token}"
 
         logo_b64 = get_image_base64(
             "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
@@ -139,7 +139,7 @@ class CustomerRequestPasswordResetView(APIView):
         # Send email using Resend
         try:
             params = {
-                "from": "Nepdora <nepdora@baliyoventures.com>",
+                "from": f"{tenant_subdomain} <nepdora@baliyoventures.com>",
                 "to": [email],
                 "subject": subject,
                 "html": html_body,
