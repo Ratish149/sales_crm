@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import Customer
 
 
@@ -7,8 +8,15 @@ class CustomerRegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Customer
-        fields = ["id", "first_name", "last_name",
-                  "email", "phone", "address", "password"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "address",
+            "password",
+        ]
 
     def create(self, validated_data):
         # password will be hashed in model's save()
@@ -23,4 +31,9 @@ class CustomerLoginSerializer(serializers.Serializer):
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'address']
+        fields = ["id", "first_name", "last_name", "email", "phone", "address"]
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
