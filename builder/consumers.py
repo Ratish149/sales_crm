@@ -128,40 +128,14 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
 
                 await self.send(text_data=json.dumps({"action": "workspace_deleted"}))
             elif action == "run_project":
-                print(f"[{self.workspace_id}] Starting project run...")
+                print("Running project...")
 
-                from project_runner.services import RunnerService
-
-                # Extract host from headers
-                host = None
-                for header, value in self.scope.get("headers", []):
-                    if header == b"host":
-                        host = value.decode("utf-8")
-                        break
+                from .services import RunnerService
 
                 try:
-                    # Send progress update
-                    await self.send(
-                        text_data=json.dumps(
-                            {
-                                "action": "setup_project",
-                                "message": "Initializing project...",
-                            }
-                        )
-                    )
-
-                    print(f"[{self.workspace_id}] Creating runner service...")
                     runner = await sync_to_async(RunnerService)(self.workspace_id)
+                    result = await sync_to_async(runner.run_project)()
 
-                    print(
-                        f"[{self.workspace_id}] Executing run_project with host={host}"
-                    )
-                    # This uses sync_to_async to prevent blocking the WS thread (correct)
-                    result = await sync_to_async(runner.run_project)(host=host)
-
-                    print(
-                        f"[{self.workspace_id}] Project started successfully on port {result['port']}"
-                    )
                     await self.send(
                         text_data=json.dumps(
                             {
@@ -173,54 +147,8 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                         )
                     )
 
-                except FileNotFoundError as e:
-                    error_msg = f"Workspace not found: {str(e)}"
-                    print(f"[{self.workspace_id}] ERROR: {error_msg}")
-                    await self.send(
-                        text_data=json.dumps({"action": "error", "message": error_msg})
-                    )
                 except Exception as e:
-                    import traceback
-
-                    error_msg = str(e)
-                    traceback_str = traceback.format_exc()
-                    print(f"[{self.workspace_id}] ERROR running project: {error_msg}")
-                    print(f"[{self.workspace_id}] Traceback:\n{traceback_str}")
-                    await self.send(
-                        text_data=json.dumps(
-                            {
-                                "action": "error",
-                                "message": error_msg,
-                                "details": traceback_str[
-                                    :500
-                                ],  # Truncate to avoid huge messages
-                            }
-                        )
-                    )
-
-            elif action == "stop_project":
-                print("Stopping project...")
-                from project_runner.services import RunnerService
-
-                try:
-                    runner = await sync_to_async(RunnerService)(self.workspace_id)
-                    success, message = await sync_to_async(runner.stop_project)()
-
-                    if success:
-                        await self.send(
-                            text_data=json.dumps(
-                                {"action": "project_stopped", "message": message}
-                            )
-                        )
-                    else:
-                        await self.send(
-                            text_data=json.dumps(
-                                {"action": "error", "message": message}
-                            )
-                        )
-
-                except Exception as e:
-                    print("Error stopping project:", e)
+                    print("Error running project:", e)
                     await self.send(
                         text_data=json.dumps({"action": "error", "message": str(e)})
                     )

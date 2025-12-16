@@ -13,11 +13,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import quote_plus
 
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 
-# load_dotenv()
+load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
@@ -156,33 +155,22 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
-REDIS_HOST = "redis"
-REDIS_PORT = 6379
-REDIS_PASSWORD = os.environ.get(
-    "REDIS_PASSWORD", "wzjp4NUl+I8QthONqJKwnRL8cNFusnS0DtVG6n/hfug="
-)
-encoded_redis_password = quote_plus(REDIS_PASSWORD)
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": f"redis://:{encoded_redis_password}@coolify-redis:6379/2",
-    }
-}
-
-# Channels
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [f"redis://:{encoded_redis_password}@coolify-redis:6379/0"],
+            "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
         },
     },
 }
 
-# Celery
-CELERY_BROKER_URL = f"redis://:{encoded_redis_password}@coolify-redis:6379/0"
-CELERY_RESULT_BACKEND = f"redis://:{encoded_redis_password}@coolify-redis:6379/1"
+# Caching
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/2",
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -194,7 +182,7 @@ CELERY_RESULT_BACKEND = f"redis://:{encoded_redis_password}@coolify-redis:6379/1
 #     }
 # }
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -206,9 +194,9 @@ CELERY_RESULT_BACKEND = f"redis://:{encoded_redis_password}@coolify-redis:6379/1
             "options": "-c search_path=public"  # important for first migration
         },
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -218,19 +206,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-}
-
-# coolify database setting
-DATABASES = {
-    "default": {
-        "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": "postgres",
-        "USER": "postgres",
-        "PASSWORD": "GJSFkz56luy8698E1q2zgc9Iu4HGnjmk8nU85ZWqP22twWreLLWRw6TfTuPqG5hI",
-        "HOST": "cwoogccow4s00gkg80ws8wwc",
-        "PORT": "5432",
-    }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -288,8 +264,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_ROOT = os.getenv("STATIC_ROOT", BASE_DIR / "static_collected")
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+# STATICFILES_DIRS = [
+#     os.path.join(BASE_DIR, "static"),
+# ]
+# STATIC_ROOT = os.path.join(BASE_DIR, "static/")
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

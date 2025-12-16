@@ -18,6 +18,8 @@ class RunAIBuilderView(APIView):
     """
     POST /ai-builder/run/
 
+    Runs the AI agent to process a user prompt and modify project files.
+
     Request body:
     {
         "prompt": "Make the header background blue",
