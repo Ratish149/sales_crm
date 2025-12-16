@@ -88,6 +88,7 @@ def get_image_base64(url):
 class CustomerRequestPasswordResetView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get("email")
+        frontend_url = request.data.get("frontend_url")
         if not email:
             return Response(
                 {"status": 400, "error": "Email is required"},
@@ -111,8 +112,7 @@ class CustomerRequestPasswordResetView(APIView):
         token = customer_token_generator.make_token(customer)
 
         tenant_subdomain = request.tenant.schema_name
-        FRONTEND_URL = os.getenv("FRONTEND_URL")
-        reset_link = f"https://www.{tenant_subdomain}.{FRONTEND_URL}/customer/password/reset?uid={uid}&token={token}"
+        reset_link = f"{frontend_url}/customer/password/reset?uid={uid}&token={token}"
 
         logo_b64 = get_image_base64(
             "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
