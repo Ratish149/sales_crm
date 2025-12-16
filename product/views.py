@@ -1,6 +1,7 @@
 import re
 
 import pandas as pd
+from django.db.models import Avg
 from django.http import HttpResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
@@ -113,8 +114,13 @@ class ProductListCreateView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
-    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_class = ProductFilterSet
+    ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
     search_fields = ["name"]
 
     def get_serializer_class(self):
@@ -135,6 +141,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
                     "variants__option_values__option",
                     "productoption_set__productoptionvalue_set",
                 )
+                .annotate(average_rating=Avg("productreview__rating"))
                 .only(
                     "id",
                     "name",
