@@ -160,6 +160,28 @@ class RunnerService:
             "pid": process.pid,
         }
 
+    def install_dependencies(self):
+        if not self.project_path.exists():
+            raise FileNotFoundError(f"Workspace path not found: {self.project_path}")
+
+        print(f"Installing dependencies for workspace {self.workspace_id}...")
+        try:
+            # Run npm install
+            subprocess.run(
+                "npm install",
+                shell=True,
+                cwd=self.project_path,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            return True, "Dependencies installed successfully"
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.decode() if e.stderr else str(e)
+            return False, f"npm install failed: {error_msg}"
+        except Exception as e:
+            return False, str(e)
+
     # --------------------------
     # STOP RUNNER
     # --------------------------

@@ -186,10 +186,54 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                         )
                     )
 
+            elif action == "install_project":
+                print("Installing dependencies...")
+                try:
+                    from project_runner.services import RunnerService
+
+                    await self.send(
+                        text_data=json.dumps(
+                            {
+                                "action": "notification",
+                                "message": "Installing dependencies...",
+                            }
+                        )
+                    )
+
+                    runner = await sync_to_async(RunnerService)(self.workspace_id)
+                    success, message = await sync_to_async(
+                        runner.install_dependencies
+                    )()
+
+                    if success:
+                        await self.send(
+                            text_data=json.dumps(
+                                {
+                                    "action": "notification",
+                                    "message": "Dependencies installed successfully",
+                                }
+                            )
+                        )
+                    else:
+                        await self.send(
+                            text_data=json.dumps(
+                                {
+                                    "action": "error",
+                                    "message": f"Installation failed: {message}",
+                                }
+                            )
+                        )
+
+                except Exception as e:
+                    print(f"Error installing dependencies: {e}")
+                    await self.send(
+                        text_data=json.dumps({"action": "error", "message": str(e)})
+                    )
+
             elif action == "run_project":
                 print("Running project...")
 
-                from .services import RunnerService
+                from project_runner.services import RunnerService
 
                 try:
                     runner = await sync_to_async(RunnerService)(self.workspace_id)
