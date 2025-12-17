@@ -127,6 +127,65 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 )
 
                 await self.send(text_data=json.dumps({"action": "workspace_deleted"}))
+            elif action == "reclone_project":
+                print("Re-cloning project...")
+                try:
+                    # 1. Fetch Repo URL
+                    def get_repo_info_sync(workspace_id):
+                        from tenants.models import Client
+
+                        tenant = Client.objects.filter(schema_name=workspace_id).first()
+                        if tenant:
+                            return tenant.repo_url
+                        return None
+
+                    repo_url = await sync_to_async(get_repo_info_sync)(
+                        self.workspace_id
+                    )
+
+                    if repo_url:
+                        # 2. Get Token
+                        import os
+
+                        token = os.getenv("GITHUB_TOKEN")
+
+                        # 3. Clone (FileService.clone_repo handles cleanup)
+                        await sync_to_async(self.file_service.clone_repo)(
+                            repo_url, token
+                        )
+
+                        # 4. Send new tree
+                        tree = await sync_to_async(self.file_service.generate_tree)()
+                        await self.send(text_data=json.dumps(tree))
+
+                        await self.send(
+                            text_data=json.dumps(
+                                {
+                                    "action": "notification",
+                                    "message": "Project re-cloned successfully",
+                                }
+                            )
+                        )
+                    else:
+                        await self.send(
+                            text_data=json.dumps(
+                                {
+                                    "action": "error",
+                                    "message": "Repository URL not found for this workspace",
+                                }
+                            )
+                        )
+                except Exception as e:
+                    print(f"Error re-cloning project: {e}")
+                    await self.send(
+                        text_data=json.dumps(
+                            {
+                                "action": "error",
+                                "message": f"Failed to re-clone: {str(e)}",
+                            }
+                        )
+                    )
+
             elif action == "run_project":
                 print("Running project...")
 
