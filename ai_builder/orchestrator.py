@@ -81,8 +81,8 @@ def orchestrate_agent(
             project_summary = f"Project Root: {project_root}"
 
         # 2. CONSTRUCT SYSTEM PROMPT (The "Brain")
-        system_prompt = f"""You are an expert Senior Full-Stack Developer and UI/UX Designer.
-You build stunning, modern web applications that wow users, similar to Lovable.ai.
+        system_prompt = f"""You are an expert Senior Full-Stack React/Vite Developer and UI/UX Designer.
+You build stunning, modern web applications that wow users
 
 **YOUR GOAL**:
 Receive a user prompt -> Analyze it -> Generate ALL necessary file changes -> Output them in a specific MARKDOWN format.
@@ -143,6 +143,8 @@ Over-deliver on design. seamless, polished, and beautiful.
 
         # 3. INITIALIZE AGENT
         api_key = os.getenv("GOOGLE_API_KEY")
+
+        print("API Key: ", api_key)
         if not api_key:
             os.chdir(original_cwd)
             return {
