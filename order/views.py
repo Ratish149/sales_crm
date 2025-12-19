@@ -11,6 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 
 from .models import Order
@@ -77,6 +78,7 @@ class MyOrderListAPIView(generics.ListAPIView):
     queryset = Order.objects.all().order_by("-created_at")
     serializer_class = OrderListSerializer
     pagination_class = CustomPagination
+    authentication_classes = [CustomerJWTAuthentication]
     filter_backends = [
         filters.SearchFilter,
         filters.OrderingFilter,
@@ -155,6 +157,7 @@ class DashboardStatsView(APIView):
 
 class MyOrderStatusView(APIView):
     permission_classes = [IsAuthenticated]
+    authentication_classes = [CustomerJWTAuthentication]
 
     def get(self, request):
         customer = get_customer_from_request(request)

@@ -1,5 +1,4 @@
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from customer.models import Customer
+from customer.authentication import CustomerJWTAuthentication
 
 
 def get_customer_from_request(request):
@@ -8,19 +7,11 @@ def get_customer_from_request(request):
     Returns None if no token is provided.
     Raises AuthenticationFailed if token is present but invalid.
     """
-    auth = JWTAuthentication()
-    header = auth.get_header(request)
-    if header is None:
-        return None  # No token, return None
-
-    raw_token = auth.get_raw_token(header)
-    if raw_token is None:
+    auth = CustomerJWTAuthentication()
+    try:
+        user_auth_tuple = auth.authenticate(request)
+        if user_auth_tuple is None:
+            return None
+        return user_auth_tuple[0]
+    except Exception:
         return None
-
-    validated_token = auth.get_validated_token(raw_token)
-    customer_id = validated_token.get("user_id")
-    if not customer_id:
-        return None
-
-    customer = Customer.objects.filter(id=customer_id).first()
-    return customer

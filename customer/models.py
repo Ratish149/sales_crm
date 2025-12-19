@@ -1,6 +1,5 @@
+from django.contrib.auth.hashers import check_password, make_password
 from django.db import models
-from django.contrib.auth.hashers import make_password, check_password
-
 
 # Create your models here.
 
@@ -17,13 +16,17 @@ class Customer(models.Model):
 
     def save(self, *args, **kwargs):
         # Hash password before saving if it's not already hashed
-        if self.password and not self.password.startswith('pbkdf2_'):
+        if self.password and not self.password.startswith("pbkdf2_"):
             self.password = make_password(self.password)
         super().save(*args, **kwargs)
 
     def check_password(self, raw_password):
         """Verify the password"""
         return check_password(raw_password, self.password)
+
+    @property
+    def is_authenticated(self):
+        return True
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"

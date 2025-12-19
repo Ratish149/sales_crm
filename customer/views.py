@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .authentication import CustomerJWTAuthentication
 from .models import Customer
 from .serializers import (
     ChangePasswordSerializer,
@@ -38,6 +39,7 @@ class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class CustomerDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = CustomerSerializer
+    authentication_classes = [CustomerJWTAuthentication]
 
     def get_object(self):
         customer = get_customer_from_request(self.request)
@@ -47,6 +49,8 @@ class CustomerDetailView(generics.RetrieveUpdateAPIView):
 
 
 class ChangePasswordView(APIView):
+    authentication_classes = [CustomerJWTAuthentication]
+
     def post(self, request):
         customer = get_customer_from_request(request)
         if not customer:

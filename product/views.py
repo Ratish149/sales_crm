@@ -11,6 +11,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 
 from .models import (
@@ -255,11 +256,11 @@ class ProductReviewView(generics.ListCreateAPIView):
             return ProductReview.objects.all()
 
     def perform_create(self, serializer):
-        if not self.request.user.is_authenticated:
+        user = get_customer_from_request(self.request)
+        if not user:
             raise serializers.ValidationError(
                 "User must be authenticated to create a review."
             )
-        user = get_customer_from_request(self.request)
         serializer.save(user=user)
 
 
@@ -276,6 +277,7 @@ class WishlistListCreateView(generics.ListCreateAPIView):
         "id", "user", "product", "created_at", "updated_at"
     ).select_related("user", "product")
     serializer_class = WishlistSerializer
+    authentication_classes = [CustomerJWTAuthentication]
 
     def get_queryset(self):
         user = get_customer_from_request(self.request)
