@@ -299,6 +299,7 @@ class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         "id", "user", "product", "created_at", "updated_at"
     ).select_related("user", "product")
     serializer_class = WishlistSerializer
+    authentication_classes = [CustomerJWTAuthentication]
     lookup_field = "id"
 
     def get_object(self):
