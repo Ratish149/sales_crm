@@ -6,7 +6,7 @@ from django.http import HttpResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
-from rest_framework import filters, generics, serializers, status
+from rest_framework import filters, generics, permissions, serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -241,6 +241,12 @@ class ProductReviewView(generics.ListCreateAPIView):
         django_filters.DjangoFilterBackend,
     ]
     filterset_class = ProductReviewFilter
+    authentication_classes = [CustomerJWTAuthentication]
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [permissions.IsAuthenticated()]
+        return [permissions.AllowAny()]
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -269,7 +275,13 @@ class ProductReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
         "id", "product", "user", "review", "rating", "created_at", "updated_at"
     ).select_related("product", "user")
     serializer_class = ProductReviewSerializer
+    authentication_classes = [CustomerJWTAuthentication]
     lookup_field = "id"
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
 
 
 class WishlistListCreateView(generics.ListCreateAPIView):
