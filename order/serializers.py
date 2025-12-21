@@ -97,13 +97,9 @@ class OrderSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         items_data = validated_data.pop("items", [])
 
-        if not request or not request.user.is_authenticated:
-            validated_data["customer"] = None
-
-        # Try to find a Customer with the same email as the User
-        customer = get_customer_from_request(self.context["request"])
-        if customer:
-            validated_data["customer"] = customer
+        # Try to find a Customer from the request token
+        customer = get_customer_from_request(request)
+        validated_data["customer"] = customer
 
         with transaction.atomic():
             order = Order.objects.create(**validated_data)

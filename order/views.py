@@ -7,7 +7,7 @@ from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
 from rest_framework import filters, generics
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -67,6 +67,8 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     search_fields = ["customer_name", "order_number", "customer_phone"]
     ordering_fields = ["created_at", "total_amount"]
     filterset_class = OrderFilter
+    authentication_classes = [CustomerJWTAuthentication]
+    permission_classes = [AllowAny]
 
     def get_serializer_class(self):
         if self.request.method == "GET":
