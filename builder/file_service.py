@@ -168,6 +168,13 @@ class FileService:
             os.remove(full_path)
         return True
 
+    def create_directory(self, path):
+        full_path = self._get_safe_path(path)
+        if full_path.exists():
+            raise FileExistsError(f"Directory already exists: {path}")
+        full_path.mkdir(parents=True, exist_ok=True)
+        return True
+
     def rename_file(self, old_path, new_path):
         old_full_path = self._get_safe_path(old_path)
         new_full_path = self._get_safe_path(new_path)

@@ -119,8 +119,49 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
 
                 await self.send(
                     text_data=json.dumps(
-                        {"action": "file_renamed", "old_path": old_path, "new_path": new_path}
+                        {
+                            "action": "file_renamed",
+                            "old_path": old_path,
+                            "new_path": new_path,
+                        }
                     )
+                )
+
+            elif action == "create_file":
+                path = data.get("path")
+                content = data.get("content", "")
+                print(f"Creating file: {path}")
+                await sync_to_async(self.file_service.write_file)(path, content)
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "file_created_event",
+                        "path": path,
+                        "sender_channel_name": self.channel_name,
+                    },
+                )
+
+                await self.send(
+                    text_data=json.dumps({"action": "file_created", "path": path})
+                )
+
+            elif action == "create_folder":
+                path = data.get("path")
+                print(f"Creating folder: {path}")
+                await sync_to_async(self.file_service.create_directory)(path)
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "folder_created_event",
+                        "path": path,
+                        "sender_channel_name": self.channel_name,
+                    },
+                )
+
+                await self.send(
+                    text_data=json.dumps({"action": "folder_created", "path": path})
                 )
 
             elif action == "get_tree":
@@ -306,5 +347,19 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                         "old_path": event["old_path"],
                         "new_path": event["new_path"],
                     }
+                )
+            )
+
+    async def file_created_event(self, event):
+        if self.channel_name != event.get("sender_channel_name"):
+            await self.send(
+                text_data=json.dumps({"action": "file_created", "path": event["path"]})
+            )
+
+    async def folder_created_event(self, event):
+        if self.channel_name != event.get("sender_channel_name"):
+            await self.send(
+                text_data=json.dumps(
+                    {"action": "folder_created", "path": event["path"]}
                 )
             )
