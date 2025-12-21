@@ -168,6 +168,22 @@ class FileService:
             os.remove(full_path)
         return True
 
+    def rename_file(self, old_path, new_path):
+        old_full_path = self._get_safe_path(old_path)
+        new_full_path = self._get_safe_path(new_path)
+
+        if not old_full_path.exists():
+            raise FileNotFoundError(f"File not found: {old_path}")
+
+        if new_full_path.exists():
+            raise FileExistsError(f"Destination already exists: {new_path}")
+
+        # Ensure parent directory of new_path exists
+        new_full_path.parent.mkdir(parents=True, exist_ok=True)
+
+        os.rename(old_full_path, new_full_path)
+        return True
+
     def generate_tree(self, include_content=True):
         if not self.base_path.exists():
             return {"action": "tree", "items": []}

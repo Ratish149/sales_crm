@@ -101,6 +101,28 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                     text_data=json.dumps({"action": "file_deleted", "path": path})
                 )
 
+            elif action == "rename_file":
+                old_path = data.get("old_path")
+                new_path = data.get("new_path")
+                print(f"Renaming file from {old_path} to {new_path}")
+                await sync_to_async(self.file_service.rename_file)(old_path, new_path)
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "file_renamed_event",
+                        "old_path": old_path,
+                        "new_path": new_path,
+                        "sender_channel_name": self.channel_name,
+                    },
+                )
+
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "file_renamed", "old_path": old_path, "new_path": new_path}
+                    )
+                )
+
             elif action == "get_tree":
                 print("Generating tree...")
                 tree = await sync_to_async(self.file_service.generate_tree)()
@@ -273,4 +295,16 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
         if self.channel_name != event.get("sender_channel_name"):
             await self.send(
                 text_data=json.dumps({"action": "file_deleted", "path": event["path"]})
+            )
+
+    async def file_renamed_event(self, event):
+        if self.channel_name != event.get("sender_channel_name"):
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "action": "file_renamed",
+                        "old_path": event["old_path"],
+                        "new_path": event["new_path"],
+                    }
+                )
             )
