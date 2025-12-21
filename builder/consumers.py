@@ -70,11 +70,13 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 content = data.get("content")
                 await sync_to_async(self.file_service.write_file)(path, content)
 
+                # Broadcast to other clients
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         "type": "file_updated_event",
                         "path": path,
+                        "content": content,
                         "sender_channel_name": self.channel_name,
                     },
                 )
@@ -88,17 +90,23 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 print(f"Deleting file: {path}")
                 await sync_to_async(self.file_service.delete_file)(path)
 
+                # Send updated tree to all clients
+                tree = await sync_to_async(self.file_service.generate_tree)()
+
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         "type": "file_deleted_event",
                         "path": path,
+                        "tree": tree,
                         "sender_channel_name": self.channel_name,
                     },
                 )
 
                 await self.send(
-                    text_data=json.dumps({"action": "file_deleted", "path": path})
+                    text_data=json.dumps(
+                        {"action": "file_deleted", "path": path, "tree": tree}
+                    )
                 )
 
             elif action == "rename_file":
@@ -107,12 +115,16 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 print(f"Renaming file from {old_path} to {new_path}")
                 await sync_to_async(self.file_service.rename_file)(old_path, new_path)
 
+                # Send updated tree to all clients
+                tree = await sync_to_async(self.file_service.generate_tree)()
+
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         "type": "file_renamed_event",
                         "old_path": old_path,
                         "new_path": new_path,
+                        "tree": tree,
                         "sender_channel_name": self.channel_name,
                     },
                 )
@@ -123,6 +135,7 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                             "action": "file_renamed",
                             "old_path": old_path,
                             "new_path": new_path,
+                            "tree": tree,
                         }
                     )
                 )
@@ -133,17 +146,23 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 print(f"Creating file: {path}")
                 await sync_to_async(self.file_service.write_file)(path, content)
 
+                # Send updated tree to all clients
+                tree = await sync_to_async(self.file_service.generate_tree)()
+
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         "type": "file_created_event",
                         "path": path,
+                        "tree": tree,
                         "sender_channel_name": self.channel_name,
                     },
                 )
 
                 await self.send(
-                    text_data=json.dumps({"action": "file_created", "path": path})
+                    text_data=json.dumps(
+                        {"action": "file_created", "path": path, "tree": tree}
+                    )
                 )
 
             elif action == "create_folder":
@@ -151,17 +170,23 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 print(f"Creating folder: {path}")
                 await sync_to_async(self.file_service.create_directory)(path)
 
+                # Send updated tree to all clients
+                tree = await sync_to_async(self.file_service.generate_tree)()
+
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
                         "type": "folder_created_event",
                         "path": path,
+                        "tree": tree,
                         "sender_channel_name": self.channel_name,
                     },
                 )
 
                 await self.send(
-                    text_data=json.dumps({"action": "folder_created", "path": path})
+                    text_data=json.dumps(
+                        {"action": "folder_created", "path": path, "tree": tree}
+                    )
                 )
 
             elif action == "get_tree":
@@ -190,10 +215,11 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 )
 
                 await self.send(text_data=json.dumps({"action": "workspace_deleted"}))
+
             elif action == "reclone_project":
                 print("Re-cloning project...")
                 try:
-                    # 1. Fetch Repo URL
+
                     def get_repo_info_sync(workspace_id):
                         from tenants.models import Client
 
@@ -207,20 +233,25 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                     )
 
                     if repo_url:
-                        # 2. Get Token
                         import os
 
                         token = os.getenv("GITHUB_TOKEN")
-
-                        # 3. Clone (FileService.clone_repo handles cleanup)
                         await sync_to_async(self.file_service.clone_repo)(
                             repo_url, token
                         )
 
-                        # 4. Send new tree
                         tree = await sync_to_async(self.file_service.generate_tree)()
-                        await self.send(text_data=json.dumps(tree))
 
+                        # Broadcast to all clients
+                        await self.channel_layer.group_send(
+                            self.room_group_name,
+                            {
+                                "type": "project_recloned_event",
+                                "tree": tree,
+                            },
+                        )
+
+                        await self.send(text_data=json.dumps(tree))
                         await self.send(
                             text_data=json.dumps(
                                 {
@@ -323,10 +354,17 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
             print(f"Error in consumer: {e}")
             await self.send(text_data=json.dumps({"error": str(e)}))
 
+    # Event handlers for broadcasting to other clients
     async def file_updated_event(self, event):
         if self.channel_name != event.get("sender_channel_name"):
             await self.send(
-                text_data=json.dumps({"action": "file_updated", "path": event["path"]})
+                text_data=json.dumps(
+                    {
+                        "action": "file_updated",
+                        "path": event["path"],
+                        "content": event.get("content"),
+                    }
+                )
             )
 
     async def workspace_deleted_event(self, event):
@@ -335,7 +373,13 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
     async def file_deleted_event(self, event):
         if self.channel_name != event.get("sender_channel_name"):
             await self.send(
-                text_data=json.dumps({"action": "file_deleted", "path": event["path"]})
+                text_data=json.dumps(
+                    {
+                        "action": "file_deleted",
+                        "path": event["path"],
+                        "tree": event.get("tree"),
+                    }
+                )
             )
 
     async def file_renamed_event(self, event):
@@ -346,6 +390,7 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                         "action": "file_renamed",
                         "old_path": event["old_path"],
                         "new_path": event["new_path"],
+                        "tree": event.get("tree"),
                     }
                 )
             )
@@ -353,13 +398,38 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
     async def file_created_event(self, event):
         if self.channel_name != event.get("sender_channel_name"):
             await self.send(
-                text_data=json.dumps({"action": "file_created", "path": event["path"]})
+                text_data=json.dumps(
+                    {
+                        "action": "file_created",
+                        "path": event["path"],
+                        "tree": event.get("tree"),
+                    }
+                )
             )
 
     async def folder_created_event(self, event):
         if self.channel_name != event.get("sender_channel_name"):
             await self.send(
                 text_data=json.dumps(
-                    {"action": "folder_created", "path": event["path"]}
+                    {
+                        "action": "folder_created",
+                        "path": event["path"],
+                        "tree": event.get("tree"),
+                    }
                 )
             )
+
+    async def project_recloned_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {"action": "tree", "items": event["tree"].get("items", [])}
+            )
+        )
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "action": "notification",
+                    "message": "Project was re-cloned by another user",
+                }
+            )
+        )
