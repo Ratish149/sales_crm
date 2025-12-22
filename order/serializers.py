@@ -7,8 +7,8 @@ from django.db import connection, models, transaction
 from django.template.loader import render_to_string
 from rest_framework import serializers
 
+from customer.models import Customer
 from customer.serializers import CustomerSerializer
-from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
 from product.serializers import ProductOnlySerializer, ProductVariantSerializer
 from promo_code.models import PromoCode
@@ -97,9 +97,12 @@ class OrderSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         items_data = validated_data.pop("items", [])
 
-        # Try to find a Customer from the request token
-        customer = get_customer_from_request(request)
-        validated_data["customer"] = customer
+        # Handle Customer or Admin user
+        user = request.user
+        if user and user.is_authenticated and isinstance(user, Customer):
+            validated_data["customer"] = user
+        # If user is not Customer (e.g. Admin), we respect the 'customer' in validated_data
+        # or allow it to be None if logical.
 
         with transaction.atomic():
             order = Order.objects.create(**validated_data)

@@ -10,6 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
@@ -59,6 +60,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
     queryset = Order.objects.all().order_by("-created_at")
     serializer_class = OrderSerializer
     pagination_class = CustomPagination
+    authentication_classes = [JWTAuthentication, CustomerJWTAuthentication]
     filter_backends = [
         filters.SearchFilter,
         filters.OrderingFilter,
