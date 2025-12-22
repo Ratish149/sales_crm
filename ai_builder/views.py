@@ -113,3 +113,30 @@ class HealthCheckView(APIView):
 
     def get(self, request):
         return Response({"status": "ok", "service": "ai_builder"})
+
+
+from rest_framework import generics
+
+from .models import APIKey
+from .serializers import APIKeySerializer
+
+
+class APIKeyListCreateView(generics.ListCreateAPIView):
+    """
+    GET /ai-builder/apikeys/
+    POST /ai-builder/apikeys/
+    """
+
+    queryset = APIKey.objects.all()
+    serializer_class = APIKeySerializer
+
+
+class APIKeyDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    GET /ai-builder/apikeys/<id>/
+    PUT /ai-builder/apikeys/<id>/
+    DELETE /ai-builder/apikeys/<id>/
+    """
+
+    queryset = APIKey.objects.all()
+    serializer_class = APIKeySerializer
