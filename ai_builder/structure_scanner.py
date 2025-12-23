@@ -6,6 +6,7 @@ about the project framework, file organization, and key files.
 """
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -242,3 +243,66 @@ Project Structure:
 """
 
     return summary
+
+
+def generate_file_tree(root_path: str, include_content: bool = True) -> Dict[str, Any]:
+    """
+    Generate a file tree compatible with the frontend builder.
+    Include content by default.
+    """
+    base_path = Path(root_path)
+    if not base_path.exists():
+        return {"action": "tree", "items": []}
+
+    IGNORED_DIRS = {
+        ".git",
+        "node_modules",
+        "__pycache__",
+        ".next",
+        "venv",
+        ".venv",
+        "dist",
+        "build",
+        ".idea",
+        ".vscode",
+    }
+
+    def build_tree(directory):
+        items = []
+        try:
+            entries = sorted(
+                os.scandir(directory),
+                key=lambda e: (not e.is_dir(), e.name.lower()),
+            )
+            for entry in entries:
+                if entry.name in IGNORED_DIRS:
+                    continue
+                # Calculate relative path
+                try:
+                    rel_path = str(Path(entry.path).relative_to(base_path)).replace(
+                        "\\", "/"
+                    )
+                except ValueError:
+                    # Should not happen given we are scanning children
+                    continue
+
+                item = {"name": entry.name, "path": rel_path}
+                if entry.is_dir():
+                    item["type"] = "folder"
+                    item["children"] = build_tree(entry.path)
+                else:
+                    item["type"] = "file"
+                    if include_content:
+                        try:
+                            # Limit file size reading if necessary, but for now read all text
+                            with open(entry.path, "r", encoding="utf-8") as f:
+                                item["content"] = f.read()
+                        except (UnicodeDecodeError, IOError):
+                            # Skip binary files or unreadable files
+                            item["content"] = None
+                items.append(item)
+        except OSError:
+            pass
+        return items
+
+    return {"action": "tree", "items": build_tree(base_path)}

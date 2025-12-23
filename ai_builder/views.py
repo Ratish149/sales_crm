@@ -42,6 +42,8 @@ class RunAIBuilderView(APIView):
         project_path = request.data.get("project_path")
         print("Project path:", project_path)
         print("Prompt:", prompt)
+        print(f"DEBUG View: Full Request Data: {request.data}")
+        print(f"DEBUG View: extracted webhook_url: {request.data.get('webhook_url')}")
 
         # Validate
         if not prompt:
@@ -76,6 +78,7 @@ class RunAIBuilderView(APIView):
                 user_prompt=prompt,
                 project_root=project_root,
                 max_iterations=request.data.get("max_iterations", 10),
+                webhook_url=request.data.get("webhook_url"),  # Pass webhook_url
             )
 
             # Return result

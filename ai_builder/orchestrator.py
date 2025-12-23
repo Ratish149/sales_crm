@@ -1,10 +1,15 @@
+import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+import requests  # Added for webhook
 from dotenv import load_dotenv
 
 from .agent import GeminiAgent
-from .structure_scanner import get_project_structure_summary
+from .structure_scanner import (  # Added generate_file_tree
+    generate_file_tree,
+    get_project_structure_summary,
+)
 from .tools import (
     apply_changes,
     apply_multiple_changes,
@@ -54,11 +59,15 @@ def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def orchestrate_agent(
-    user_prompt: str, project_root: str, max_iterations: int = 5
+    user_prompt: str,
+    project_root: str,
+    max_iterations: int = 5,
+    webhook_url: Optional[str] = None,  # Added webhook_url
 ) -> Dict[str, Any]:
     """
     Orchestrates the AI agent in a SINGLE-SHOT workflow using MARKDOWN PARSING.
     """
+    print(f"DEBUG Orchestrator: func called with webhook_url={webhook_url}")
     try:
         if not os.path.exists(project_root):
             return {
@@ -76,7 +85,6 @@ def orchestrate_agent(
         try:
             project_summary = get_project_structure_summary(project_root)
             print(f"✅ Project scanned. Root: {project_root}")
-            print(f"Project Summary: {project_summary}")
         except Exception as e:
             print(f"⚠️ Structure scan failed: {e}")
             project_summary = f"Project Root: {project_root}"
@@ -98,11 +106,12 @@ Your goal is to build a modern, high-conversion UI by leveraging the EXACT exist
 2. **HOOKS & API FIRST**: Do NOT write raw `fetch` or `axios` calls. 
    - Analyze the `src/hooks/` and `src/services/` listed in the Project Structure.
    - Use these existing hooks for all data fetching.
-3. **NEXT.JS 14 PATTERNS**:
+3. **NEXT.JS 14 Patterns**:
    - Use `"use client"` ONLY if the component uses hooks (`useState`, `useEffect`) or browser APIs.
    - Use `next/link` for navigation and `next/image` for images.
 4. **TYPE SAFETY**: Use TypeScript strictly. Ensure all props are typed. If you use an existing hook, ensure you pass the correct parameters based on the project summary.
 5. **PATH ALIASES**: Always use `@/` for imports (e.g., `@/components/...`, `@/hooks/...`).
+6. **PRESERVE PROVIDERS**: When modifying `layout.tsx` or `providers.tsx`, YOU MUST PRESERVE all existing Context Providers (e.g., `QueryClientProvider`, `ThemeProvider`, `ReduxProvider`). Removing them breaks the app.
 
 ## DESIGN LANGUAGE (Aesthetic Guidelines)
 - **Style**: Modern "SaaS" or "Agency" look. Think Bento Grids, subtle glassmorphism, and large typography.
@@ -158,7 +167,11 @@ Ensure the component is "plug-and-play" with no missing imports. """
                 print("🧠 AI Response received. Parsing files...")
 
                 # Robust parsing strategy: Split by "## FILE:" marker
-                segments = content.split("## FILE:")
+                if "## FILE:" in content:
+                    segments = content.split("## FILE:")
+                else:
+                    # Fallback for when AI misses the ## prefix
+                    segments = content.split("FILE:")
 
                 found_files = False
 
@@ -230,6 +243,53 @@ Ensure the component is "plug-and-play" with no missing imports. """
                     print(
                         f"\n✅ Processing complete. Modified {len(files_modified)} files."
                     )
+
+                    tree_data = None
+                    # Generate tree with content (always generate for debug/webhook)
+                    try:
+                        tree_data = generate_file_tree(
+                            project_root, include_content=True
+                        )
+
+                        # Debug print: Show tree structure (hiding full content for logs, but showing length)
+                        def sanitize_debug_item(item):
+                            clean = item.copy()
+                            if "content" in clean:
+                                content_len = (
+                                    len(clean["content"]) if clean["content"] else 0
+                                )
+                                clean["content"] = f"<CONTENT: {content_len} chars>"
+                            if "children" in clean:
+                                clean["children"] = [
+                                    sanitize_debug_item(c) for c in clean["children"]
+                                ]
+                            return clean
+
+                        debug_tree = {
+                            "action": tree_data.get("action"),
+                            "items": [
+                                sanitize_debug_item(item)
+                                for item in tree_data.get("items", [])
+                            ],
+                        }
+                        print(
+                            f"🌳 Generated Tree Structure: {json.dumps(debug_tree, indent=2)}"
+                        )
+                    except Exception as tree_err:
+                        print(f"⚠️ Failed to generate/print tree: {tree_err}")
+                        tree_data = None
+
+                    # 🔔 SEND WEBHOOK IF FILES MODIFIED
+                    if webhook_url and tree_data:
+                        try:
+                            print(f"📣 Sending file tree update to {webhook_url}...")
+
+                            # Send via POST
+                            requests.post(webhook_url, json=tree_data, timeout=5)
+                            print("✅ Webhook sent successfully.")
+                        except Exception as e:
+                            print(f"⚠️ Webhook failed: {e}")
+
                     break
                 else:
                     print("⚠️ No file blocks found in AI response.")
