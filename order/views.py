@@ -16,7 +16,7 @@ from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 
 from .models import Order
-from .serializers import OrderListSerializer, OrderSerializer
+from .serializers import AdminOrderSerializer, OrderListSerializer, OrderSerializer
 from .utils import send_order_to_dash
 
 logger = logging.getLogger(__name__)
@@ -76,9 +76,9 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
         return OrderSerializer
 
 
-class AdminOrderListAPIView(generics.ListAPIView):
+class AdminOrderListAPIView(generics.ListCreateAPIView):
     queryset = Order.objects.all().order_by("-created_at")
-    serializer_class = OrderListSerializer
+    serializer_class = AdminOrderSerializer
     pagination_class = CustomPagination
     filter_backends = [
         filters.SearchFilter,
@@ -89,6 +89,11 @@ class AdminOrderListAPIView(generics.ListAPIView):
     search_fields = ["customer_name", "order_number", "customer_phone"]
     ordering_fields = ["created_at", "total_amount"]
     filterset_class = OrderFilter
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return OrderListSerializer
+        return AdminOrderSerializer
 
 
 class MyOrderListAPIView(generics.ListAPIView):
