@@ -14,6 +14,37 @@ EXEMPT_PATHS = [
     "/api/upgrade",
 ]
 
+# Tenant-specific URL patterns that require a tenant subdomain
+TENANT_REQUIRED_PATTERNS = [
+    "/api/admin-order/",
+    "/api/order/",
+    "/api/product/",
+    "/api/customer/",
+    "/api/website/",
+    "/api/blog/",
+    "/api/whatsapp/",
+    "/api/issue-tracking/",
+    "/api/advertisement/",
+    "/api/contact/",
+    "/api/testimonial/",
+    "/api/faq/",
+    "/api/team/",
+    "/api/portfolio/",
+    "/api/service/",
+    "/api/payment-gateway/",
+    "/api/logistics/",
+    "/api/promo-code/",
+    "/api/delivery-charge/",
+    "/api/google-analytic/",
+    "/api/facebook/",
+    "/api/our-client/",
+    "/api/appointment/",
+    "/api/videos/",
+    "/api/our-pricing/",
+    "/api/collection/",
+    "/api/builder/",
+]
+
 RATE_LIMIT = (
     3000  # requests per minute (50 req/sec) - suitable for active website building
 )
@@ -21,6 +52,52 @@ RATE_LIMIT = (
 RATE_LIMIT_BLOCK_SECONDS = (
     3600  # 1 hour block (allows recovery from accidental triggers)
 )
+
+
+class TenantValidationMiddleware(MiddlewareMixin):
+    """
+    Validates that tenant-specific endpoints are accessed with a proper tenant subdomain.
+    Returns a proper error message instead of allowing database errors when accessing
+    tenant apps from the public schema.
+    """
+
+    def process_request(self, request):
+        tenant = getattr(request, "tenant", None)
+
+        # If no tenant is set, skip validation
+        if not tenant:
+            return None
+
+        # Check if we're in the public schema
+        is_public_schema = tenant.schema_name == "public"
+
+        # If not in public schema, allow the request
+        if not is_public_schema:
+            return None
+
+        # Check if the requested path requires a tenant context
+        path = request.path.lower()
+        requires_tenant = any(
+            path.startswith(pattern.lower()) for pattern in TENANT_REQUIRED_PATTERNS
+        )
+
+        if requires_tenant:
+            return JsonResponse(
+                {
+                    "status": 400,
+                    "error": {
+                        "code": 400,
+                        "message": "Invalid tenant. Please access this endpoint using a tenant subdomain.",
+                        "params": {
+                            "requested_path": request.path,
+                        },
+                    },
+                    "success": False,
+                },
+                status=400,
+            )
+
+        return None
 
 
 class RateLimitMiddleware(MiddlewareMixin):

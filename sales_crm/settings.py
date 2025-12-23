@@ -118,6 +118,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
+    "sales_crm.middleware.TenantValidationMiddleware",  # Validate tenant context
     "sales_crm.middleware.RateLimitMiddleware",
     "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
