@@ -53,6 +53,7 @@ class CollectionSerializer(serializers.ModelSerializer):
             "image",
             "json",
             "rich_text",
+            "model",
         ]
 
         # Reserved field names (default fields)
@@ -96,6 +97,18 @@ class CollectionSerializer(serializers.ModelSerializer):
             # Set default for 'searchable' if not provided
             if "searchable" not in field:
                 field["searchable"] = False
+
+            # Set default for 'model' if not provided
+            if "model" not in field:
+                field["model"] = None
+
+            # Check if referenced model exists
+            model_ref = field.get("model")
+            if model_ref:
+                if not Collection.objects.filter(id=model_ref).exists():
+                    raise serializers.ValidationError(
+                        f"Referenced collection with ID '{model_ref}' does not exist."
+                    )
 
         return value
 

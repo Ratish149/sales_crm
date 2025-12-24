@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
 
@@ -46,20 +47,37 @@ class Collection(models.Model):
                     "required": True,
                     "filterable": True,
                     "searchable": True,
+                    "model": None,
                 },
                 "slug": {
                     "type": "text",
                     "required": False,
                     "filterable": True,
                     "searchable": True,
+                    "model": None,
                 },
                 "content": {
                     "type": "text",
                     "required": False,
                     "filterable": False,
                     "searchable": True,
+                    "model": None,
                 },
             }
+
+        # Validate model references in default_fields and fields
+        all_configs = list(self.default_fields.values())
+        if self.fields:
+            all_configs.extend(self.fields)
+
+        for config in all_configs:
+            model_ref = config.get("model")
+            if model_ref:
+                # Check if the referenced collection actually exists
+                if not Collection.objects.filter(id=model_ref).exists():
+                    raise ValidationError(
+                        f"Referenced collection with ID '{model_ref}' does not exist."
+                    )
 
         super().save(*args, **kwargs)
 
@@ -76,6 +94,7 @@ class Collection(models.Model):
                     "required": field_config.get("required", False),
                     "filterable": field_config.get("filterable", False),
                     "searchable": field_config.get("searchable", False),
+                    "model": field_config.get("model", None),
                     "is_default": True,
                 }
             )
