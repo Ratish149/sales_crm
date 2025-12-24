@@ -191,6 +191,40 @@ class FileService:
         os.rename(old_full_path, new_full_path)
         return True
 
+    def upload_file(self, path, content):
+        """
+        Uploads a file to the workspace.
+        If the path starts with 'public/', it allows saving there.
+        Content is expected to be base64 encoded string.
+        """
+        import base64
+
+        # For now, we force uploads to go to 'public/' if not already specified,
+        # OR we just blindly trust the path but ensure it safely resolves inside workspace.
+        # The prompt said "save to its tenant public folder".
+        # So we should enforce 'public/' prefix or directory.
+
+        if not path.startswith("public/"):
+            path = f"public/{path}"
+
+        full_path = self._get_safe_path(path)
+        full_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            # Decode base64 content
+            # The content might look like "data:image/png;base64,iVBORw0KGgo..."
+            if "," in content:
+                content = content.split(",")[1]
+
+            decoded_content = base64.b64decode(content)
+
+            with open(full_path, "wb") as f:
+                f.write(decoded_content)
+            return True
+        except Exception as e:
+            print(f"FileService: Upload failed: {e}")
+            raise Exception(f"Upload failed: {str(e)}")
+
     def generate_tree(self, include_content=True):
         if not self.base_path.exists():
             return {"action": "tree", "items": []}

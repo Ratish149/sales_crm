@@ -189,6 +189,33 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                     )
                 )
 
+            elif action == "upload_file":
+                path = data.get("path")
+                content = data.get("content")  # Expecting base64 string
+                print(f"Uploading file: {path}")
+
+                await sync_to_async(self.file_service.upload_file)(path, content)
+
+                # Send updated tree to all clients
+                tree = await sync_to_async(self.file_service.generate_tree)()
+
+                # We can reuse file_created_event as it effectively creates a file
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "file_created_event",
+                        "path": path,
+                        "tree": tree,
+                        "sender_channel_name": self.channel_name,
+                    },
+                )
+
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "file_uploaded", "path": path, "tree": tree}
+                    )
+                )
+
             elif action == "get_tree":
                 print("Generating tree...")
                 tree = await sync_to_async(self.file_service.generate_tree)()
