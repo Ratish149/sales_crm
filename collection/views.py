@@ -59,12 +59,18 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
 
         for field_def in filterable_fields:
             field_name = field_def["name"]
+            field_type = field_def["type"]
             filter_value = self.request.query_params.get(field_name)
 
             if filter_value is not None:
-                # Filter by exact match in JSON data field
-                # Using JSONField lookup: data__field_name
-                filter_key = f"data__{field_name}"
+                # Determine filter lookup based on field type
+                # For text-based fields and model (which stores strings), use iexact
+                if field_type in ["text", "slug", "email", "url", "model"]:
+                    filter_key = f"data__{field_name}__iexact"
+                else:
+                    # For numbers, booleans, dates, etc., use exact match
+                    filter_key = f"data__{field_name}"
+
                 queryset = queryset.filter(**{filter_key: filter_value})
 
         # Apply search across all searchable fields
