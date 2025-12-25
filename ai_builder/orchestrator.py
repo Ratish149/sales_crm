@@ -1,4 +1,3 @@
-import json
 import os
 from typing import Any, Dict, Optional
 
@@ -117,6 +116,34 @@ Your goal is to build a modern, high-conversion UI by leveraging the EXACT exist
 - **Style**: Modern "SaaS" or "Agency" look. Think Bento Grids, subtle glassmorphism, and large typography.
 - **Tailwind**: Use `tracking-tight` for headers. Use `py-24` or `py-32` for section spacing to give the design "room to breathe."
 - **Color Palette**: Stick to the primary/secondary CSS variables defined in the project.
+
+## IMAGE HANDLING
+- **images.json**: You must identify all static images required by the design (e.g., hero backgrounds, feature icons, placeholders).
+- **Structure**: Create a file named `images.json` in the root directory. This file must map a unique semantic ID for each image to an EMPTY STRING initially.
+- **Example content for images.json**:
+  ```json
+  {{
+    "hero_main_image": "",
+    "feature_card_1": "",
+    "logo_main": ""
+  }}
+  ```
+- **Component Usage**: 
+  - **ALWAYS use ImageWithFallback component** instead of next/image directly.
+  - Import the component: `import ImageWithFallback from "@/components/common/ImageWithFallback";`
+  - Import the images configuration: `import images from "@/../images.json";`
+  - Reference images by ID: `const heroImage = images.hero_main_image || "/placeholder.png";`
+  - Use ImageWithFallback in your components with the fallbackSrc prop:
+    ```tsx
+    <ImageWithFallback 
+      src={{heroImage}} 
+      fallbackSrc="/placeholder.png"
+      className="..."
+    />
+    ```
+  - The ImageWithFallback component extends Next.js Image props and adds automatic fallback handling.
+  - NEVER use `<Image>` from next/image directly - ALWAYS use `<ImageWithFallback>` for all images.
+
 
 ## OUTPUT FORMAT - FOLLOW EXACTLY
 You must output the code in the following format for the parser to work. No conversational text.
@@ -272,9 +299,6 @@ Ensure the component is "plug-and-play" with no missing imports. """
                                 for item in tree_data.get("items", [])
                             ],
                         }
-                        print(
-                            f"🌳 Generated Tree Structure: {json.dumps(debug_tree, indent=2)}"
-                        )
                     except Exception as tree_err:
                         print(f"⚠️ Failed to generate/print tree: {tree_err}")
                         tree_data = None

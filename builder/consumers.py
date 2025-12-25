@@ -196,6 +196,13 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
 
                 await sync_to_async(self.file_service.upload_file)(path, content)
 
+                image_id = data.get("image_id")
+                if image_id:
+                    print(f"Linking image {image_id} to {path}")
+                    await sync_to_async(self.file_service.update_image_map)(
+                        image_id, path
+                    )
+
                 # Send updated tree to all clients
                 tree = await sync_to_async(self.file_service.generate_tree)()
 

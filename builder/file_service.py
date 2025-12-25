@@ -274,3 +274,30 @@ class FileService:
             return items
 
         return {"action": "tree", "items": build_tree(self.base_path)}
+
+    def update_image_map(self, image_id, relative_path):
+        """
+        Updates the images.json file with a new image mapping.
+        """
+        import json
+
+        images_json_path = self.base_path / "images.json"
+
+        data = {}
+        if images_json_path.exists():
+            try:
+                with open(images_json_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception as e:
+                print(f"FileService: Error reading images.json: {e}")
+                data = {}
+
+        data[image_id] = relative_path
+
+        try:
+            with open(images_json_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"FileService: Error writing images.json: {e}")
+            raise Exception(f"Failed to update image map: {str(e)}")
