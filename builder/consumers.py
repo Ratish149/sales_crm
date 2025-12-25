@@ -467,3 +467,14 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 }
             )
         )
+
+    async def image_map_updated_event(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "action": "image_map_updated",
+                    "tree": event.get("tree"),
+                    "data": event.get("data"),
+                }
+            )
+        )
