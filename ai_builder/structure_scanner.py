@@ -7,6 +7,7 @@ about the project framework, file organization, and key files.
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -305,4 +306,56 @@ def generate_file_tree(root_path: str, include_content: bool = True) -> Dict[str
             pass
         return items
 
-    return {"action": "tree", "items": build_tree(base_path)}
+
+def analyze_project_resources(project_root: str) -> str:
+    """
+    Scans src/hooks and src/services/api to find available tools.
+    Returns a formatted string for the LLM prompt.
+    """
+    root_path = Path(project_root)
+    # Handle template-nextjs subdirectory if it exists (common in this structure)
+    if (root_path / "template-nextjs").exists():
+        src_path = root_path / "template-nextjs" / "src"
+    else:
+        src_path = root_path / "src"
+
+    hooks_path = src_path / "hooks"
+    services_path = src_path / "services" / "api"
+
+    summary_lines = ["## AVAILABLE PROJECT RESOURCES (Use these specific tools)"]
+
+    # Scan Hooks
+    if hooks_path.exists():
+        summary_lines.append("\n### Data Fetching Hooks (src/hooks/):")
+        try:
+            for item in sorted(hooks_path.glob("*.ts*")):
+                if item.is_file():
+                    try:
+                        with open(item, "r", encoding="utf-8") as f:
+                            content = f.read()
+                            # Find exported hooks
+                            matches = re.findall(
+                                r"export\s+(?:const|function)\s+(use[A-Z]\w+)", content
+                            )
+                            if matches:
+                                # Clean duplicates
+                                unique_hooks = sorted(list(set(matches)))
+                                summary_lines.append(
+                                    f"- **{item.name}**: `{', '.join(unique_hooks)}`"
+                                )
+                    except Exception:
+                        pass
+        except Exception as e:
+            summary_lines.append(f"Error scanning hooks: {e}")
+
+    # Scan Services
+    if services_path.exists():
+        summary_lines.append("\n### API Services (src/services/api/):")
+        try:
+            for item in sorted(services_path.glob("*.ts")):
+                if item.is_file():
+                    summary_lines.append(f"- `{item.name}`")
+        except Exception:
+            pass
+
+    return "\n".join(summary_lines)
