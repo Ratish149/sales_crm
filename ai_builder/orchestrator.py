@@ -330,54 +330,86 @@ export default async function ProductList() {{
 5. **PATH ALIASES**: Use `@/` for all imports
 6. **PROVIDER SAFETY**: Never remove QueryProvider or other context providers
 
-## IMAGE HANDLING PROTOCOL
+### 7. DATA HANDLING & ERROR PREVENTION (CRITICAL)
 
-### Rule 1: STATIC IMAGES (Hero, About Us, UI Decorators)
-**Requirement**: Use `ImageWithFallback` + `images.json`.
-1. **Selection**: If specific asset is missing, choose a high-quality, context-appropriate image from **Unsplash** (e.g., `https://images.unsplash.com/photo-...`). Do NOT use solid colors or empty placeholders.
-2. **Update images.json**: Add the Unsplash URL as the value for the new key in `images.json`.
-3. **Implementation**:
-```tsx
-"use client";
-import ImageWithFallback from "@/components/common/ImageWithFallback";
-import images from "@/../images.json";
-
-export default function Hero() {{
-  // The 'hero_main' key should be added to images.json with a valid Unsplash URL
-  const imageSrc = images.hero_main || "/fallback.jpg";
-  return (
-    <ImageWithFallback
-      id="hero-main"
-      src={{imageSrc}}
-      fallbackSrc={{imageSrc}}
-      alt="Hero Background"
-      width={{1200}}
-      height={{600}}
-    />
-  );
+#### A. API Response Structure for Lists
+**ALL** list endpoints (products, orders, categories, etc.) return a **paginated object**, NOT an array.
+**Response Shape**:
+```typescript
+{{
+  results: ItemType[]; // The actual data array
+  count: number;       // Total items
+  pagination?: {{ ... }}; // Optional helper
 }}
 ```
 
-### Rule 2: DYNAMIC IMAGES (Products, Blogs, API Data)
+**CORRECT Usage (Hybrid Pattern)**:
+```typescript
+// ✅ ALWAYS use this safe pattern to handle both pagination and flat arrays
+const items = data?.results || (Array.isArray(data) ? data : []);
+
+{{items?.map((item) => (
+  <Card key={{item.id}} />
+))}}
+```
+
+#### B. DATA FETCHING STRICTNESS (NO DUMMY DATA)
+1. **REAL DATA ONLY**: You must utilization existing hooks (e.g., `useProduct`, `useOrders`).
+   - ❌ **FORBIDDEN**: `const dummyProducts = [...]`
+   - ❌ **FORBIDDEN**: Commenting out `useProduct` to use static data.
+   - ✅ **REQUIRED**: `const {{ data, isLoading }} = useProduct();`
+2. **HOOKS PRIORITY**: Check `src/hooks/` folder. If a hook exists for the entity, you **MUST** use it.
+3. **SERVER COMPONENTS**: When fetching data in server components (e.g. `page.tsx`), check `src/services/api/` for the correct function.
+   - ❌ **FORBIDDEN**: Guessing functions like `getProductBySlug`, `getById`.
+   - ✅ **REQUIRED**: Read the "API Services" section to find the EXACT export, e.g., `productApi.getProduct(slug)`.
+4.  **HANDLING LOADING**: Always show a loading skeleton or spinner while fetching.
+
+#### C. TYPE SAFETY & CASTING (PREVENT CRASHES)
+1. **CHECK TYPES FIRST**: **EXTREMELY IMPORTANT**: Look at the "Project Types" section above. You MUST use the EXACT field names defined there.
+   - ❌ **Wrong**: `image_url` (if not in type), `img`, `picture`
+   - ✅ **Correct**: `thumbnail_image` (if in type), `slug`, `title`
+2. **SAFE CASTING**: API data is often loose (strings instead of numbers).
+   - **Prices**: `Number(product.price || 0).toFixed(2)` (Fixes "toFixed is not a function")
+   - **Dates**: `new Date(order.created_at).toLocaleDateString()`
+3. **OPTIONAL CHAINING**: usage `item?.property` is mandatory for nested objects.
+
+### 8. AUTOMATIC DETAIL PAGE CREATION
+When the user asks for a list page (e.g., "products", "services", "blogs"), YOU SHOULD ALSO:
+1.  **Check for defined types**: Look at `src/types/` for the entity.
+2.  **Create/Update the Detail Page**: If it's a list, ensure there is a corresponding dynamic route (e.g., `src/app/services/[slug]/page.tsx`).
+3.  **Link them**: Ensure the list items link to the detail page.
+4.  **Use Slug**: Always use `slug` for routing if available in the type definition.
+
+## IMAGE HANDLING PROTOCOL
+
+### Rule 1: STATIC IMAGES (Home, About Us, UI Decorators)
+**Requirement**: Use `ImageWithFallback` + `images.json`.
+-- **CONTEXT**: Only for static content that is hardcoded (Banner, Hero, promo sections).
+-- **Implementation**:
+```tsx
+import ImageWithFallback from "@/components/common/ImageWithFallback";
+import images from "@/../images.json";
+// ...
+<ImageWithFallback id="hero-main" src={{images.hero_main}} ... />
+```
+
+### Rule 2: DYNAMIC IMAGES (Products, Blogs, Listings)
 **Requirement**: Use standard `next/image`.
-- **Do NOT** add these to `images.json`.
-- **Do NOT** use `ImageWithFallback` (unless specifically needed for error handling, but usually standard Image is preferred for lists).
-- **Implementation**:
+-- **CONTEXT**: For ANY data coming from an API (Product lists, Blog posts, User avatars).
+-- **RESTRICTION**: Do **NOT** use `ImageWithFallback` for dynamic data.
+-- **PROPERTY**: Prioritize `thumbnail_image` (standard in this project).
+-- **Implementation**:
 ```tsx
 import Image from "next/image";
-
-export default function ProductCard({{ product }}) {{
-  return (
-    <div className="relative h-64 w-full">
-      <Image
-        src={{product.image_url}}
-        alt={{product.name}}
-        fill
-        className="object-cover"
-      />
-    </div>
-  );
-}}
+// ...
+<div className="relative h-64 w-full">
+  <Image
+    src={{product.thumbnail_image || "/placeholder.png"}} // Prefer thumbnail_image
+    alt={{product.name}}
+    fill
+    className="object-cover"
+  />
+</div>
 ```
 
 ## OUTPUT FORMAT SPECIFICATION
