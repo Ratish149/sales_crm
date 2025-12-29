@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Page, PageComponent, Theme
+from .models import Page, PageComponent, SiteConfig, Theme
 
 
 @admin.register(Page)
@@ -25,3 +25,4 @@ class PageComponentAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Theme)
+admin.site.register(SiteConfig)

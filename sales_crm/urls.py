@@ -66,6 +66,7 @@ urlpatterns = [
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema")),
     path("builder/", include("builder.urls")),
     path("ai-builder/", include("ai_builder.urls")),  # AI Builder endpoints
+    path("web-builder/", include("web_builder.urls")),
     path("api/project-runner/", include("project_runner.urls")),
 ]
 

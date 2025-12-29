@@ -74,6 +74,7 @@ SHARED_APPS = [
     "support",
     "pricing",
     "ai_builder",  # AI Builder app
+    "web_builder",
     "project_runner",
 ]
 

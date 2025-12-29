@@ -478,3 +478,21 @@ class LiveEditConsumer(AsyncWebsocketConsumer):
                 }
             )
         )
+
+    async def ai_notification_event(self, event):
+        """
+        Handles AI status updates broadcasted to the group.
+        """
+        # Send message to WebSocket
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "action": "ai_status",
+                    "message": event["message"],
+                    "status_type": event.get(
+                        "status_type", "info"
+                    ),  # info, success, error, loading
+                    "timestamp": event.get("timestamp"),
+                }
+            )
+        )
