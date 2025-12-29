@@ -13,10 +13,13 @@ from .views import (
     ResetPasswordConfirmAPIView,
     StoreProfileDetailView,
     StoreProfileView,
+    TemplateAccountDetailView,
+    TemplateAccountListCreateView,
     UserDeleteAPIView,
     UserListDestroyAPIView,
     UserUpdateAPIView,
     UserWithStoresListAPIView,
+    UseTemplateView,
 )
 
 urlpatterns = [
@@ -60,4 +63,15 @@ urlpatterns = [
         ResetPasswordConfirmAPIView.as_view(),
         name="reset-password-confirm",
     ),
+    path(
+        "templates/",
+        TemplateAccountListCreateView.as_view(),
+        name="template-list-create",
+    ),
+    path(
+        "templates/<int:pk>/",
+        TemplateAccountDetailView.as_view(),
+        name="template-detail",
+    ),
+    path("templates/use/", UseTemplateView.as_view(), name="use-template"),
 ]

@@ -122,3 +122,25 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"Invitation for {self.email} to {self.store.store_name}"
+
+
+class TemplateAccount(models.Model):
+    TEMPLATE_ACCOUNT_TYPE = (
+        ("ecommerce", "ecommerce"),
+        ("service", "service"),
+    )
+    name = models.CharField(max_length=255, default="Default Template")
+    template_type = models.CharField(
+        max_length=10, choices=TEMPLATE_ACCOUNT_TYPE, default="ecommerce"
+    )
+    github_url = models.URLField()
+    active = models.BooleanField(default=True)
+    thumbnail_image = models.FileField(
+        upload_to="template_thumbnails/", blank=True, null=True
+    )
+    alt_description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name

@@ -62,14 +62,14 @@ class GitHubService:
         return None
 
     @staticmethod
-    def initialize_nextjs_project(repo_url, workspace_id):
+    def initialize_nextjs_project(repo_url, workspace_id, template_url=None):
         """
         Clones a template repo, updates package.json, and pushes to the new repo.
         """
         token = settings.GITHUB_TOKEN
-        # Use a default template if not provided in environment
-        template_repo_url = os.getenv(
-            "TEMPLATE_REPO_URL", "https://github.com/nepdora-nepal/template.git"
+        # Use a default template if not provided
+        template_repo_url = template_url or os.getenv(
+            "TEMPLATE_REPO_URL", "https://github.com/nepdora-nepal/template-nextjs.git"
         )
 
         if not token or not repo_url:

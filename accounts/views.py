@@ -45,14 +45,16 @@ from sales_crm.utils.error_handler import (
     not_found,
     server_error,
 )
+from sales_crm.utils.github_service import GitHubService
 from tenants.models import Client, Domain
 
-from .models import CustomUser, Invitation, StoreProfile
+from .models import CustomUser, Invitation, StoreProfile, TemplateAccount
 from .serializers import (
     AcceptInvitationSerializer,
     CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
+    TemplateAccountSerializer,
     UserWithStoresSerializer,
 )
 
@@ -174,32 +176,6 @@ class CustomSignupView(APIView):
                         tenant=tenant,
                         is_primary=True,
                     )
-
-                    # Initialize GitHub App
-                    from sales_crm.utils.github_service import GitHubService
-
-                    repo_name = f"{storeName}-builder"
-                    repo_url = GitHubService.create_repo(
-                        repo_name, description=f"Website for {store_name}"
-                    )
-
-                    if not repo_url:
-                        raise Exception(
-                            "Failed to create GitHub repository. Please check your Global configuration."
-                        )
-
-                    tenant.repo_url = repo_url
-                    tenant.save()
-
-                    # Initialize nextjs project
-                    init_success = GitHubService.initialize_nextjs_project(
-                        repo_url, storeName
-                    )
-
-                    if not init_success:
-                        raise Exception(
-                            "Failed to initialize Next.js project structure."
-                        )
 
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:
@@ -777,3 +753,68 @@ class ResetPasswordConfirmAPIView(APIView):
             {"status": 200, "message": "Password has been reset successfully"},
             status=status.HTTP_200_OK,
         )
+
+
+class TemplateAccountListCreateView(generics.ListCreateAPIView):
+    queryset = TemplateAccount.objects.all()
+    serializer_class = TemplateAccountSerializer
+
+
+class TemplateAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = TemplateAccount.objects.all()
+    serializer_class = TemplateAccountSerializer
+
+
+class UseTemplateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        template_id = request.data.get("template_id")
+        store = request.user.owned_stores.first()
+        if not store:
+            return bad_request("User does not own a store.")
+
+        repo_name = slugify(store.store_name)
+        github_token = os.getenv("GITHUB_TOKEN")
+
+        if not github_token:
+            return server_error("GitHub token not configured")
+
+        if template_id:
+            try:
+                template = TemplateAccount.objects.get(id=template_id)
+                source_url = template.github_url
+            except TemplateAccount.DoesNotExist:
+                return not_found("Template not found")
+        else:
+            source_url = os.getenv("TEMPLATE_REPO_URL")
+            if not source_url:
+                return server_error("No default template configured")
+
+        # 1. Create Repo on GitHub using GitHubService
+        # It handles unique naming internally now
+        new_repo_url = GitHubService.create_repo(repo_name)
+
+        if not new_repo_url:
+            return server_error("Failed to create repository on GitHub.")
+
+        # Extract actual created name from URL if needed.
+        # Assuming URL is like https://github.com/user/repo-name.git
+        final_repo_name = new_repo_url.split("/")[-1].replace(".git", "")
+
+        # 2. Clone, Init, Push using GitHubService
+        success = GitHubService.initialize_nextjs_project(
+            new_repo_url, final_repo_name, template_url=source_url
+        )
+
+        if success:
+            return Response(
+                {
+                    "message": "Template used successfully",
+                    "repo_url": new_repo_url,
+                    "repo_name": final_repo_name,
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            return server_error("Failed to initialize project from template.")
