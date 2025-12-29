@@ -184,7 +184,7 @@ CACHES = {
 #     }
 # }
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -196,9 +196,9 @@ CACHES = {
             "options": "-c search_path=public"  # important for first migration
         },
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -208,7 +208,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -520,41 +520,3 @@ CELERY_TASK_ALWAYS_EAGER = False  # Set True only for local debugging
 # Optional: avoid running multiple instances of same task simultaneously
 CELERY_TASK_ACKS_LATE = True
 CELERYD_MAX_TASKS_PER_CHILD = 50
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "{levelname} {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "level": "INFO",
-            "class": "logging.StreamHandler",
-            "formatter": "simple",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "daphne": {
-            "handlers": ["console"],
-            "level": "INFO",  # Change to WARNING to suppress INFO logs if needed
-            "propagate": False,
-        },
-    },
-}

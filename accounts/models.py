@@ -130,10 +130,12 @@ class TemplateAccount(models.Model):
         ("service", "service"),
     )
     name = models.CharField(max_length=255, default="Default Template")
+    description = models.TextField(blank=True, null=True)
     template_type = models.CharField(
         max_length=10, choices=TEMPLATE_ACCOUNT_TYPE, default="ecommerce"
     )
     github_url = models.URLField()
+    preview_url = models.URLField(null=True, blank=True)
     active = models.BooleanField(default=True)
     thumbnail_image = models.FileField(
         upload_to="template_thumbnails/", blank=True, null=True
