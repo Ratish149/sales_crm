@@ -69,6 +69,9 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
             "template_subcategory",
             "template_subcategory_id",
             "domains",
+            "description",
+            "repo_url",
+            "preview_url",
         ]
 
     def get_domains(self, obj):

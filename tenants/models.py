@@ -74,6 +74,8 @@ class Client(TenantMixin):
         related_name="clients",
     )
     repo_url = models.URLField(max_length=255, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    preview_url = models.URLField(max_length=255, null=True, blank=True)
 
     auto_create_schema = True  # Required for automatic schema creation
 

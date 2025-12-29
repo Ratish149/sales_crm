@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CustomUser, Invitation, StoreProfile, TemplateAccount
+from .models import CustomUser, Invitation, StoreProfile
 
 # from unfold.admin import ModelAdmin
 # Register your models here.
@@ -26,8 +26,3 @@ class StoreProfileAdmin(admin.ModelAdmin):
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin):
     list_display = ("email", "store", "role", "accepted", "created_at")
-
-
-@admin.register(TemplateAccount)
-class TemplateAccountAdmin(admin.ModelAdmin):
-    list_display = ("name", "created_at")

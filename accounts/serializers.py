@@ -5,7 +5,7 @@ import cloudinary.uploader
 from dotenv import load_dotenv
 from rest_framework import serializers
 
-from .models import CustomUser, Invitation, StoreProfile, TemplateAccount
+from .models import CustomUser, Invitation, StoreProfile
 
 load_dotenv()
 
@@ -184,9 +184,3 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
             return user.client.schema_name
         except AttributeError:
             return None
-
-
-class TemplateAccountSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TemplateAccount
-        fields = "__all__"

@@ -48,13 +48,12 @@ from sales_crm.utils.error_handler import (
 from sales_crm.utils.github_service import GitHubService
 from tenants.models import Client, Domain
 
-from .models import CustomUser, Invitation, StoreProfile, TemplateAccount
+from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
     AcceptInvitationSerializer,
     CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
-    TemplateAccountSerializer,
     UserWithStoresSerializer,
 )
 
@@ -188,6 +187,33 @@ class CustomSignupView(APIView):
                             tenant.pricing_plan = premium_plan
                             tenant.paid_until = None
                             tenant.save()
+
+                        # Create GitHub repository for template account
+                        repo_name = storeName
+                        description = f"Template: {store_name}"
+                        repo_url = GitHubService.create_repo(repo_name, description)
+
+                        if repo_url:
+                            # Update tenant with repo URL and description
+                            tenant.repo_url = repo_url
+                            tenant.description = description
+                            tenant.save(update_fields=["repo_url", "description"])
+
+                            # Initialize Next.js project from template
+                            template_repo_url = os.getenv("TEMPLATE_REPO_URL")
+                            GitHubService.initialize_nextjs_project(
+                                repo_url,
+                                tenant.schema_name,
+                                template_url=template_repo_url,
+                            )
+
+                            print(
+                                f"✅ Created template account '{store_name}' with GitHub repo: {repo_url}"
+                            )
+                        else:
+                            print(
+                                f"⚠️ Template account '{store_name}' created but GitHub repo creation failed"
+                            )
 
             # Send verification email (outside atomic? no, only if success)
             try:
@@ -755,16 +781,6 @@ class ResetPasswordConfirmAPIView(APIView):
         )
 
 
-class TemplateAccountListCreateView(generics.ListCreateAPIView):
-    queryset = TemplateAccount.objects.all()
-    serializer_class = TemplateAccountSerializer
-
-
-class TemplateAccountDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = TemplateAccount.objects.all()
-    serializer_class = TemplateAccountSerializer
-
-
 class UseTemplateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -782,9 +798,9 @@ class UseTemplateView(APIView):
 
         if template_id:
             try:
-                template = TemplateAccount.objects.get(id=template_id)
-                source_url = template.github_url
-            except TemplateAccount.DoesNotExist:
+                template = Client.objects.get(id=template_id)
+                source_url = template.repo_url
+            except Client.DoesNotExist:
                 return not_found("Template not found")
         else:
             source_url = os.getenv("TEMPLATE_REPO_URL")
