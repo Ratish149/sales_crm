@@ -174,13 +174,13 @@ CRITICAL RULES FOR IMAGES:
    Example `src/content/images.json`:
    ```json
    {{
-     "hero_bg": "/images/hero-bg.jpg",
-     "feature_icon_1": "/images/icon-1.png"
+     "hero_bg": "/hero-bg.jpg",
+     "feature_icon_1": "/icon-1.png"
    }}
    ```
 3. **IMPORT & USE**: Import the JSON and use the key:
    `import images from "@/content/images.json";`
-   `<Image src={{images.hero_bg}} ... />`
+   `<Image id="hero_bg" src={{images.hero_bg}} ... />`
 4. If `src/content/images.json` does not exist, CREATE IT.
 
 OUTPUT FORMAT:
