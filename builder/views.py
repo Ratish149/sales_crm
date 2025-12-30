@@ -1,3 +1,4 @@
+import json
 import mimetypes
 import os
 from pathlib import Path
@@ -7,6 +8,7 @@ from django.http import FileResponse, Http404
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -272,6 +274,108 @@ class TenantImageUploadAPIView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"Failed to upload image: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class UpdateTenantJsonAPIView(APIView):
+    """
+    API to update the tenantName in tenant.json file.
+    URL: /api/builder/use-data/
+    Method: POST
+    Body: {}
+    Requires: JWT authentication with schema_name in token
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            user = request.user
+            # Access the Client model via the reverse OneToOne relationship 'client'
+            # This assumes the user is the owner of the client
+            client = getattr(user, "client", None)
+
+            if not client:
+                return Response(
+                    {"error": "User is not associated with any tenant/client"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # The display name of the tenant
+            new_tenant_name = client.name
+            # The schema name (folder name)
+            schema_name = client.schema_name
+
+            print("new_tenant_name", new_tenant_name)
+            print("schema_name", schema_name)
+
+            # Path to tenant.json file
+            # Use schema_name for the folder path, as that is the unique identifier
+            tenant_json_path = (
+                settings.MEDIA_ROOT / "workspaces" / str(schema_name) / "tenant.json"
+            )
+            print("tenant_json_path", tenant_json_path)
+
+            if not tenant_json_path.exists():
+                return Response(
+                    {"error": "tenant.json file not found"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Read the current JSON content
+            with open(tenant_json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            # Update the tenantName field
+            old_tenant_name = data.get("tenantName")
+            data["tenantName"] = new_tenant_name
+
+            # Write back the updated content
+            with open(tenant_json_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=4)
+
+            # Broadcast update via WebSocket
+            try:
+                from asgiref.sync import async_to_sync
+                from channels.layers import get_channel_layer
+
+                from .file_service import FileService
+
+                channel_layer = get_channel_layer()
+                file_service = FileService(schema_name)
+                tree = file_service.generate_tree()
+
+                async_to_sync(channel_layer.group_send)(
+                    f"workspace_{schema_name}",
+                    {
+                        "type": "file_updated_event",
+                        "path": "tenant.json",
+                        "content": json.dumps(data, indent=4),
+                        "tree": tree,
+                    },
+                )
+            except Exception as e:
+                print(f"Failed to broadcast websocket message: {e}")
+
+            return Response(
+                {
+                    "message": "Tenant name updated successfully in tenant.json",
+                    "old_tenant_name": old_tenant_name,
+                    "new_tenant_name": new_tenant_name,
+                    "current_tenant": schema_name,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except json.JSONDecodeError:
+            return Response(
+                {"error": "Invalid JSON format in tenant.json file"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"Failed to update tenant name in tenant.json: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

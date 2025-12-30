@@ -6,6 +6,7 @@ from .views import (
     TenantImageListAPIView,
     TenantImageMapUpdateAPIView,
     TenantImageUploadAPIView,
+    UpdateTenantJsonAPIView,
 )
 
 urlpatterns = [
@@ -29,5 +30,10 @@ urlpatterns = [
         "upload-image/<str:tenant>/",
         TenantImageUploadAPIView.as_view(),
         name="tenant_image_upload",
+    ),
+    path(
+        "use-data/",
+        UpdateTenantJsonAPIView.as_view(),
+        name="update_tenant_json",
     ),
 ]
