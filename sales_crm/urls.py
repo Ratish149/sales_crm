@@ -64,10 +64,10 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema")),
-    path("builder/", include("builder.urls")),
-    path("ai-builder/", include("ai_builder.urls")),  # AI Builder endpoints
-    path("web-builder/", include("web_builder.urls")),
-    path("api/project-runner/", include("project_runner.urls")),
+    # path("builder/", include("builder.urls")),
+    # path("ai-builder/", include("ai_builder.urls")),  # AI Builder endpoints
+    # path("web-builder/", include("web_builder.urls")),
+    # path("api/project-runner/", include("project_runner.urls")),
 ]
 
 
