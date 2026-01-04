@@ -1,5 +1,6 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
+from rest_framework.pagination import PageNumberPagination
 
 from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial, Newsletter
 from .serializers import (
@@ -10,7 +11,12 @@ from .serializers import (
     NewsletterSerializer,
 )
 
+
 # Create your views here.
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 class FAQCategoryListCreateView(generics.ListCreateAPIView):
@@ -60,6 +66,7 @@ class NepdoraTestimonialRetrieveUpdateDestroyView(
 class ContactListCreateView(generics.ListCreateAPIView):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
+    pagination_class = CustomPagination
 
 
 class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -70,6 +77,7 @@ class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class NewsletterListCreateView(generics.ListCreateAPIView):
     queryset = Newsletter.objects.all()
     serializer_class = NewsletterSerializer
+    pagination_class = CustomPagination
 
 
 class NewsletterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
