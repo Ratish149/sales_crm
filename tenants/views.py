@@ -3,6 +3,8 @@
 import logging
 import os
 
+from accounts.models import CustomUser
+
 # import requests
 from django.db import connection, transaction
 
@@ -23,7 +25,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.models import CustomUser
 from tenants.models import (
     Client,
     Domain,
@@ -378,3 +379,18 @@ class ClientTokenByIdAPIView(APIView):
             }
 
         return Response(response_data)
+
+
+class TenantInternalRepoView(APIView):
+    """
+    Internal API to fetch repo_url for a tenant by schema_name.
+    """
+
+    def get(self, request, schema_name):
+        try:
+            client = Client.objects.get(schema_name=schema_name)
+            return Response({"repo_url": client.repo_url})
+        except Client.DoesNotExist:
+            return Response(
+                {"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND
+            )

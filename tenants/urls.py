@@ -11,6 +11,7 @@ from .views import (
     TemplateSubCategoryRetrieveUpdateDeleteView,
     TemplateTenantListAPIView,
     TemplateTenantRetrieveUpdateDestroyAPIView,
+    TenantInternalRepoView,
 )
 
 urlpatterns = [
@@ -52,5 +53,10 @@ urlpatterns = [
         "template-subcategories/<str:slug>/",
         TemplateSubCategoryRetrieveUpdateDeleteView.as_view(),
         name="subcategory-detail",
+    ),
+    path(
+        "internal/repo-url/<str:schema_name>/",
+        TenantInternalRepoView.as_view(),
+        name="internal-tenant-repo",
     ),
 ]

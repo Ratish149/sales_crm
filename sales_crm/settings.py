@@ -76,6 +76,7 @@ SHARED_APPS = [
     "ai_builder",  # AI Builder app
     "web_builder",
     "project_runner",
+    "nepdora_blog",
 ]
 
 

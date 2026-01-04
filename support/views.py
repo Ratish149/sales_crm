@@ -1,8 +1,13 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
-from .models import FAQ, FAQCategory, NepdoraTestimonial
-from .serializers import FAQCategorySerializer, FAQSerializer, NepdoraTestimonialSerializer
+from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial
+from .serializers import (
+    ContactSerializer,
+    FAQCategorySerializer,
+    FAQSerializer,
+    NepdoraTestimonialSerializer,
+)
 
 # Create your views here.
 
@@ -44,6 +49,18 @@ class NepdoraTestimonialListCreateView(generics.ListCreateAPIView):
     serializer_class = NepdoraTestimonialSerializer
 
 
-class NepdoraTestimonialRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+class NepdoraTestimonialRetrieveUpdateDestroyView(
+    generics.RetrieveUpdateDestroyAPIView
+):
     queryset = NepdoraTestimonial.objects.all()
     serializer_class = NepdoraTestimonialSerializer
+
+
+class ContactListCreateView(generics.ListCreateAPIView):
+    queryset = Contact.objects.all()
+    serializer_class = ContactSerializer
+
+
+class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Contact.objects.all()
+    serializer_class = ContactSerializer

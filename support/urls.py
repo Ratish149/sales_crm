@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    ContactListCreateView,
+    ContactRetrieveUpdateDestroyView,
     FAQCategoryListCreateView,
     FAQCategoryRetrieveUpdateDestroyView,
     FAQListCreateView,
@@ -35,5 +37,15 @@ urlpatterns = [
         "nepdora-testimonial/<int:pk>/",
         NepdoraTestimonialRetrieveUpdateDestroyView.as_view(),
         name="nepdora-testimonial-retrieve-update-destroy",
+    ),
+    path(
+        "nepdora-contact/",
+        ContactListCreateView.as_view(),
+        name="nepdora-contact-list-create",
+    ),
+    path(
+        "nepdora-contact/<int:pk>/",
+        ContactRetrieveUpdateDestroyView.as_view(),
+        name="nepdora-contact-retrieve-update-destroy",
     ),
 ]
