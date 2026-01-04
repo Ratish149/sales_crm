@@ -29,12 +29,19 @@ class TagsSmallSerializer(serializers.ModelSerializer):
 
 class BlogSerializer(serializers.ModelSerializer):
     tags = TagsSmallSerializer(many=True, read_only=True)
-    tag_ids = serializers.ListField(
-        child=serializers.IntegerField(), write_only=True, required=False, source="tags"
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        write_only=True,
+        required=False,
+        source="tags",
+        queryset=Tags.objects.all(),
     )
     category = BlogCategorySmallSerializer(read_only=True)
-    category_id = serializers.IntegerField(
-        write_only=True, required=False, source="category"
+    category_id = serializers.PrimaryKeyRelatedField(
+        write_only=True,
+        required=False,
+        source="category",
+        queryset=BlogCategory.objects.all(),
     )
 
     class Meta:
@@ -71,19 +78,14 @@ class BlogSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        tag_ids = validated_data.pop("tags", [])
-        category_id = validated_data.pop("category_id", None)
+        tags = validated_data.pop("tags", [])
         blog = Blog.objects.create(**validated_data)
-        blog.tags.set(tag_ids)
-        if category_id:
-            blog.category = BlogCategory.objects.get(id=category_id)
+        blog.tags.set(tags)
         return blog
 
     def update(self, instance, validated_data):
-        tag_ids = validated_data.pop("tags", [])
-        category_id = validated_data.pop("category_id", None)
-        if category_id:
-            instance.category = BlogCategory.objects.get(id=category_id)
+        tags = validated_data.pop("tags", [])
         instance = super().update(instance, validated_data)
-        instance.tags.set(tag_ids)
+        if tags:
+            instance.tags.set(tags)
         return instance
