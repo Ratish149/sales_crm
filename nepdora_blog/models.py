@@ -6,7 +6,24 @@ from sales_crm.utils.file_size_validator import file_size
 # Create your models here.
 
 
+class BlogCategory(models.Model):
+    name = models.CharField(max_length=255)
+    slug = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
 class Blog(models.Model):
+    category = models.ForeignKey(
+        "BlogCategory", on_delete=models.CASCADE, null=True, blank=True
+    )
     title = models.CharField(max_length=255)
     slug = models.CharField(max_length=255, null=True, blank=True)
     content = models.TextField()

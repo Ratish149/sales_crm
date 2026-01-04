@@ -3,8 +3,8 @@ from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics
 from rest_framework.pagination import PageNumberPagination
 
-from .models import Blog, Tags
-from .serializers import BlogSerializer, TagsSerializer
+from .models import Blog, BlogCategory, Tags
+from .serializers import BlogCategorySerializer, BlogSerializer, TagsSerializer
 
 
 class CustomPagination(PageNumberPagination):
@@ -13,12 +13,26 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class BlogCategoryListCreateView(generics.ListCreateAPIView):
+    queryset = BlogCategory.objects.all()
+    serializer_class = BlogCategorySerializer
+
+
+class BlogCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BlogCategory.objects.all()
+    serializer_class = BlogCategorySerializer
+    lookup_field = "slug"
+
+
 class BlogFilterSet(django_filters.FilterSet):
     tags = django_filters.CharFilter(field_name="tags__slug", lookup_expr="iexact")
+    category = django_filters.CharFilter(
+        field_name="category__slug", lookup_expr="iexact"
+    )
 
     class Meta:
         model = Blog
-        fields = ["tags"]
+        fields = ["tags", "category"]
 
 
 class BlogListCreateView(generics.ListCreateAPIView):

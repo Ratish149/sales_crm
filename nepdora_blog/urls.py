@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    BlogCategoryListCreateView,
+    BlogCategoryRetrieveUpdateDestroyView,
     BlogListCreateView,
     BlogRetrieveUpdateDestroyView,
     RecentBlogsView,
@@ -9,6 +11,16 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "nepdora-blog-categories/",
+        BlogCategoryListCreateView.as_view(),
+        name="blog-category-list-create",
+    ),
+    path(
+        "nepdora-blog-categories/<slug:slug>/",
+        BlogCategoryRetrieveUpdateDestroyView.as_view(),
+        name="blog-category-retrieve-update-destroy",
+    ),
     path("nepdora-blogs/", BlogListCreateView.as_view(), name="blog-list-create"),
     path(
         "nepdora-blogs/<slug:slug>/",
