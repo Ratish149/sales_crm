@@ -9,6 +9,8 @@ from .views import (
     FAQRetrieveUpdateDestroyView,
     NepdoraTestimonialListCreateView,
     NepdoraTestimonialRetrieveUpdateDestroyView,
+    NewsletterListCreateView,
+    NewsletterRetrieveUpdateDestroyView,
 )
 
 urlpatterns = [
@@ -47,5 +49,15 @@ urlpatterns = [
         "nepdora-contact/<int:pk>/",
         ContactRetrieveUpdateDestroyView.as_view(),
         name="nepdora-contact-retrieve-update-destroy",
+    ),
+    path(
+        "nepdora-newsletter/",
+        NewsletterListCreateView.as_view(),
+        name="nepdora-newsletter-list-create",
+    ),
+    path(
+        "nepdora-newsletter/<int:pk>/",
+        NewsletterRetrieveUpdateDestroyView.as_view(),
+        name="nepdora-newsletter-retrieve-update-destroy",
     ),
 ]

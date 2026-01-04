@@ -1,12 +1,13 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
-from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial
+from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial, Newsletter
 from .serializers import (
     ContactSerializer,
     FAQCategorySerializer,
     FAQSerializer,
     NepdoraTestimonialSerializer,
+    NewsletterSerializer,
 )
 
 # Create your views here.
@@ -64,3 +65,13 @@ class ContactListCreateView(generics.ListCreateAPIView):
 class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
+
+
+class NewsletterListCreateView(generics.ListCreateAPIView):
+    queryset = Newsletter.objects.all()
+    serializer_class = NewsletterSerializer
+
+
+class NewsletterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Newsletter.objects.all()
+    serializer_class = NewsletterSerializer

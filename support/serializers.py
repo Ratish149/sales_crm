@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import FAQ, FAQCategory, NepdoraTestimonial, Contact
+from .models import FAQ, FAQCategory, NepdoraTestimonial, Contact, Newsletter
 
 
 class FAQCategorySerializer(serializers.ModelSerializer):
@@ -34,4 +34,10 @@ class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact
         fields = ["id", "name", "email", "phone_number", "message", "created_at", "updated_at"]
+    
+
+class NewsletterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Newsletter
+        fields = ["id", "email", "is_active", "created_at", "updated_at"]
     
