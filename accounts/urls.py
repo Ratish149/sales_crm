@@ -18,6 +18,7 @@ from .views import (
     UserUpdateAPIView,
     UserWithStoresListAPIView,
     UseTemplateView,
+    UserDataAPIView,
 )
 
 urlpatterns = [
@@ -62,4 +63,5 @@ urlpatterns = [
         name="reset-password-confirm",
     ),
     path("templates/use/", UseTemplateView.as_view(), name="use-template"),
+    path("user-data/", UserDataAPIView.as_view(), name="user-data"),
 ]

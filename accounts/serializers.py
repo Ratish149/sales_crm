@@ -184,3 +184,29 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
             return user.client.schema_name
         except AttributeError:
             return None
+
+
+class ClientDataSerializer(serializers.Serializer):
+    """Serializer for client data in user data API response with more details."""
+
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    schema_name = serializers.CharField()
+    created_on = serializers.DateField(required=False)
+    paid_until = serializers.DateField(required=False, allow_null=True)
+    repo_url = serializers.URLField(required=False, allow_null=True)
+    description = serializers.CharField(required=False, allow_null=True)
+    preview_url = serializers.URLField(required=False, allow_null=True)
+    is_template_account = serializers.BooleanField(required=False)
+
+
+class UserDataSerializer(serializers.Serializer):
+    """
+    Serializer for user data API endpoint.
+    Returns user information along with associated client data.
+    """
+
+    id = serializers.IntegerField()
+    email = serializers.EmailField()
+    role = serializers.CharField()
+    client = ClientDataSerializer(allow_null=True)

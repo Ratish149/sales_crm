@@ -17,6 +17,7 @@ from allauth.account.utils import (
     user_field,
     user_username,
 )
+from blog.views import CustomPagination
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import connection, transaction
@@ -30,14 +31,12 @@ from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
+from pricing.models import Pricing
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
-from blog.views import CustomPagination
-from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
     ErrorCode,
     bad_request,
@@ -54,6 +53,7 @@ from .serializers import (
     CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
+    UserDataSerializer,
     UserWithStoresSerializer,
 )
 
@@ -792,6 +792,7 @@ class UseTemplateView(APIView):
 
         repo_name = slugify(store.store_name)
         github_token = os.getenv("GITHUB_TOKEN")
+        print("Github token", github_token)
 
         if not github_token:
             return server_error("GitHub token not configured")
@@ -814,6 +815,14 @@ class UseTemplateView(APIView):
         if not new_repo_url:
             return server_error("Failed to create repository on GitHub.")
 
+        # Save the new repo URL to the client
+        try:
+            client = Client.objects.get(schema_name=repo_name)
+            client.repo_url = new_repo_url
+            client.save(update_fields=["repo_url"])
+        except Client.DoesNotExist:
+            print(f"Client with schema_name {repo_name} not found.")
+
         # Extract actual created name from URL if needed.
         # Assuming URL is like https://github.com/user/repo-name.git
         final_repo_name = new_repo_url.split("/")[-1].replace(".git", "")
@@ -834,3 +843,47 @@ class UseTemplateView(APIView):
             )
         else:
             return server_error("Failed to initialize project from template.")
+
+
+class UserDataAPIView(APIView):
+    """
+    API endpoint to fetch user data with associated client information.
+    Used by builder_backend for cross-project authentication.
+
+    GET /api/accounts/user-data/
+    Requires JWT authentication.
+    Returns user data with client information.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Fetch client data for the user
+        try:
+            client = Client.objects.get(owner=user)
+            client_data = {
+                "id": client.id,
+                "name": client.name,
+                "schema_name": client.schema_name,
+                "created_on": client.created_on,
+                "paid_until": client.paid_until,
+                "repo_url": client.repo_url,
+                "description": client.description,
+                "preview_url": client.preview_url,
+                "is_template_account": client.is_template_account,
+            }
+        except Client.DoesNotExist:
+            client_data = None
+
+        # Prepare user data response
+        user_data = {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "client": client_data,
+        }
+
+        serializer = UserDataSerializer(user_data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
