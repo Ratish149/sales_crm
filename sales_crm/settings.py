@@ -185,7 +185,7 @@ CACHES = {
 #     }
 # }
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -197,9 +197,9 @@ DATABASES = {
             "options": "-c search_path=public"  # important for first migration
         },
     }
-}
+} """
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -209,7 +209,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-} """
+}
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
