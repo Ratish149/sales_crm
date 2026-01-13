@@ -17,7 +17,6 @@ from allauth.account.utils import (
     user_field,
     user_username,
 )
-from blog.views import CustomPagination
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.db import connection, transaction
@@ -31,12 +30,14 @@ from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
-from pricing.models import Pricing
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from blog.views import CustomPagination
+from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
     ErrorCode,
     bad_request,
@@ -201,6 +202,15 @@ class CustomSignupView(APIView):
 
                             # Initialize Next.js project from template
                             template_repo_url = os.getenv("TEMPLATE_REPO_URL")
+                            if website_type == "ecommerce":
+                                template_repo_url = os.getenv(
+                                    "ECOMMERCE_TEMPLATE", template_repo_url
+                                )
+                            elif website_type == "service":
+                                template_repo_url = os.getenv(
+                                    "SERVICE_TEMPLATE", template_repo_url
+                                )
+
                             GitHubService.initialize_nextjs_project(
                                 repo_url,
                                 tenant.schema_name,
@@ -805,6 +815,15 @@ class UseTemplateView(APIView):
                 return not_found("Template not found")
         else:
             source_url = os.getenv("TEMPLATE_REPO_URL")
+            website_type = request.user.website_type
+
+            if website_type == "ecommerce":
+                source_url = os.getenv("ECOMMERCE_TEMPLATE", source_url)
+            elif website_type == "service":
+                source_url = os.getenv("SERVICE_TEMPLATE", source_url)
+            else:
+                source_url = os.getenv("TEMPLATE_REPO_URL", source_url)
+
             if not source_url:
                 return server_error("No default template configured")
 
