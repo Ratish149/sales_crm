@@ -62,11 +62,22 @@ class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
 
+class SubCategoryFilterSet(django_filters.FilterSet):
+    category = django_filters.CharFilter(
+        field_name="category__id", lookup_expr="iexact"
+    )
+
+    class Meta:
+        model = SubCategory
+        fields = ["category"]
+
+
 class SubCategoryListCreateView(generics.ListCreateAPIView):
     queryset = SubCategory.objects.all()
     serializer_class = SubCategorySerializer
     pagination_class = CustomPagination
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [filters.SearchFilter, django_filters.DjangoFilterBackend]
+    filterset_class = SubCategoryFilterSet
     search_fields = ["name"]
 
     def get_serializer_class(self):
