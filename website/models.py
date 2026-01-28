@@ -4,6 +4,8 @@ from solo.models import SingletonModel
 
 
 class SiteConfig(SingletonModel):
+    business_name = models.CharField(max_length=255, blank=True, null=True)
+    business_details = models.TextField(blank=True, null=True)
     favicon = models.FileField(upload_to="favicon", null=True, blank=True)
     logo = models.FileField(upload_to="logo", null=True, blank=True)
     address = models.CharField(max_length=255, blank=True, null=True)
