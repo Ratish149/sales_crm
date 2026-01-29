@@ -47,6 +47,20 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         if request.user.is_authenticated:
             return
 
+        # If a user with this email already exists, link the account and allow login.
+        # This allows users who signed up with email to login with Google.
+        email = sociallogin.user.email
+        if email:
+            User = get_user_model()
+            try:
+                user = User.objects.get(email=email)
+                # Link the social account to the existing user
+                sociallogin.connect(request, user)
+                return
+            except User.DoesNotExist:
+                # No existing user, continue to check if this is signup or login
+                pass
+
         # Check if this is a signup attempt (with store_name) or login attempt (without store_name)
         try:
             body = json.loads(request.body.decode("utf-8"))
@@ -54,17 +68,6 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             store_name = extra.get("app", {}).get("store_name")
         except Exception:
             store_name = None
-
-        # If a user with this email already exists, link the account and allow login.
-        email = sociallogin.user.email
-        if email:
-            User = get_user_model()
-            try:
-                user = User.objects.get(email=email)
-                sociallogin.connect(request, user)
-                return
-            except User.DoesNotExist:
-                pass
 
         # If store_name is provided, this is a signup attempt - allow it to proceed
         if store_name:
