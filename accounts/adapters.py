@@ -38,13 +38,9 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         Invoked just after a user successfully authenticates via a social provider,
         but before the login is actually processed.
         """
-        print("=" * 80)
-        print("🔍 PRE_SOCIAL_LOGIN CALLED")
-        print("=" * 80)
 
         # If social account already exists, allow.
         if sociallogin.is_existing:
-            print("✅ Social account already exists - allowing login")
             return
 
         # If user is already logged in (connecting account), allow.
@@ -93,6 +89,7 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
     def populate_user(self, request, sociallogin, data):
         """Populate basic user fields only (no DB side-effects)."""
+
         user = sociallogin.user
 
         try:
@@ -241,6 +238,7 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             refresh["has_profile"] = has_profile
             refresh["role"] = role
             refresh["phone_number"] = phone_number
+            refresh["client_id"] = client.id if client else None
             refresh["domain"] = domain_name
             refresh["sub_domain"] = sub_domain
             refresh["has_profile_completed"] = has_profile_completed
