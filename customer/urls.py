@@ -21,7 +21,7 @@ urlpatterns = [
         name="customer-change-password",
     ),
     path(
-        "customer/<int:pk>",
+        "customer/<int:pk>/",
         CustomerRetrieveUpdateDestroyView.as_view(),
         name="customer-retrieve-update-destroy",
     ),

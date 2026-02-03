@@ -562,7 +562,7 @@ class UserWithStoresListAPIView(generics.ListAPIView):
         )
 
 
-class UserUpdateAPIView(generics.UpdateAPIView):
+class UserUpdateAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
     queryset = CustomUser.objects.all()
