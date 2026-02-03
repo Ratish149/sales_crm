@@ -122,5 +122,3 @@ class Invitation(models.Model):
 
     def __str__(self):
         return f"Invitation for {self.email} to {self.store.store_name}"
-
-

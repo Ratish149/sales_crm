@@ -142,7 +142,15 @@ class StoreProfileSerializer(serializers.ModelSerializer):
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ["id", "email", "role", "phone_number"]
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "website_type",
+            "email",
+            "role",
+            "phone_number",
+        ]
 
 
 class StoreUserSerializer(serializers.ModelSerializer):
