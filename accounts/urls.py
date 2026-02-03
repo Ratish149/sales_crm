@@ -7,24 +7,28 @@ from .views import (
     CustomSignupView,
     CustomVerifyEmailView,
     InvitationCreateView,
+    PasswordChangeView,
     RequestPasswordResetAPIView,
     ResendEmailVerificationView,
     ResendInvitationView,
     ResetPasswordConfirmAPIView,
     StoreProfileDetailView,
     StoreProfileView,
+    UserDataAPIView,
     UserDeleteAPIView,
     UserListDestroyAPIView,
     UserUpdateAPIView,
     UserWithStoresListAPIView,
     UseTemplateView,
-    UserDataAPIView,
 )
 
 urlpatterns = [
     path("signup/", CustomSignupView.as_view(), name="signup"),
     path("verify-email/", CustomVerifyEmailView.as_view(), name="verify-email"),
-    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
+    path("change-password/", PasswordChangeView.as_view(), name="change-password"),
+    path(
+        "change-password-email/", ChangePasswordView.as_view(), name="change-password"
+    ),
     path(
         "resend-verification/",
         ResendEmailVerificationView.as_view(),
