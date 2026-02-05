@@ -86,5 +86,6 @@ urlpatterns = [
     ),
     # 🚀 Publish All
     path("publish-all/", views.PublishAllView.as_view(), name="publish-all"),
+    path("reset-ui/", views.ResetUIView.as_view(), name="reset-ui"),
     path("import-template/", views.import_template, name="import-template"),
 ]

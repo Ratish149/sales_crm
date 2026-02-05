@@ -1,4 +1,6 @@
 # views.py
+from copy import deepcopy
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
@@ -536,6 +538,58 @@ class PublishAllView(APIView):
             publish_instance(comp)
 
         return Response({"detail": "All drafts published successfully"})
+
+
+class ResetUIView(APIView):
+    """
+    POST /api/reset-ui/
+    Deletes all draft versions of Theme, Page, and PageComponent,
+    and re-creates them from the published versions.
+    """
+
+    @transaction.atomic
+    def post(self, request):
+        # 🧹 Step 1: Delete all current drafts
+        Theme.objects.filter(status="draft").delete()
+        Page.objects.filter(status="draft").delete()
+        PageComponent.objects.filter(status="draft").delete()
+
+        # 🌀 Step 2: Re-create drafts from published versions
+
+        # 🎨 Themes
+        theme_map = {}
+        for published_theme in Theme.objects.filter(status="published"):
+            draft_theme = Theme.objects.create(
+                status="draft",
+                data=deepcopy(published_theme.data),
+                published_version=published_theme,
+            )
+            theme_map[published_theme.id] = draft_theme
+
+        # 📄 Pages
+        page_map = {}
+        for published_page in Page.objects.filter(status="published"):
+            draft_page = Page.objects.create(
+                title=published_page.title,
+                status="draft",
+                theme=theme_map.get(published_page.theme_id),
+                published_version=published_page,
+            )
+            page_map[published_page.id] = draft_page
+
+        # 🧩 Components
+        for published_comp in PageComponent.objects.filter(status="published"):
+            PageComponent.objects.create(
+                status="draft",
+                page=page_map.get(published_comp.page_id),
+                component_type=published_comp.component_type,
+                component_id=published_comp.component_id,
+                data=deepcopy(published_comp.data),
+                order=published_comp.order,
+                published_version=published_comp,
+            )
+
+        return Response({"detail": "UI reset to published stage successfully"})
 
 
 @api_view(["POST"])
