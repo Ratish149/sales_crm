@@ -5,6 +5,7 @@ from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
 from tenants.models import Client
 
 from .models import Page, PageComponent, SiteConfig, Theme
@@ -223,6 +224,58 @@ class PageComponentPublishView(APIView):
         # 🌀 Publish current draft component
         publish_instance(component)
         return Response({"detail": "Component published successfully"})
+
+
+class ReplaceComponentByIDView(APIView):
+    """
+    POST /api/pages/<slug:page_slug>/components/replace/<str:component_id>/
+    Replaces all PageComponents sharing the same component_id on a specific page
+    by deleting them and creating new ones from the payload.
+    """
+
+    @transaction.atomic
+    def post(self, request, page_slug, component_id):
+        page = get_object_or_404(Page, slug=page_slug)
+
+        # Get the targeted components
+        components = PageComponent.objects.filter(page=page, component_id=component_id)
+
+        if not components.exists():
+            return Response(
+                {
+                    "detail": f"No components found with ID {component_id} on page {page_slug}."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Use the serializer to validate the incoming payload
+        serializer = PageComponentSerializer(data=request.data)
+        if serializer.is_valid():
+            # Gather orders of existing components to replace them in-place
+            orders = list(components.values_list("order", flat=True))
+
+            # Delete the old components
+            components.delete()
+
+            # Create new components for each originally affected slot
+            created_components = []
+            for order in orders:
+                # Create a new instance using validated data but keeping the original order
+                new_component = serializer.save(page=page, order=order, status="draft")
+                created_components.append(new_component)
+
+            return Response(
+                {
+                    "detail": f"Successfully replaced {len(created_components)} components.",
+                    "affected_count": len(created_components),
+                    "created_components": PageComponentSerializer(
+                        created_components, many=True
+                    ).data,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ------------------------------

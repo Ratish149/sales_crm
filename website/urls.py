@@ -55,6 +55,11 @@ urlpatterns = [
         views.PageComponentPublishView.as_view(),
         name="component-publish",
     ),
+    path(
+        "pages/<slug:page_slug>/components/replace/<str:component_id>/",
+        views.ReplaceComponentByIDView.as_view(),
+        name="replace-component-by-id",
+    ),
     # 🧭 Navbar
     path("navbar/", views.NavbarView.as_view(), name="navbar"),
     path(
