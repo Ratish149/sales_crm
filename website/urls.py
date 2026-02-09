@@ -72,6 +72,11 @@ urlpatterns = [
         views.NavbarPublishView.as_view(),
         name="navbar-publish",
     ),
+    path(
+        "navbar/replace/",
+        views.ReplaceNavbarView.as_view(),
+        name="navbar-replace",
+    ),
     # 🦶 Footer
     path("footer/", views.FooterView.as_view(), name="footer"),
     path(
@@ -83,6 +88,11 @@ urlpatterns = [
         "footer/<int:id>/publish/",
         views.FooterPublishView.as_view(),
         name="footer-publish",
+    ),
+    path(
+        "footer/replace/",
+        views.ReplaceFooterView.as_view(),
+        name="footer-replace",
     ),
     # 🚀 Publish All
     path("publish-all/", views.PublishAllView.as_view(), name="publish-all"),

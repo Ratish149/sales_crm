@@ -392,6 +392,31 @@ class NavbarPublishView(APIView):
         return Response({"detail": "Navbar published successfully"})
 
 
+class ReplaceNavbarView(APIView):
+    """
+    POST /api/navbar/replace/
+    Replaces the current draft navbar with a new one provided in the payload.
+    """
+
+    @transaction.atomic
+    def post(self, request):
+        # 1. Delete all existing draft navbars
+        PageComponent.objects.filter(component_type="navbar", status="draft").delete()
+
+        # 2. Create the new draft navbar
+        data = request.data.copy()
+        data["component_type"] = "navbar"
+        data["status"] = "draft"
+        # Optional: ensure order is handled if passed, otherwise model default is 0
+
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 # ------------------------------
 # 🦶 FOOTER VIEWS
 # ------------------------------
@@ -499,6 +524,30 @@ class FooterPublishView(APIView):
         # 🌀 Publish current draft footer
         publish_instance(footer)
         return Response({"detail": "Footer published successfully"})
+
+
+class ReplaceFooterView(APIView):
+    """
+    POST /api/footer/replace/
+    Replaces the current draft footer with a new one provided in the payload.
+    """
+
+    @transaction.atomic
+    def post(self, request):
+        # 1. Delete all existing draft footers
+        PageComponent.objects.filter(component_type="footer", status="draft").delete()
+
+        # 2. Create the new draft footer
+        data = request.data.copy()
+        data["component_type"] = "footer"
+        data["status"] = "draft"
+
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ------------------------------
