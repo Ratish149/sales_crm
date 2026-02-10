@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:v="urn:schemas-microsoft-com:vml"
+      xmlns:o="urn:schemas-microsoft-com:office:office">
+
+<head>
+  <title>New Order Notification – Nepdora</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style type="text/css">
+    #outlook a {
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #ffffff;
+    }
+    table,
+    td {
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    img {
+      border: 0;
+      height: auto;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+    }
+    p {
+      display: block;
+      margin: 13px 0;
+    }
+
+    @media only screen and (min-width:480px) {
+      .mj-column-per-100 {
+        width: 100% !important;
+        max-width: 100%;
+      }
+    }
+
+    @media only screen and (max-width:480px) {
+      table.mj-full-width-mobile {
+        width: 100% !important;
+      }
+      td.mj-full-width-mobile {
+        width: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    New Order Notification – {{ tenant_name }}
+  </div>
+
+  <div style="background-color:#ffffff; max-width:600px; margin:auto;">
+
+    <!-- HEADER -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+      <tr>
+        <td style="padding:20px 25px;">
+          <img src="cid:logo"
+               width="200"
+               style="display:block;" />
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 25px;">
+          <h1 style="font-family:Arial, sans-serif; font-size:24px; margin:0;">
+            Hello Admin,<br>A new order has been received!
+          </h1>
+        </td>
+      </tr>
+    </table>
+
+    <!-- MESSAGE -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+      <tr>
+        <td style="padding:10px 25px; font-family:Arial; font-size:16px; color:#444;">
+          <strong>Order #{{ order_number }}</strong> was placed on {{ created_at|date:"F d, Y" }}.
+        </td>
+      </tr>
+    </table>
+
+    <!-- CUSTOMER DETAILS -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+      <tr>
+        <td style="padding:10px 25px; font-family:Arial; font-size:16px; color:#444;">
+          <strong>Customer Details:</strong><br>
+          Name: {{ customer_name }}<br>
+          Email: {{ customer_email }}<br>
+          Phone: {{ customer_phone }}<br>
+          Address: {{ customer_address }}
+        </td>
+      </tr>
+    </table>
+
+<!-- ORDER SUMMARY -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" align="center"
+       style="font-family:Arial; font-size:14px; color:#000;">
+
+  <!-- Header -->
+  <tr>
+    <th align="left" style="padding:10px 25px;">Product</th>
+    <th align="right" style="padding:10px 0;">Qty</th>
+    <th align="right" style="padding:10px 25px;">Price</th>
+  </tr>
+
+  <!-- Loop items -->
+  {% for item in items %}
+  <tr>
+    <td style="padding:15px 25px;" width="60%">
+      <strong>{{ item.product_name }}</strong>
+      <p style="margin:0; color:#aaa;">{{ item.brand }}</p>
+    </td>
+    <td align="right" style="padding-top:20px;">x{{ item.quantity }}</td>
+    <td align="right" style="padding-top:20px;">Rs. {{ item.price }}</td>
+  </tr>
+  {% endfor %}
+
+  <!-- Divider -->
+  <tr>
+    <td colspan="3" style="border-bottom:1px dashed #ddd;"></td>
+  </tr>
+
+  <!-- Totals -->
+
+  <tr>
+    <td></td>
+    <td align="right" style="padding-top:10px;">Delivery</td>
+    <td align="right" style="padding-top:10px;">Rs. {{ delivery_charge }}</td>
+  </tr>
+  <tr>
+    <td></td>
+    <td align="right" style="padding-top:20px;"><strong>Total</strong></td>
+    <td align="right" style="padding-top:20px;"><strong>Rs. {{ total_amount }}</strong></td>
+  </tr>
+
+  <tr>
+    <td colspan="3" style="padding:20px 25px; text-align:center; font-family:Arial; font-size:14px; color:#888;">
+      Please proceed with the order fulfillment.
+    </td>
+  </tr>
+
+  <!-- FOOTER -->
+     
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center"
+           style="margin-top:20px; font-family:Arial; font-size:12px; color:#888;">
+      <tr>
+        <td align="center" style="padding:10px;">
+          © 2025 Nepdora – All rights reserved.
+        </td>
+      </tr>
+    </table>
+
+  </div>
+
+</body>
+</html>

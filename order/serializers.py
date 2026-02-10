@@ -188,20 +188,6 @@ class OrderSerializer(serializers.ModelSerializer):
                 else []
             )
 
-            # Prepare template context
-            context = {
-                "customer_name": order.customer_name,
-                "order_number": order.order_number,
-                "items": items,
-                "total_amount": order.total_amount,
-                "delivery_charge": order.delivery_charge,
-                "tenant_name": tenant_name,
-            }
-
-            html_content = render_to_string(
-                "order/email/order_confirmation.html", context
-            )
-
             # Use a verified sender email from environment variable
             # Default to a common verified email if not set
             verified_sender = "nepdora@baliyoventures.com"
@@ -209,19 +195,74 @@ class OrderSerializer(serializers.ModelSerializer):
             # Include tenant name in the "from" name for personalization
             from_email = f"{tenant_name} <{verified_sender}>"
 
-            # Send via Resend
-            resend.Emails.send(
-                {
-                    "from": from_email,
-                    "to": order.customer_email,
-                    "subject": f"Order Confirmation #{order.order_number}",
-                    "html": html_content,
-                    "attachments": attachments,
+            # --- Send to Customer ---
+            if order.customer_email:
+                # Prepare template context
+                context = {
+                    "customer_name": order.customer_name,
+                    "order_number": order.order_number,
+                    "items": items,
+                    "total_amount": order.total_amount,
+                    "delivery_charge": order.delivery_charge,
+                    "tenant_name": tenant_name,
+                    "created_at": order.created_at,
                 }
-            )
-            print(
-                f"Order confirmation email sent successfully to {order.customer_email}"
-            )
+
+                html_content = render_to_string(
+                    "order/email/order_confirmation.html", context
+                )
+
+                # Send via Resend
+                resend.Emails.send(
+                    {
+                        "from": from_email,
+                        "to": order.customer_email,
+                        "subject": f"Order Confirmation #{order.order_number}",
+                        "html": html_content,
+                        "attachments": attachments,
+                    }
+                )
+                print(
+                    f"Order confirmation email sent successfully to {order.customer_email}"
+                )
+
+            # --- Send to Admin (Tenant Owner) ---
+            if (
+                tenant
+                and hasattr(tenant, "owner")
+                and tenant.owner
+                and tenant.owner.email
+            ):
+                admin_email = tenant.owner.email
+
+                # Prepare template context for admin
+                admin_context = {
+                    "customer_name": order.customer_name,
+                    "customer_email": order.customer_email,
+                    "customer_phone": order.customer_phone,
+                    "customer_address": order.customer_address,
+                    "order_number": order.order_number,
+                    "items": items,
+                    "total_amount": order.total_amount,
+                    "delivery_charge": order.delivery_charge,
+                    "tenant_name": tenant_name,
+                    "created_at": order.created_at,
+                }
+
+                admin_html_content = render_to_string(
+                    "order/email/admin_new_order.html", admin_context
+                )
+
+                resend.Emails.send(
+                    {
+                        "from": from_email,
+                        "to": admin_email,
+                        "subject": f"New Order Received #{order.order_number}",
+                        "html": admin_html_content,
+                        "attachments": attachments,
+                    }
+                )
+                print(f"Admin order notification sent successfully to {admin_email}")
 
         except Exception as e:
             # Log the error but don't fail the order creation
@@ -353,20 +394,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                 else []
             )
 
-            # Prepare template context
-            context = {
-                "customer_name": order.customer_name,
-                "order_number": order.order_number,
-                "items": items,
-                "total_amount": order.total_amount,
-                "delivery_charge": order.delivery_charge,
-                "tenant_name": tenant_name,
-            }
-
-            html_content = render_to_string(
-                "order/email/order_confirmation.html", context
-            )
-
             # Use a verified sender email from environment variable
             # Default to a common verified email if not set
             verified_sender = "nepdora@baliyoventures.com"
@@ -374,19 +401,74 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             # Include tenant name in the "from" name for personalization
             from_email = f"{tenant_name} <{verified_sender}>"
 
-            # Send via Resend
-            resend.Emails.send(
-                {
-                    "from": from_email,
-                    "to": order.customer_email,
-                    "subject": f"Order Confirmation #{order.order_number}",
-                    "html": html_content,
-                    "attachments": attachments,
+            # --- Send to Customer ---
+            if order.customer_email:
+                # Prepare template context
+                context = {
+                    "customer_name": order.customer_name,
+                    "order_number": order.order_number,
+                    "items": items,
+                    "total_amount": order.total_amount,
+                    "delivery_charge": order.delivery_charge,
+                    "tenant_name": tenant_name,
+                    "created_at": order.created_at,
                 }
-            )
-            print(
-                f"Order confirmation email sent successfully to {order.customer_email}"
-            )
+
+                html_content = render_to_string(
+                    "order/email/order_confirmation.html", context
+                )
+
+                # Send via Resend
+                resend.Emails.send(
+                    {
+                        "from": from_email,
+                        "to": order.customer_email,
+                        "subject": f"Order Confirmation #{order.order_number}",
+                        "html": html_content,
+                        "attachments": attachments,
+                    }
+                )
+                print(
+                    f"Order confirmation email sent successfully to {order.customer_email}"
+                )
+
+            # --- Send to Admin (Tenant Owner) ---
+            if (
+                tenant
+                and hasattr(tenant, "owner")
+                and tenant.owner
+                and tenant.owner.email
+            ):
+                admin_email = tenant.owner.email
+
+                # Prepare template context for admin
+                admin_context = {
+                    "customer_name": order.customer_name,
+                    "customer_email": order.customer_email,
+                    "customer_phone": order.customer_phone,
+                    "customer_address": order.customer_address,
+                    "order_number": order.order_number,
+                    "items": items,
+                    "total_amount": order.total_amount,
+                    "delivery_charge": order.delivery_charge,
+                    "tenant_name": tenant_name,
+                    "created_at": order.created_at,
+                }
+
+                admin_html_content = render_to_string(
+                    "order/email/admin_new_order.html", admin_context
+                )
+
+                resend.Emails.send(
+                    {
+                        "from": from_email,
+                        "to": admin_email,
+                        "subject": f"New Order Received #{order.order_number}",
+                        "html": admin_html_content,
+                        "attachments": attachments,
+                    }
+                )
+                print(f"Admin order notification sent successfully to {admin_email}")
 
         except Exception as e:
             # Log the error but don't fail the order creation
