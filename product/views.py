@@ -116,10 +116,19 @@ class ProductFilterSet(django_filters.FilterSet):
     )
     min_price = django_filters.NumberFilter(field_name="price", lookup_expr="gte")
     max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
+    is_popular = django_filters.BooleanFilter(field_name="is_popular")
+    is_featured = django_filters.BooleanFilter(field_name="is_featured")
 
     class Meta:
         model = Product
-        fields = ["category", "sub_category", "min_price", "max_price"]
+        fields = [
+            "category",
+            "sub_category",
+            "min_price",
+            "max_price",
+            "is_popular",
+            "is_featured",
+        ]
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
