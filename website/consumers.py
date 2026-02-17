@@ -573,20 +573,50 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
-    def delete_component_sync(self, page_slug, component_id):
+    def delete_component_sync(self, page_slug, component_id, status_param):
         component = get_object_or_404(
             PageComponent, page__slug=page_slug, component_id=component_id
         )
         component.delete()
-        return {"success": True, "component_id": component_id}
+        # Re-fetch the list to return the updated state
+        page = get_object_or_404(Page, slug=page_slug)
+        if status_param == "preview":
+            qs = (
+                PageComponent.objects.filter(page=page)
+                .exclude(component_type__in=["navbar", "footer"])
+                .filter(status="draft")
+            )
+        elif page.status == "draft" and page.published_version:
+            page = page.published_version
+            qs = (
+                PageComponent.objects.filter(page=page)
+                .exclude(component_type__in=["navbar", "footer"])
+                .filter(status="published")
+            )
+        else:
+            qs = (
+                PageComponent.objects.filter(page=page)
+                .exclude(component_type__in=["navbar", "footer"])
+                .filter(status="published")
+            )
+        return PageComponentSerializer(qs.order_by("order"), many=True).data
 
     async def delete_component(self, data):
         page_slug = data.get("page_slug")
         component_id = data.get("component_id")
+        status_param = data.get(
+            "status", "preview"
+        )  # Default to preview when deleting usually
         try:
-            result = await self.delete_component_sync(page_slug, component_id)
+            # We treat delete mostly as a draft operation, hence default status=preview for fetch
+            # But let's respect if client sent a specific status context
+            updated_list = await self.delete_component_sync(
+                page_slug, component_id, status_param
+            )
             await self.send(
-                text_data=json.dumps({"action": "component_deleted", **result})
+                text_data=json.dumps(
+                    {"action": "list_components", "data": updated_list}
+                )
             )
         except Http404:
             await self.send(
