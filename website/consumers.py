@@ -4,6 +4,7 @@ from copy import deepcopy
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.db import transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 
 from tenants.models import Client
@@ -105,97 +106,176 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         connection.set_schema(self.schema_name)
 
     # --- Site Config ---
+    @sync_to_async
+    def get_site_config_sync(self):
+        config, _ = SiteConfig.objects.get_or_create()
+        return SiteConfigSerializer(config).data
+
     async def get_site_config(self):
-        config = await sync_to_async(
-            SiteConfig.objects.get_or_create
-        )()  # SiteConfig is Singleton
-        serializer = SiteConfigSerializer(config[0])
-        await self.send(
-            text_data=json.dumps({"action": "site_config", "data": serializer.data})
-        )
+        try:
+            data = await self.get_site_config_sync()
+            await self.send(
+                text_data=json.dumps({"action": "site_config", "data": data})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_site_config_sync(self, data):
+        try:
+            config = SiteConfig.objects.get()
+        except SiteConfig.DoesNotExist:
+            config = SiteConfig.objects.create()
+
+        serializer = SiteConfigSerializer(config, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
 
     async def update_site_config(self, data):
-        config = await sync_to_async(SiteConfig.objects.get)()
-        serializer = SiteConfigSerializer(config, data=data, partial=True)
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)()
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "site_config_updated", "data": serializer.data}
+        try:
+            result = await self.update_site_config_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "site_config_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Theme ---
+    @sync_to_async
+    def list_themes_sync(self, status_param):
+        if status_param == "preview":
+            qs = Theme.objects.filter(status="draft")
+        else:
+            qs = Theme.objects.filter(status="published")
+        return ThemeSerializer(qs, many=True).data
+
     async def list_themes(self, data):
         status_param = data.get("status")
-        if status_param == "preview":
-            qs = await sync_to_async(list)(Theme.objects.filter(status="draft"))
-        else:
-            qs = await sync_to_async(list)(Theme.objects.filter(status="published"))
-        serializer = ThemeSerializer(qs, many=True)
-        await self.send(
-            text_data=json.dumps({"action": "themes_list", "data": serializer.data})
-        )
+        try:
+            theme_data = await self.list_themes_sync(status_param)
+            await self.send(
+                text_data=json.dumps({"action": "themes_list", "data": theme_data})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_theme_sync(self, pk, data):
+        theme = get_object_or_404(Theme, id=pk)
+        serializer = ThemeSerializer(theme, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
 
     async def update_theme(self, data):
         pk = data.get("id")
-        theme = await sync_to_async(get_object_or_404)(Theme, id=pk)
-        serializer = ThemeSerializer(theme, data=data, partial=True)
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "theme_updated", "data": serializer.data}
+        try:
+            result = await self.update_theme_sync(pk, data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "theme_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Theme not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def publish_theme_sync(self, pk):
+        theme = get_object_or_404(Theme, id=pk, status="draft")
+        publish_instance(theme)
+        return theme.id
 
     async def publish_theme(self, data):
         pk = data.get("id")
-        theme = await sync_to_async(get_object_or_404)(Theme, id=pk, status="draft")
-        await sync_to_async(publish_instance)(theme)
-        await self.send(text_data=json.dumps({"action": "theme_published", "id": pk}))
+        try:
+            await self.publish_theme_sync(pk)
+            await self.send(
+                text_data=json.dumps({"action": "theme_published", "id": pk})
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Theme not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Page ---
+    @sync_to_async
+    def list_pages_sync(self, status_param):
+        if status_param == "preview":
+            qs = Page.objects.filter(status="draft")
+        else:
+            qs = Page.objects.filter(status="published")
+        return PageSerializer(qs, many=True).data
+
     async def list_pages(self, data):
         status_param = data.get("status")
-        if status_param == "preview":
-            qs = await sync_to_async(list)(Page.objects.filter(status="draft"))
-        else:
-            qs = await sync_to_async(list)(Page.objects.filter(status="published"))
-        serializer = PageSerializer(qs, many=True)
-        await self.send(
-            text_data=json.dumps({"action": "pages_list", "data": serializer.data})
-        )
+        try:
+            page_data = await self.list_pages_sync(status_param)
+            await self.send(
+                text_data=json.dumps({"action": "pages_list", "data": page_data})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def create_page_sync(self, data):
+        serializer = PageSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
 
     async def create_page(self, data):
-        serializer = PageSerializer(data=data)
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "page_created", "data": serializer.data}
+        try:
+            result = await self.create_page_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "page_created", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_page_sync(self, slug, data):
+        page = get_object_or_404(Page, slug=slug)
+        serializer = PageSerializer(page, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
 
     async def update_page(self, data):
         slug = data.get("slug")
-        page = await sync_to_async(get_object_or_404)(Page, slug=slug)
-        serializer = PageSerializer(page, data=data, partial=True)
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "page_updated", "data": serializer.data}
+        try:
+            result = await self.update_page_sync(slug, data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "page_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def publish_page_sync(self, slug):
@@ -218,18 +298,22 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     async def publish_page(self, data):
         slug = data.get("slug")
-        page_id = await self.publish_page_sync(slug)
-        await self.send(
-            text_data=json.dumps(
-                {"action": "page_published", "slug": slug, "id": page_id}
+        try:
+            page_id = await self.publish_page_sync(slug)
+            await self.send(
+                text_data=json.dumps(
+                    {"action": "page_published", "slug": slug, "id": page_id}
+                )
             )
-        )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Page Component ---
-    async def list_components(self, data):
-        slug = data.get("slug")
-        status_param = data.get("status", "published")
-        page = await sync_to_async(get_object_or_404)(Page, slug=slug)
+    @sync_to_async
+    def list_components_sync(self, slug, status_param):
+        page = get_object_or_404(Page, slug=slug)
 
         if status_param == "preview":
             qs = (
@@ -251,36 +335,58 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 .filter(status="published")
             )
 
-        qs = await sync_to_async(list)(qs.order_by("order"))
-        serializer = PageComponentSerializer(qs, many=True)
-        await self.send(
-            text_data=json.dumps({"action": "components_list", "data": serializer.data})
-        )
+        return PageComponentSerializer(qs.order_by("order"), many=True).data
+
+    async def list_components(self, data):
+        slug = data.get("slug")
+        status_param = data.get("status", "published")
+
+        try:
+            component_data = await self.list_components_sync(slug, status_param)
+            await self.send(
+                text_data=json.dumps(
+                    {"action": "components_list", "data": component_data}
+                )
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def create_component_sync(self, slug, data):
+        page = get_object_or_404(Page, slug=slug)
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            order = serializer.validated_data.get("order")
+            if order is None:
+                order = page.components.count()
+            serializer.save(page=page, order=order, status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
 
     async def create_component(self, data):
         slug = data.get("slug")
-        page = await sync_to_async(get_object_or_404)(Page, slug=slug)
-        serializer = PageComponentSerializer(data=data)
-        if await sync_to_async(serializer.is_valid)():
-            order = serializer.validated_data.get("order")
-            if order is None:
-                order = await sync_to_async(page.components.count)()
-            await sync_to_async(serializer.save)(page=page, order=order, status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "component_created", "data": serializer.data}
+        try:
+            result = await self.create_component_sync(slug, data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "component_created", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
-    async def update_component(self, data):
-        slug = data.get("slug")
-        component_id = data.get("component_id")
-        instance = await sync_to_async(get_object_or_404)(
+    @sync_to_async
+    def update_component_sync(self, slug, component_id, incoming_data):
+        instance = get_object_or_404(
             PageComponent, page__slug=slug, component_id=component_id
         )
-        incoming_data = data.get("data", {})
 
         def recursive_merge(old, new):
             for key, value in new.items():
@@ -302,15 +408,29 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         serializer = PageComponentSerializer(
             instance, data={"data": merged_data}, partial=True
         )
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "component_updated", "data": serializer.data}
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def update_component(self, data):
+        slug = data.get("slug")
+        component_id = data.get("component_id")
+        incoming_data = data.get("data", {})
+        try:
+            result = await self.update_component_sync(slug, component_id, incoming_data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "component_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Component not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def publish_component_sync(self, slug):
@@ -330,10 +450,17 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     async def publish_component(self, data):
         slug = data.get("slug")
-        comp_id = await self.publish_component_sync(slug)
-        await self.send(
-            text_data=json.dumps({"action": "component_published", "id": comp_id})
-        )
+        try:
+            comp_id = await self.publish_component_sync(slug)
+            await self.send(
+                text_data=json.dumps({"action": "component_published", "id": comp_id})
+            )
+        except Http404:
+            await self.send(
+                text_data=json.dumps({"error": "Page or Component not found"})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def replace_component_sync(self, page_slug, component_id, data):
@@ -363,39 +490,48 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
     async def replace_component(self, data):
         page_slug = data.get("page_slug")
         component_id = data.get("component_id")
-        # For replacement, we still expect the 'data' field to contain the component structure
-        # or we could use the top level as well, but usually replace uses a payload.
-        # Let's assume for 'replace' the user sends the new component fields at top level too?
-        # Actually replace_component_sync takes 'data'.
-        # I'll use 'data' as the fields for the new component.
-        result = await self.replace_component_sync(page_slug, component_id, data)
-        await self.send(
-            text_data=json.dumps({"action": "component_replaced", **result})
-        )
+        try:
+            result = await self.replace_component_sync(page_slug, component_id, data)
+            await self.send(
+                text_data=json.dumps({"action": "component_replaced", **result})
+            )
+        except Http404:
+            await self.send(
+                text_data=json.dumps({"error": "Page or Component not found"})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Navbar ---
-    async def get_navbar(self, data):
-        status_param = data.get("status", "published")
+    @sync_to_async
+    def get_navbar_sync(self, status_param):
         qs = PageComponent.objects.filter(component_type="navbar")
         if status_param == "preview":
-            navbar = await sync_to_async(qs.filter(status="draft").first)()
+            navbar = qs.filter(status="draft").first()
         else:
-            navbar = await sync_to_async(qs.filter(status="published").first)()
-        if not navbar:
-            await self.send(text_data=json.dumps({"error": "Navbar not found"}))
-            return
-        await self.send(
-            text_data=json.dumps(
-                {"action": "navbar", "data": PageComponentSerializer(navbar).data}
-            )
-        )
+            navbar = qs.filter(status="published").first()
 
-    async def update_navbar(self, data):
-        pk = data.get("id")
-        instance = await sync_to_async(get_object_or_404)(
-            PageComponent, id=pk, component_type="navbar"
-        )
-        incoming_data = data.get("data", data)  # Handles both nested and flat
+        if navbar:
+            return PageComponentSerializer(navbar).data
+        return None
+
+    async def get_navbar(self, data):
+        status_param = data.get("status", "published")
+        try:
+            navbar_data = await self.get_navbar_sync(status_param)
+            if navbar_data:
+                await self.send(
+                    text_data=json.dumps({"action": "navbar", "data": navbar_data})
+                )
+            else:
+                await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_navbar_sync(self, pk, payload):
+        instance = get_object_or_404(PageComponent, id=pk, component_type="navbar")
+        incoming_data = payload.get("data", payload)
 
         def recursive_merge(old, new):
             for key, value in new.items():
@@ -418,15 +554,27 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         serializer = PageComponentSerializer(
             instance, data={"data": merged_data}, partial=True
         )
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "navbar_updated", "data": serializer.data}
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def update_navbar(self, data):
+        pk = data.get("id")
+        try:
+            result = await self.update_navbar_sync(pk, data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "navbar_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def publish_navbar_sync(self, pk):
@@ -446,10 +594,15 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     async def publish_navbar(self, data):
         pk = data.get("id")
-        navbar_id = await self.publish_navbar_sync(pk)
-        await self.send(
-            text_data=json.dumps({"action": "navbar_published", "id": navbar_id})
-        )
+        try:
+            navbar_id = await self.publish_navbar_sync(pk)
+            await self.send(
+                text_data=json.dumps({"action": "navbar_published", "id": navbar_id})
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def replace_navbar_sync(self, data):
@@ -466,32 +619,47 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             return {"error": serializer.errors}
 
     async def replace_navbar(self, data):
-        result = await self.replace_navbar_sync(data)
-        await self.send(text_data=json.dumps({"action": "navbar_replaced", **result}))
+        try:
+            result = await self.replace_navbar_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps({"action": "navbar_replaced", **result})
+                )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Footer ---
-    async def get_footer(self, data):
-        status_param = data.get("status", "published")
+    @sync_to_async
+    def get_footer_sync(self, status_param):
         qs = PageComponent.objects.filter(component_type="footer")
         if status_param == "preview":
-            footer = await sync_to_async(qs.filter(status="draft").first)()
+            footer = qs.filter(status="draft").first()
         else:
-            footer = await sync_to_async(qs.filter(status="published").first)()
-        if not footer:
-            await self.send(text_data=json.dumps({"error": "Footer not found"}))
-            return
-        await self.send(
-            text_data=json.dumps(
-                {"action": "footer", "data": PageComponentSerializer(footer).data}
-            )
-        )
+            footer = qs.filter(status="published").first()
 
-    async def update_footer(self, data):
-        pk = data.get("id")
-        instance = await sync_to_async(get_object_or_404)(
-            PageComponent, id=pk, component_type="footer"
-        )
-        incoming_data = data.get("data", data)
+        if footer:
+            return PageComponentSerializer(footer).data
+        return None
+
+    async def get_footer(self, data):
+        status_param = data.get("status", "published")
+        try:
+            footer_data = await self.get_footer_sync(status_param)
+            if footer_data:
+                await self.send(
+                    text_data=json.dumps({"action": "footer", "data": footer_data})
+                )
+            else:
+                await self.send(text_data=json.dumps({"error": "Footer not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_footer_sync(self, pk, payload):
+        instance = get_object_or_404(PageComponent, id=pk, component_type="footer")
+        incoming_data = payload.get("data", payload)
 
         def recursive_merge(old, new):
             for key, value in new.items():
@@ -514,15 +682,27 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         serializer = PageComponentSerializer(
             instance, data={"data": merged_data}, partial=True
         )
-        if await sync_to_async(serializer.is_valid)():
-            await sync_to_async(serializer.save)(status="draft")
-            await self.send(
-                text_data=json.dumps(
-                    {"action": "footer_updated", "data": serializer.data}
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def update_footer(self, data):
+        pk = data.get("id")
+        try:
+            result = await self.update_footer_sync(pk, data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "footer_updated", "data": result["data"]}
+                    )
                 )
-            )
-        else:
-            await self.send(text_data=json.dumps({"error": serializer.errors}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Footer not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def publish_footer_sync(self, pk):
@@ -542,10 +722,15 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     async def publish_footer(self, data):
         pk = data.get("id")
-        footer_id = await self.publish_footer_sync(pk)
-        await self.send(
-            text_data=json.dumps({"action": "footer_published", "id": footer_id})
-        )
+        try:
+            footer_id = await self.publish_footer_sync(pk)
+            await self.send(
+                text_data=json.dumps({"action": "footer_published", "id": footer_id})
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Footer not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def replace_footer_sync(self, data):
@@ -562,8 +747,16 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             return {"error": serializer.errors}
 
     async def replace_footer(self, data):
-        result = await self.replace_footer_sync(data)
-        await self.send(text_data=json.dumps({"action": "footer_replaced", **result}))
+        try:
+            result = await self.replace_footer_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps({"action": "footer_replaced", **result})
+                )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     # --- Bulk Operations ---
     @sync_to_async
@@ -591,8 +784,11 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 publish_instance(comp)
 
     async def publish_all(self):
-        await self.publish_all_sync()
-        await self.send(text_data=json.dumps({"action": "all_published"}))
+        try:
+            await self.publish_all_sync()
+            await self.send(text_data=json.dumps({"action": "all_published"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def reset_ui_sync(self):
@@ -632,8 +828,11 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 )
 
     async def reset_ui(self):
-        await self.reset_ui_sync()
-        await self.send(text_data=json.dumps({"action": "ui_reset"}))
+        try:
+            await self.reset_ui_sync()
+            await self.send(text_data=json.dumps({"action": "ui_reset"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
 
     @sync_to_async
     def import_template_sync(self, template_id):
@@ -649,5 +848,13 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     async def import_template(self, data):
         template_id = data.get("template_id")
-        result = await self.import_template_sync(template_id)
-        await self.send(text_data=json.dumps({"action": "template_imported", **result}))
+        try:
+            result = await self.import_template_sync(template_id)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps({"action": "template_imported", **result})
+                )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
