@@ -54,6 +54,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             await self.update_theme(data)
         elif action == "publish_theme":
             await self.publish_theme(data)
+        elif action == "create_theme":
+            await self.create_theme(data)
+        elif action == "delete_theme":
+            await self.delete_theme(data)
         elif action == "list_pages":
             await self.list_pages(data)
         elif action == "create_page":
@@ -62,6 +66,8 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             await self.update_page(data)
         elif action == "publish_page":
             await self.publish_page(data)
+        elif action == "delete_page":
+            await self.delete_page(data)
         elif action == "list_components":
             await self.list_components(data)
         elif action == "create_component":
@@ -72,22 +78,32 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             await self.publish_component(data)
         elif action == "replace_component":
             await self.replace_component(data)
+        elif action == "delete_component":
+            await self.delete_component(data)
         elif action == "get_navbar":
             await self.get_navbar(data)
+        elif action == "create_navbar":
+            await self.create_navbar(data)
         elif action == "update_navbar":
             await self.update_navbar(data)
         elif action == "publish_navbar":
             await self.publish_navbar(data)
         elif action == "replace_navbar":
             await self.replace_navbar(data)
+        elif action == "delete_navbar":
+            await self.delete_navbar(data)
         elif action == "get_footer":
             await self.get_footer(data)
+        elif action == "create_footer":
+            await self.create_footer(data)
         elif action == "update_footer":
             await self.update_footer(data)
         elif action == "publish_footer":
             await self.publish_footer(data)
         elif action == "replace_footer":
             await self.replace_footer(data)
+        elif action == "delete_footer":
+            await self.delete_footer(data)
         elif action == "publish_all":
             await self.publish_all()
         elif action == "reset_ui":
@@ -210,6 +226,44 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
+    @sync_to_async
+    def create_theme_sync(self, data):
+        serializer = ThemeSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save(status="draft")
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def create_theme(self, data):
+        try:
+            result = await self.create_theme_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "theme_created", "data": result["data"]}
+                    )
+                )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def delete_theme_sync(self, pk):
+        theme = get_object_or_404(Theme, id=pk)
+        theme.delete()
+        return {"success": True, "id": pk}
+
+    async def delete_theme(self, data):
+        pk = data.get("id")
+        try:
+            result = await self.delete_theme_sync(pk)
+            await self.send(text_data=json.dumps({"action": "theme_deleted", **result}))
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Theme not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
     # --- Page ---
     @sync_to_async
     def list_pages_sync(self, status_param):
@@ -305,6 +359,22 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                     {"action": "page_published", "slug": slug, "id": page_id}
                 )
             )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def delete_page_sync(self, slug):
+        page = get_object_or_404(Page, slug=slug)
+        page.delete()
+        return {"success": True, "slug": slug}
+
+    async def delete_page(self, data):
+        slug = data.get("slug")
+        try:
+            result = await self.delete_page_sync(slug)
+            await self.send(text_data=json.dumps({"action": "page_deleted", **result}))
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
         except Exception as e:
@@ -502,6 +572,29 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
+    @sync_to_async
+    def delete_component_sync(self, page_slug, component_id):
+        component = get_object_or_404(
+            PageComponent, page__slug=page_slug, component_id=component_id
+        )
+        component.delete()
+        return {"success": True, "component_id": component_id}
+
+    async def delete_component(self, data):
+        page_slug = data.get("page_slug")
+        component_id = data.get("component_id")
+        try:
+            result = await self.delete_component_sync(page_slug, component_id)
+            await self.send(
+                text_data=json.dumps({"action": "component_deleted", **result})
+            )
+        except Http404:
+            await self.send(
+                text_data=json.dumps({"error": "Page or Component not found"})
+            )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
     # --- Navbar ---
     @sync_to_async
     def get_navbar_sync(self, status_param):
@@ -525,6 +618,31 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 )
             else:
                 await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def create_navbar_sync(self, data):
+        data = data.copy()
+        data["component_type"] = "navbar"
+        data["status"] = "draft"
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def create_navbar(self, data):
+        try:
+            result = await self.create_navbar_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "navbar_created", "data": result["data"]}
+                    )
+                )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
@@ -630,6 +748,24 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
+    @sync_to_async
+    def delete_navbar_sync(self, pk):
+        navbar = get_object_or_404(PageComponent, id=pk, component_type="navbar")
+        navbar.delete()
+        return {"success": True, "id": pk}
+
+    async def delete_navbar(self, data):
+        pk = data.get("id")
+        try:
+            result = await self.delete_navbar_sync(pk)
+            await self.send(
+                text_data=json.dumps({"action": "navbar_deleted", **result})
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
     # --- Footer ---
     @sync_to_async
     def get_footer_sync(self, status_param):
@@ -653,6 +789,31 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 )
             else:
                 await self.send(text_data=json.dumps({"error": "Footer not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def create_footer_sync(self, data):
+        data = data.copy()
+        data["component_type"] = "footer"
+        data["status"] = "draft"
+        serializer = PageComponentSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return {"success": True, "data": serializer.data}
+        return {"error": serializer.errors}
+
+    async def create_footer(self, data):
+        try:
+            result = await self.create_footer_sync(data)
+            if "error" in result:
+                await self.send(text_data=json.dumps({"error": result["error"]}))
+            else:
+                await self.send(
+                    text_data=json.dumps(
+                        {"action": "footer_created", "data": result["data"]}
+                    )
+                )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
@@ -755,6 +916,24 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(
                     text_data=json.dumps({"action": "footer_replaced", **result})
                 )
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def delete_footer_sync(self, pk):
+        footer = get_object_or_404(PageComponent, id=pk, component_type="footer")
+        footer.delete()
+        return {"success": True, "id": pk}
+
+    async def delete_footer(self, data):
+        pk = data.get("id")
+        try:
+            result = await self.delete_footer_sync(pk)
+            await self.send(
+                text_data=json.dumps({"action": "footer_deleted", **result})
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Footer not found"}))
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
