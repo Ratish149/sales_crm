@@ -615,6 +615,15 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             )
             await self.send(
                 text_data=json.dumps(
+                    {
+                        "action": "component_deleted",
+                        "success": True,
+                        "component_id": component_id,
+                    }
+                )
+            )
+            await self.send(
+                text_data=json.dumps(
                     {"action": "list_components", "data": updated_list}
                 )
             )
