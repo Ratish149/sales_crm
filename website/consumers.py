@@ -656,7 +656,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                     text_data=json.dumps({"action": "navbar", "data": navbar_data})
                 )
             else:
-                await self.send(text_data=json.dumps({"error": "Navbar not found"}))
+                await self.send(
+                    text_data=json.dumps({"action": "navbar", "data": None})
+                )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
@@ -827,7 +829,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                     text_data=json.dumps({"action": "footer", "data": footer_data})
                 )
             else:
-                await self.send(text_data=json.dumps({"error": "Footer not found"}))
+                await self.send(
+                    text_data=json.dumps({"action": "footer", "data": None})
+                )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
