@@ -624,7 +624,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             )
             await self.send(
                 text_data=json.dumps(
-                    {"action": "list_components", "data": updated_list}
+                    {"action": "components_list", "data": updated_list}
                 )
             )
         except Http404:
