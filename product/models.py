@@ -128,6 +128,7 @@ class Product(models.Model):
             models.Index(fields=["sub_category"]),
             models.Index(fields=["is_popular"]),
             models.Index(fields=["is_featured"]),
+            models.Index(fields=["status"]),
         ]
 
 
@@ -174,6 +175,11 @@ class ProductReview(models.Model):
     rating = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["rating"]),
+        ]
 
     def __str__(self):
         return f"{self.user.email} - {self.product.name}"

@@ -186,7 +186,7 @@ CACHES = {
 #     }
 # }
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -198,9 +198,9 @@ CACHES = {
             "options": "-c search_path=public"  # important for first migration
         },
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -210,7 +210,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -478,31 +478,25 @@ if USE_SPACES:
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-    GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-
-    # Endpoint should be just region, NOT bucket + region
-    AWS_S3_ENDPOINT_URL = "https://blr1.digitaloceanspaces.com"
-
+    AWS_S3_ENDPOINT_URL = "https://sgp1.digitaloceanspaces.com"
     AWS_S3_OBJECT_PARAMETERS = {
         "CacheControl": "max-age=86400",
     }
     AWS_DEFAULT_ACL = "public-read"
+    # Use a custom domain (e.g. CNAME to your Space) for serving media/static.
+    # Override via AWS_S3_CUSTOM_DOMAIN in the environment if needed.
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
     AWS_S3_FILE_OVERWRITE = False
-    AWS_QUERYSTRING_AUTH = False
-    AWS_S3_SIGNATURE_VERSION = "s3v4"
+    AWS_QUERYSTRING_AUTH = False  # This is important for public access
+    AWS_S3_SIGNATURE_VERSION = "s3v4"  # Use the latest signature version
 
-    # ✅ Correct custom domain (bucket + region)
-    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.blr1.digitaloceanspaces.com"
-
-    # Static + Media
+    # Static and Media Files Configuration
     STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    DEFAULT_FILE_STORAGE = "sales_crm.storage_backends.PublicMediaStorage"
+    DEFAULT_FILE_STORAGE = "core.utils.s3bucket.PublicMediaStorage"
 
-    # Public media path inside your bucket
     PUBLIC_MEDIA_LOCATION = "public/media"
-
-    # ✅ Correct media URL
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
+    # Base media URL served from the custom domain
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 else:
     DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"

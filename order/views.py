@@ -185,8 +185,14 @@ class MyOrderStatusView(APIView):
         customer = get_customer_from_request(request)
         if not customer:
             return Response({"error": "Customer not found"}, status=404)
+
+        from django.db.models import Count
+
         user_orders = Order.objects.filter(customer=customer)
-        status_counts = {}
-        for status, _ in Order.ORDER_STATUS:
-            status_counts[status] = user_orders.filter(status=status).count()
+        counts = user_orders.values("status").annotate(count=Count("status"))
+
+        status_counts = {s[0]: 0 for s in Order.ORDER_STATUS}
+        for item in counts:
+            status_counts[item["status"]] = item["count"]
+
         return Response(status_counts)

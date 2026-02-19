@@ -38,6 +38,11 @@ class Theme(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+        ]
+
     def __str__(self):
         return f"Theme ({self.status})"
 
@@ -64,6 +69,9 @@ class Page(models.Model):
 
     class Meta:
         unique_together = ("title", "status")
+        indexes = [
+            models.Index(fields=["status"]),
+        ]
 
     def __str__(self):
         return f"{self.title} ({self.status})"
@@ -103,6 +111,11 @@ class PageComponent(models.Model):
 
     class Meta:
         ordering = ["order"]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["component_type"]),
+            models.Index(fields=["component_id"]),
+        ]
 
     def __str__(self):
         return f"{self.component_type} ({self.status})"

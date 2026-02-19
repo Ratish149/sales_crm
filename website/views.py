@@ -556,25 +556,24 @@ class ReplaceFooterView(APIView):
 class PublishAllView(APIView):
     @transaction.atomic
     def post(self, request):
-        # 🧹 Step 1: Clean up published components that were deleted in draft
-        published_components = PageComponent.objects.filter(status="published")
-        published_pages = Page.objects.filter(status="published")
-        published_themes = Theme.objects.filter(status="published")
+        # Delete published items whose draft version no longer exists (optimized using bulk delete)
+        PageComponent.objects.filter(status="published").exclude(
+            id__in=PageComponent.objects.filter(
+                status="draft", published_version__isnull=False
+            ).values_list("published_version_id", flat=True)
+        ).delete()
 
-        # Delete published components whose draft version no longer exists
-        for comp in published_components:
-            if not PageComponent.objects.filter(published_version=comp).exists():
-                comp.delete()
+        Page.objects.filter(status="published").exclude(
+            id__in=Page.objects.filter(
+                status="draft", published_version__isnull=False
+            ).values_list("published_version_id", flat=True)
+        ).delete()
 
-        # Delete published pages whose draft version no longer exists
-        for page in published_pages:
-            if not Page.objects.filter(published_version=page).exists():
-                page.delete()
-
-        # Delete published themes whose draft version no longer exists
-        for theme in published_themes:
-            if not Theme.objects.filter(published_version=theme).exists():
-                theme.delete()
+        Theme.objects.filter(status="published").exclude(
+            id__in=Theme.objects.filter(
+                status="draft", published_version__isnull=False
+            ).values_list("published_version_id", flat=True)
+        ).delete()
 
         # 🌀 Step 2: Publish all remaining drafts
         for theme in Theme.objects.filter(status="draft"):
