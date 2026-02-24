@@ -74,6 +74,8 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             await self.create_component(data)
         elif action == "update_component":
             await self.update_component(data)
+        elif action == "update_component_order":
+            await self.update_component_order(data)
         elif action == "publish_component":
             await self.publish_component(data)
         elif action == "replace_component":
@@ -499,6 +501,44 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Component not found"}))
+        except Exception as e:
+            await self.send(text_data=json.dumps({"error": str(e)}))
+
+    @sync_to_async
+    def update_component_order_sync(self, slug, order_updates):
+        with transaction.atomic():
+            page = get_object_or_404(Page, slug=slug)
+            for item in order_updates:
+                component_id = item.get("componentId")
+                new_order = item.get("order")
+                if component_id is None or new_order is None:
+                    continue
+                PageComponent.objects.filter(
+                    page=page, component_id=component_id, status="draft"
+                ).update(order=new_order)
+        # Return the refreshed ordered list
+        qs = (
+            PageComponent.objects.filter(page=page)
+            .exclude(component_type__in=["navbar", "footer"])
+            .filter(status="draft")
+        )
+        return PageComponentSerializer(qs.order_by("order"), many=True).data
+
+    async def update_component_order(self, data):
+        slug = data.get("slug")
+        order_updates = data.get("order_updates", [])
+        try:
+            updated_list = await self.update_component_order_sync(slug, order_updates)
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "action": "component_order_updated",
+                        "data": updated_list,
+                    }
+                )
+            )
+        except Http404:
+            await self.send(text_data=json.dumps({"error": "Page not found"}))
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
