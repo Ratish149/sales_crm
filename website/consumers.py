@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
-from django.db import transaction
+from django.db import models, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 
@@ -427,15 +427,23 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_component_sync(self, slug, data):
-        page = get_object_or_404(Page, slug=slug)
-        serializer = PageComponentSerializer(data=data)
-        if serializer.is_valid():
-            order = serializer.validated_data.get("order")
-            if order is None:
-                order = page.components.count()
-            serializer.save(page=page, order=order, status="draft")
-            return {"success": True, "data": serializer.data}
-        return {"error": serializer.errors}
+        with transaction.atomic():
+            page = get_object_or_404(Page, slug=slug)
+            serializer = PageComponentSerializer(data=data)
+            if serializer.is_valid():
+                order = serializer.validated_data.get("order")
+                if order is None:
+                    order = page.components.filter(status="draft").count()
+                else:
+                    # Shift existing draft components at this position or later down by 1
+                    PageComponent.objects.filter(
+                        page=page, status="draft", order__gte=order
+                    ).exclude(component_type__in=["navbar", "footer"]).update(
+                        order=models.F("order") + 1
+                    )
+                serializer.save(page=page, order=order, status="draft")
+                return {"success": True, "data": serializer.data}
+            return {"error": serializer.errors}
 
     async def create_component(self, data):
         slug = data.get("slug")
