@@ -13,6 +13,7 @@ from tenants.models import Client
 from .models import Page, PageComponent, SiteConfig, Theme
 from .serializers import (
     PageComponentSerializer,
+    PageListSerializer,
     PageSerializer,
     SiteConfigSerializer,
     ThemeSerializer,
@@ -66,8 +67,12 @@ class ThemePublishView(APIView):
 # 📄 PAGE VIEWS
 # ------------------------------
 class PageListCreateView(generics.ListCreateAPIView):
-    serializer_class = PageSerializer
     queryset = Page.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return PageListSerializer
+        return PageSerializer
 
     def get_queryset(self):
         status = self.request.query_params.get("status")

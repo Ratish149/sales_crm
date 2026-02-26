@@ -12,6 +12,7 @@ from tenants.models import Client
 from .models import Page, PageComponent, SiteConfig, Theme
 from .serializers import (
     PageComponentSerializer,
+    PageListSerializer,
     PageSerializer,
     SiteConfigSerializer,
     ThemeSerializer,
@@ -273,7 +274,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             qs = Page.objects.filter(status="draft")
         else:
             qs = Page.objects.filter(status="published")
-        return PageSerializer(qs, many=True).data
+        return PageListSerializer(qs, many=True).data
 
     async def list_pages(self, data):
         status_param = data.get("status")
