@@ -148,9 +148,9 @@ def import_template_to_tenant(template_client, target_client):
     # 2) WRITE INTO USER SCHEMA
     with schema_context(target_client.schema_name):
         # Delete old data
-        PageComponent.objects.all().delete()
-        Page.objects.all().delete()
-        Theme.objects.all().delete()
+        PageComponent.objects.filter(status="draft").delete()
+        Page.objects.filter(status="draft").delete()
+        Theme.objects.filter(status="draft").delete()
 
         # Copy themes
         theme_map = {}
