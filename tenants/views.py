@@ -3,8 +3,6 @@
 import logging
 import os
 
-from accounts.models import CustomUser
-
 # import requests
 from django.db import connection, transaction
 
@@ -25,6 +23,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from accounts.models import CustomUser
 from tenants.models import (
     Client,
     Domain,
@@ -340,12 +339,15 @@ class ClientTokenByIdAPIView(APIView):
         # Generate JWT tokens
         refresh = RefreshToken.for_user(owner)
         refresh["email"] = owner.email
+        refresh["role"] = owner.role
         refresh["client_id"] = client.id
         refresh["client_name"] = client.name
         refresh["schema_name"] = client.schema_name
         refresh["is_template_account"] = client.is_template_account
         refresh["domain"] = domain_name
         refresh["sub_domain"] = sub_domain
+        refresh["website_type"] = owner.website_type
+        refresh["is_onboarding_complete"] = owner.is_onboarding_complete
 
         # Add store related information
         refresh["store_name"] = store_name
