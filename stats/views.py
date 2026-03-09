@@ -11,10 +11,10 @@ from order.models import Order
 
 class UnreadCountView(APIView):
     def get(self, request):
-        unread_appointments = Appointment.objects.filter(status="Pending").count()
+        unread_appointments = Appointment.objects.filter(status="pending").count()
         unread_popup_forms = PopUpForm.objects.filter(is_read=False).count()
         unread_contacts = Contact.objects.filter(is_read=False).count()
-        unread_orders = Order.objects.filter(status="Pending").count()
+        unread_orders = Order.objects.filter(status="pending").count()
         unread_newsletters = NewsLetter.objects.filter(is_read=False).count()
 
         return Response(
