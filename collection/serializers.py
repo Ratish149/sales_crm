@@ -28,7 +28,6 @@ class CollectionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "id",
             "slug",
-            "default_fields",
             "all_fields",
             "created_at",
             "updated_at",
