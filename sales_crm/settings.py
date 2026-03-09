@@ -110,6 +110,7 @@ TENANT_APPS = [
     "our_pricing",
     "collection",
     "builder",
+    "stats",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [

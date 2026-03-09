@@ -31,6 +31,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             "date",
             "time",
             "status",
+            "is_read",
             "created_at",
             "updated_at",
         ]
