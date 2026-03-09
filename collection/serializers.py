@@ -54,6 +54,7 @@ class CollectionSerializer(serializers.ModelSerializer):
             "json",
             "rich_text",
             "model",
+            "multiple_text",
         ]
 
         # Reserved field names (default fields)
