@@ -7,10 +7,12 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from dotenv import load_dotenv
-from rest_framework import generics, status
+from rest_framework import filters, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from sales_crm.pagination import CustomPagination
 
 from .authentication import CustomerJWTAuthentication
 from .models import Customer
@@ -30,6 +32,9 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 class CustomerRegisterView(generics.ListCreateAPIView):
     queryset = Customer.objects.all()
     serializer_class = CustomerRegisterSerializer
+    pagination_class = CustomPagination
+    search_fields = ["first_name", "last_name", "email", "phone"]
+    filter_backends = [filters.SearchFilter]
 
 
 class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
