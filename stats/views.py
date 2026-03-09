@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 
 from advertisement.models import PopUpForm
 from appointment.models import Appointment
-from contact.models import Contact
+from contact.models import Contact, NewsLetter
 from order.models import Order
 
 # Create your views here.
@@ -15,6 +15,7 @@ class UnreadCountView(APIView):
         unread_popup_forms = PopUpForm.objects.filter(is_read=False).count()
         unread_contacts = Contact.objects.filter(is_read=False).count()
         unread_orders = Order.objects.filter(status="Pending").count()
+        unread_newsletters = NewsLetter.objects.filter(is_read=False).count()
 
         return Response(
             {
@@ -22,5 +23,6 @@ class UnreadCountView(APIView):
                 "unread_popup_forms": unread_popup_forms,
                 "unread_contacts": unread_contacts,
                 "unread_orders": unread_orders,
+                "unread_newsletters": unread_newsletters,
             }
         )
