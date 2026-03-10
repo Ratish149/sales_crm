@@ -1,10 +1,8 @@
-import base64
 import json
 import os
 from datetime import date, timedelta
 from typing import Any, Dict
 
-import requests
 import resend
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
@@ -310,9 +308,7 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 if schema_name in ["public", "default", "postgres"]:
                     schema_name = f"{schema_name}-user{user.id}"
 
-                store_profile = StoreProfile.objects.create(
-                    store_name=store_name, owner=user
-                )
+                StoreProfile.objects.create(store_name=store_name, owner=user)
                 user.role = "owner"
                 user.save()
 
@@ -348,41 +344,6 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 )
                 subject = "Sales CRM - Email Verification"
 
-            def get_image_base64(url):
-                try:
-                    response = requests.get(url, timeout=5)
-                    return base64.b64encode(response.content).decode()
-                except Exception:
-                    return None
-
-            logo_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-            )
-            fb_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-            )
-            ig_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-            )
-
-            attachments = (
-                [
-                    {"filename": "logo.png", "content": logo_b64, "content_id": "logo"},
-                    {
-                        "filename": "facebook.png",
-                        "content": fb_b64,
-                        "content_id": "facebook",
-                    },
-                    {
-                        "filename": "instagram.png",
-                        "content": ig_b64,
-                        "content_id": "instagram",
-                    },
-                ]
-                if logo_b64
-                else []
-            )
-
             resend.Emails.send(
                 {
                     "from": "Nepdora <nepdora@baliyoventures.com>",
@@ -390,7 +351,6 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                     "subject": subject,
                     "html": html_body,
                     "reply_to": "nepdora@gmail.com",
-                    "attachments": attachments,
                 }
             )
 

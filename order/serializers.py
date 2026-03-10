@@ -1,7 +1,5 @@
-import base64
 import os
 
-import requests
 import resend
 from django.db import connection, models, transaction
 from django.template.loader import render_to_string
@@ -150,43 +148,13 @@ class OrderSerializer(serializers.ModelSerializer):
             # Get current tenant from DB connection
             tenant = getattr(connection, "tenant", None)
             if tenant:
-                tenant_name = tenant.name
+                tenant_name = "".join(
+                    word.capitalize() for word in tenant.name.replace("-", " ").split()
+                )
             else:
                 tenant_name = "Nepdora"
 
-            def get_image_base64(url):
-                try:
-                    response = requests.get(url, timeout=5)
-                    return base64.b64encode(response.content).decode()
-                except Exception:
-                    return None
 
-            logo_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-            )
-            fb_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-            )
-            ig_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-            )
-            attachments = (
-                [
-                    {"filename": "logo.png", "content": logo_b64, "content_id": "logo"},
-                    {
-                        "filename": "facebook.png",
-                        "content": fb_b64,
-                        "content_id": "facebook",
-                    },
-                    {
-                        "filename": "instagram.png",
-                        "content": ig_b64,
-                        "content_id": "instagram",
-                    },
-                ]
-                if logo_b64
-                else []
-            )
 
             # Use a verified sender email from environment variable
             # Default to a common verified email if not set
@@ -219,7 +187,6 @@ class OrderSerializer(serializers.ModelSerializer):
                         "to": order.customer_email,
                         "subject": f"Order Confirmation #{order.order_number}",
                         "html": html_content,
-                        "attachments": attachments,
                     }
                 )
                 print(
@@ -259,7 +226,6 @@ class OrderSerializer(serializers.ModelSerializer):
                         "to": admin_email,
                         "subject": f"New Order Received #{order.order_number}",
                         "html": admin_html_content,
-                        "attachments": attachments,
                     }
                 )
                 print(f"Admin order notification sent successfully to {admin_email}")
@@ -356,43 +322,13 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             # Get current tenant from DB connection
             tenant = getattr(connection, "tenant", None)
             if tenant:
-                tenant_name = tenant.name
+                tenant_name = "".join(
+                    word.capitalize() for word in tenant.name.replace("-", " ").split()
+                )
             else:
                 tenant_name = "Nepdora"
 
-            def get_image_base64(url):
-                try:
-                    response = requests.get(url, timeout=5)
-                    return base64.b64encode(response.content).decode()
-                except Exception:
-                    return None
 
-            logo_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-            )
-            fb_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-            )
-            ig_b64 = get_image_base64(
-                "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-            )
-            attachments = (
-                [
-                    {"filename": "logo.png", "content": logo_b64, "content_id": "logo"},
-                    {
-                        "filename": "facebook.png",
-                        "content": fb_b64,
-                        "content_id": "facebook",
-                    },
-                    {
-                        "filename": "instagram.png",
-                        "content": ig_b64,
-                        "content_id": "instagram",
-                    },
-                ]
-                if logo_b64
-                else []
-            )
 
             # Use a verified sender email from environment variable
             # Default to a common verified email if not set
@@ -425,7 +361,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                         "to": order.customer_email,
                         "subject": f"Order Confirmation #{order.order_number}",
                         "html": html_content,
-                        "attachments": attachments,
                     }
                 )
                 print(
@@ -465,7 +400,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                         "to": admin_email,
                         "subject": f"New Order Received #{order.order_number}",
                         "html": admin_html_content,
-                        "attachments": attachments,
                     }
                 )
                 print(f"Admin order notification sent successfully to {admin_email}")

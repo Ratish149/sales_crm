@@ -1,7 +1,5 @@
-import base64
 import os
 
-import requests
 import resend
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
@@ -86,12 +84,7 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-def get_image_base64(url):
-    try:
-        response = requests.get(url, timeout=5)
-        return base64.b64encode(response.content).decode()
-    except Exception as e:
-        return e
+
 
 
 class CustomerRequestPasswordResetView(APIView):
@@ -120,18 +113,13 @@ class CustomerRequestPasswordResetView(APIView):
         uid = urlsafe_base64_encode(force_bytes(customer.pk))
         token = customer_token_generator.make_token(customer)
 
-        tenant_subdomain = request.tenant.schema_name
+        tenant_name = "".join(
+            word.capitalize()
+            for word in request.tenant.schema_name.replace("-", " ").split()
+        )
         reset_link = f"{frontend_url}/customer/password/reset?uid={uid}&token={token}"
 
-        logo_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-        )
-        fb_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-        )
-        ig_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-        )
+
 
         # Context for your template
         context = {
@@ -148,29 +136,10 @@ class CustomerRequestPasswordResetView(APIView):
         # Send email using Resend
         try:
             params = {
-                "from": f"{tenant_subdomain} <nepdora@baliyoventures.com>",
+                "from": f"{tenant_name} <nepdora@baliyoventures.com>",
                 "to": [email],
                 "subject": subject,
                 "html": html_body,
-                "attachments": [
-                    {
-                        "filename": "logo.png",
-                        "content": logo_b64,
-                        "content_id": "logo",
-                    },
-                    {
-                        "filename": "facebook.png",
-                        "content": fb_b64,
-                        "content_id": "facebook",
-                    },
-                    {
-                        "filename": "instagram.png",
-                        "content": ig_b64,
-                        "content_id": "instagram",
-                    },
-                ]
-                if logo_b64
-                else [],
             }
             resend.Emails.send(params)
         except Exception:

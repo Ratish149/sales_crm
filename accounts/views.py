@@ -1,10 +1,8 @@
-import base64
 import json
 import os
 from datetime import date, timedelta
 from uuid import uuid4
 
-import requests
 import resend
 from allauth.account.models import (
     EmailAddress,
@@ -348,14 +346,6 @@ class ResendEmailVerificationView(APIView):
         )
 
 
-def get_image_base64(url):
-    try:
-        response = requests.get(url, timeout=5)
-        return base64.b64encode(response.content).decode()
-    except Exception as e:
-        return e
-
-
 class InvitationCreateView(generics.ListCreateAPIView):
     serializer_class = InvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -410,16 +400,6 @@ class InvitationCreateView(generics.ListCreateAPIView):
         FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
         invite_url = f"{FRONTEND_URL}/user/invite/{invitation.token}"
 
-        logo_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-        )
-        fb_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-        )
-        ig_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-        )
-
         # Prepare email content using a template
         html_body = render_to_string(
             "account/email/invitation_message.html",
@@ -434,25 +414,6 @@ class InvitationCreateView(generics.ListCreateAPIView):
             "to": [invitation.email],
             "subject": f"You are invited by {invitation.invited_by.email} to join {invitation.store.store_name}!",
             "html": html_body,
-            "attachments": [
-                {
-                    "filename": "logo.png",
-                    "content": logo_b64,
-                    "content_id": "logo",  # Use cid:logo in HTML
-                },
-                {
-                    "filename": "facebook.png",
-                    "content": fb_b64,
-                    "content_id": "facebook",
-                },
-                {
-                    "filename": "instagram.png",
-                    "content": ig_b64,
-                    "content_id": "instagram",
-                },
-            ]
-            if logo_b64
-            else [],  # Only add if images loaded successfully
         }
         try:
             resend.Emails.send(params)
@@ -693,16 +654,6 @@ class RequestPasswordResetAPIView(APIView):
             f"https://www.nepdora.com/account/password/reset?uid={uid}&token={token}"
         )
 
-        logo_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
-        )
-        fb_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/facebook-logo.png"
-        )
-        ig_b64 = get_image_base64(
-            "https://nepdora.baliyoventures.com/static/social/instagram-logo.png"
-        )
-
         # Context for your template
         context = {
             "user": user,
@@ -722,25 +673,6 @@ class RequestPasswordResetAPIView(APIView):
                 "to": [email],
                 "subject": subject,
                 "html": html_body,
-                "attachments": [
-                    {
-                        "filename": "logo.png",
-                        "content": logo_b64,
-                        "content_id": "logo",  # Use cid:logo in HTML
-                    },
-                    {
-                        "filename": "facebook.png",
-                        "content": fb_b64,
-                        "content_id": "facebook",
-                    },
-                    {
-                        "filename": "instagram.png",
-                        "content": ig_b64,
-                        "content_id": "instagram",
-                    },
-                ]
-                if logo_b64
-                else [],  # Only add if images loaded successfully
             }
             resend.Emails.send(params)
         except Exception:
