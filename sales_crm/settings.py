@@ -111,6 +111,7 @@ TENANT_APPS = [
     "collection",
     "builder",
     "stats",
+    "skills",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [

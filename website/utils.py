@@ -8,6 +8,7 @@ from django.db.models import ForeignKey
 from django_tenants.utils import schema_context
 
 from website.models import Page, PageComponent, Theme
+from collection.models import Collection
 
 
 def clean_draft_links(data):
@@ -131,6 +132,44 @@ def clone_file(field):
     return ContentFile(file_content, name=filename)
 
 
+def update_collection_references(data, collection_map):
+    """
+    Recursively update collection IDs in a JSON structure.
+    """
+    if isinstance(data, dict):
+        new_data = {}
+        for k, v in data.items():
+            if k in ["collection", "collection_id", "collectionId", "model"] and isinstance(v, int):
+                new_data[k] = collection_map.get(v, v)
+            else:
+                new_data[k] = update_collection_references(v, collection_map)
+        return new_data
+    elif isinstance(data, list):
+        return [update_collection_references(item, collection_map) for item in data]
+    else:
+        return data
+
+
+def find_used_collection_ids(data, found_ids=None):
+    """
+    Recursively find all collection IDs referenced in a JSON structure.
+    """
+    if found_ids is None:
+        found_ids = set()
+
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in ["collection", "collection_id", "collectionId", "model"] and isinstance(v, int):
+                found_ids.add(v)
+            else:
+                find_used_collection_ids(v, found_ids)
+    elif isinstance(data, list):
+        for item in data:
+            find_used_collection_ids(item, found_ids)
+
+    return found_ids
+
+
 def import_template_to_tenant(template_client, target_client):
     # 1) READ TEMPLATE DATA
     with schema_context(template_client.schema_name):
@@ -145,18 +184,81 @@ def import_template_to_tenant(template_client, target_client):
             c for c in source_components if c.component_type not in ["navbar", "footer"]
         ]
 
+        # 1b) IDENTIFY USED COLLECTIONS
+        all_collections = {c.id: c for c in Collection.objects.all()}
+        used_ids = set()
+
+        # Check themes
+        for theme in source_themes:
+            find_used_collection_ids(theme.data, used_ids)
+
+        # Check components
+        for comp in source_components:
+            find_used_collection_ids(comp.data, used_ids)
+
+        # Recursively find dependent collections (collection fields that refer to other collections)
+        to_process = list(used_ids)
+        while to_process:
+            current_id = to_process.pop()
+            if current_id in all_collections:
+                coll = all_collections[current_id]
+                # Check fields for 'model' references
+                dep_ids = find_used_collection_ids(coll.fields)
+                for d_id in dep_ids:
+                    if d_id not in used_ids:
+                        used_ids.add(d_id)
+                        to_process.append(d_id)
+
+        source_collections = [all_collections[cid] for cid in used_ids if cid in all_collections]
+
     # 2) WRITE INTO USER SCHEMA
     with schema_context(target_client.schema_name):
-        # Delete old data
+        # Delete old data (pages, themes, components - draft only)
+        # Note: We do NOT delete existing collections as per user request
         PageComponent.objects.filter(status="draft").delete()
         Page.objects.filter(status="draft").delete()
         Theme.objects.filter(status="draft").delete()
 
+        # Copy collections
+        collection_map = {}
+        for coll in source_collections:
+            unique_name = coll.name
+            unique_slug = coll.slug
+            
+            # Resolve name/slug collisions
+            counter = 1
+            while Collection.objects.filter(name=unique_name).exists():
+                unique_name = f"{coll.name} (Imported {counter})"
+                counter += 1
+            
+            counter = 1
+            while Collection.objects.filter(slug=unique_slug).exists():
+                unique_slug = f"{coll.slug}-imported-{counter}"
+                counter += 1
+
+            new_coll = Collection.objects.create(
+                name=unique_name,
+                slug=unique_slug,
+                send_email=coll.send_email,
+                admin_email=coll.admin_email,
+                default_fields=coll.default_fields,
+                fields=coll.fields,
+            )
+            collection_map[coll.id] = new_coll.id
+
+        # Update self-references in collection fields (e.g., model references)
+        for coll_id in collection_map.values():
+            coll = Collection.objects.get(id=coll_id)
+            coll.fields = update_collection_references(coll.fields, collection_map)
+            coll.save(update_fields=["fields"])
+
         # Copy themes
         theme_map = {}
         for theme in source_themes:
+            # Update data with new collection references
+            new_data = update_collection_references(theme.data, collection_map)
             new_theme = Theme.objects.create(
-                status="draft", data=theme.data, published_version=None
+                status="draft", data=new_data, published_version=None
             )
             theme_map[theme.id] = new_theme
 
@@ -175,35 +277,38 @@ def import_template_to_tenant(template_client, target_client):
         # Copy other components (linked to pages)
         for comp in source_other_components:
             new_page = page_map.get(comp.page_id)
+            new_data = update_collection_references(comp.data, collection_map)
             PageComponent.objects.create(
                 status="draft",
                 page=new_page,
                 component_type=comp.component_type,
                 component_id=comp.component_id,
-                data=comp.data,
+                data=new_data,
                 order=comp.order,
                 published_version=None,
             )
 
         # Copy navbar/footer (page=None)
         for nav in source_navbars:
+            new_data = update_collection_references(nav.data, collection_map)
             PageComponent.objects.create(
                 status="draft",
                 page=None,
                 component_type="navbar",
                 component_id=nav.component_id,
-                data=nav.data,
+                data=new_data,
                 order=nav.order,
                 published_version=None,
             )
 
         for foot in source_footers:
+            new_data = update_collection_references(foot.data, collection_map)
             PageComponent.objects.create(
                 status="draft",
                 page=None,
                 component_type="footer",
                 component_id=foot.component_id,
-                data=foot.data,
+                data=new_data,
                 order=foot.order,
                 published_version=None,
             )
