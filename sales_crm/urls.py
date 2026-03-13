@@ -61,6 +61,7 @@ urlpatterns = [
     path("api/", include("our_pricing.urls")),
     path("api/", include("collection.urls")),
     path("api/", include("nepdora_blog.urls")),
+    path("api/", include("nepdora_payment.urls")),
     path("api/", include("skills.urls")),
     path("api/stats/", include("stats.urls")),
     # API Documentation

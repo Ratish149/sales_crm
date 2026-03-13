@@ -1,0 +1,76 @@
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
+class NepdoraPayment(models.Model):
+    CHOICES = (
+        ("esewa", "Esewa"),
+        ("khalti", "Khalti"),
+    )
+    payment_type = models.CharField(max_length=10, choices=CHOICES, unique=True)
+    secret_key = models.CharField(max_length=255, null=True, blank=True)
+    merchant_code = models.CharField(max_length=255, null=True, blank=True)
+
+    def clean(self):
+        """Ensure at most one record per payment_type (esewa, khalti)."""
+        qs = NepdoraPayment.objects.filter(payment_type=self.payment_type)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+        if qs.exists():
+            raise ValidationError(
+                f"A '{self.get_payment_type_display()}' configuration already exists. "
+                "Only one entry per payment type is allowed."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.payment_type
+
+
+class TenantCentralPaymentHistory(models.Model):
+    STATUS_CHOICES = (
+        ("pending", "Pending"),
+        ("transferred", "Transferred"),
+    )
+    PAYMENT_CHOICES = (
+        ("esewa", "Esewa"),
+        ("khalti", "Khalti"),
+    )
+
+    tenant = models.ForeignKey(
+        "tenants.Client",
+        on_delete=models.CASCADE,
+        related_name="central_payments"
+    )
+    payment_type = models.CharField(max_length=10, choices=PAYMENT_CHOICES)
+    pay_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transaction_id = models.CharField(max_length=255)
+    products_purchased = models.JSONField(default=dict, blank=True, null=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    additional_info = models.JSONField(default=dict, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.tenant.name} - {self.payment_type} - {self.pay_amount} ({self.status})"
+
+
+class TenantTransferHistory(models.Model):
+    """Records manual transfers made by Nepdora admin to tenants."""
+
+    tenant = models.ForeignKey(
+        "tenants.Client",
+        on_delete=models.CASCADE,
+        related_name="transfer_history",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    transfer_date = models.DateTimeField()
+    reference_note = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.tenant.name} — {self.amount} on {self.transfer_date}"
