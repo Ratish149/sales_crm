@@ -30,11 +30,11 @@ class NepdoraPaymentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
 # ─── Tenant Central Payment History ──────────────────────────────────────────
 
 class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
-    queryset = TenantCentralPaymentHistory.objects.all().select_related('tenant')
+    queryset = TenantCentralPaymentHistory.objects.all().select_related("tenant")
     serializer_class = TenantCentralPaymentHistorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['tenant']
-    search_fields = ['transaction_id']
+    filterset_fields = ["tenant", "tenant__name"]
+    search_fields = ["transaction_id"]
 
 
 class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
