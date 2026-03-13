@@ -8,7 +8,7 @@ from .views import (
 
 urlpatterns = [
     path(
-        "payment-gateway/list/",
+        "payment-gateway/",
         PaymentListCreateAPIView.as_view(),
         name="payment-list-create",
     ),
@@ -18,7 +18,7 @@ urlpatterns = [
         name="payment-retrieve-update-destroy",
     ),
     path(
-        "payment-gateway/",
+        "payment-gateway/list/",
         PaymentListAPIView.as_view(),
         name="payment-list",
     ),
