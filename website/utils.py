@@ -7,8 +7,8 @@ from django.db import transaction
 from django.db.models import ForeignKey
 from django_tenants.utils import schema_context
 
-from website.models import Page, PageComponent, Theme
 from collection.models import Collection
+from website.models import Page, PageComponent, Theme
 
 
 def clean_draft_links(data):
@@ -139,7 +139,12 @@ def update_collection_references(data, collection_map):
     if isinstance(data, dict):
         new_data = {}
         for k, v in data.items():
-            if k in ["collection", "collection_id", "collectionId", "model"] and isinstance(v, int):
+            if k in [
+                "collection",
+                "collection_id",
+                "collectionId",
+                "model",
+            ] and isinstance(v, int):
                 new_data[k] = collection_map.get(v, v)
             else:
                 new_data[k] = update_collection_references(v, collection_map)
@@ -148,26 +153,6 @@ def update_collection_references(data, collection_map):
         return [update_collection_references(item, collection_map) for item in data]
     else:
         return data
-
-
-def find_used_collection_ids(data, found_ids=None):
-    """
-    Recursively find all collection IDs referenced in a JSON structure.
-    """
-    if found_ids is None:
-        found_ids = set()
-
-    if isinstance(data, dict):
-        for k, v in data.items():
-            if k in ["collection", "collection_id", "collectionId", "model"] and isinstance(v, int):
-                found_ids.add(v)
-            else:
-                find_used_collection_ids(v, found_ids)
-    elif isinstance(data, list):
-        for item in data:
-            find_used_collection_ids(item, found_ids)
-
-    return found_ids
 
 
 def import_template_to_tenant(template_client, target_client):
@@ -184,32 +169,9 @@ def import_template_to_tenant(template_client, target_client):
             c for c in source_components if c.component_type not in ["navbar", "footer"]
         ]
 
-        # 1b) IDENTIFY USED COLLECTIONS
-        all_collections = {c.id: c for c in Collection.objects.all()}
-        used_ids = set()
-
-        # Check themes
-        for theme in source_themes:
-            find_used_collection_ids(theme.data, used_ids)
-
-        # Check components
-        for comp in source_components:
-            find_used_collection_ids(comp.data, used_ids)
-
-        # Recursively find dependent collections (collection fields that refer to other collections)
-        to_process = list(used_ids)
-        while to_process:
-            current_id = to_process.pop()
-            if current_id in all_collections:
-                coll = all_collections[current_id]
-                # Check fields for 'model' references
-                dep_ids = find_used_collection_ids(coll.fields)
-                for d_id in dep_ids:
-                    if d_id not in used_ids:
-                        used_ids.add(d_id)
-                        to_process.append(d_id)
-
-        source_collections = [all_collections[cid] for cid in used_ids if cid in all_collections]
+        # 1b) IDENTIFY COLLECTIONS TO IMPORT
+        # Import all collections from the template account
+        source_collections = list(Collection.objects.all())
 
     # 2) WRITE INTO USER SCHEMA
     with schema_context(target_client.schema_name):
@@ -224,13 +186,13 @@ def import_template_to_tenant(template_client, target_client):
         for coll in source_collections:
             unique_name = coll.name
             unique_slug = coll.slug
-            
+
             # Resolve name/slug collisions
             counter = 1
             while Collection.objects.filter(name=unique_name).exists():
                 unique_name = f"{coll.name} (Imported {counter})"
                 counter += 1
-            
+
             counter = 1
             while Collection.objects.filter(slug=unique_slug).exists():
                 unique_slug = f"{coll.slug}-imported-{counter}"
@@ -239,8 +201,8 @@ def import_template_to_tenant(template_client, target_client):
             new_coll = Collection.objects.create(
                 name=unique_name,
                 slug=unique_slug,
-                send_email=coll.send_email,
-                admin_email=coll.admin_email,
+                send_email=False,
+                admin_email=None,
                 default_fields=coll.default_fields,
                 fields=coll.fields,
             )
