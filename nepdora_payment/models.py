@@ -33,7 +33,7 @@ class NepdoraPayment(models.Model):
 class TenantCentralPaymentHistory(models.Model):
     STATUS_CHOICES = (
         ("pending", "Pending"),
-        ("transferred", "Transferred"),
+        ("received", "Received"),
     )
     PAYMENT_CHOICES = (
         ("esewa", "Esewa"),
@@ -41,9 +41,7 @@ class TenantCentralPaymentHistory(models.Model):
     )
 
     tenant = models.ForeignKey(
-        "tenants.Client",
-        on_delete=models.CASCADE,
-        related_name="central_payments"
+        "tenants.Client", on_delete=models.CASCADE, related_name="central_payments"
     )
     payment_type = models.CharField(max_length=10, choices=PAYMENT_CHOICES)
     pay_amount = models.DecimalField(max_digits=10, decimal_places=2)
