@@ -221,6 +221,7 @@ class CustomerLoginView(APIView):
         # Generate JWT tokens
         refresh = RefreshToken.for_user(customer)
         refresh["user_id"] = customer.id
+        refresh["client_id"] = request.tenant.id
         refresh["first_name"] = customer.first_name
         refresh["last_name"] = customer.last_name
         refresh["email"] = customer.email
