@@ -10,7 +10,7 @@ from .views import (
 
 urlpatterns = [
     path(
-        "payment-gateway/",
+        "payment-gateway/list/",
         PaymentListCreateAPIView.as_view(),
         name="payment-list-create",
     ),
@@ -20,7 +20,7 @@ urlpatterns = [
         name="payment-retrieve-update-destroy",
     ),
     path(
-        "payment-gateway/list/",
+        "payment-gateway/",
         PaymentListAPIView.as_view(),
         name="payment-list",
     ),
