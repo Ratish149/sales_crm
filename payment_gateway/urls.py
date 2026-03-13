@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    PaymentHistoryListCreateAPIView,
+    PaymentHistoryRetrieveUpdateDestroyAPIView,
     PaymentListAPIView,
     PaymentListCreateAPIView,
     PaymentRetrieveUpdateDestroyAPIView,
@@ -21,5 +23,15 @@ urlpatterns = [
         "payment-gateway/list/",
         PaymentListAPIView.as_view(),
         name="payment-list",
+    ),
+    path(
+        "payment-gateway/history/",
+        PaymentHistoryListCreateAPIView.as_view(),
+        name="payment-history-list-create",
+    ),
+    path(
+        "payment-gateway/history/<int:pk>/",
+        PaymentHistoryRetrieveUpdateDestroyAPIView.as_view(),
+        name="payment-history-retrieve-update-destroy",
     ),
 ]

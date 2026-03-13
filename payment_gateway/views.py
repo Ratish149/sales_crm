@@ -1,8 +1,12 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
-from .models import Payment
-from .serializers import PaymentSerializer, PaymentSmallSerializer
+from .models import Payment, PaymentHistory
+from .serializers import (
+    PaymentHistorySerializer,
+    PaymentSerializer,
+    PaymentSmallSerializer,
+)
 
 
 # Create your views here.
@@ -60,3 +64,13 @@ class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
 class PaymentListAPIView(generics.ListAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+
+
+class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
+    queryset = PaymentHistory.objects.all()
+    serializer_class = PaymentHistorySerializer
+
+
+class PaymentHistoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PaymentHistory.objects.all()
+    serializer_class = PaymentHistorySerializer
