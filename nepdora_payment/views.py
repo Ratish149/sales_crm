@@ -6,6 +6,8 @@ from rest_framework import filters, generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from sales_crm.pagination import CustomPagination
+
 from .models import NepdoraPayment, TenantCentralPaymentHistory, TenantTransferHistory
 from .serializers import (
     NepdoraPaymentSerializer,
@@ -45,6 +47,7 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = TenantCentralPaymentHistoryFilter
     search_fields = ["transaction_id"]
+    pagination_class = CustomPagination
 
 
 class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(
@@ -62,6 +65,7 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     serializer_class = TenantTransferHistorySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["tenant"]
+    pagination_class = CustomPagination
 
 
 class TenantTransferHistoryRetrieveUpdateDestroyView(

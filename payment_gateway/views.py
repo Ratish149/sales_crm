@@ -1,6 +1,8 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
 
+from sales_crm.pagination import CustomPagination
+
 from .models import Payment, PaymentHistory
 from .serializers import (
     PaymentHistorySerializer,
@@ -69,6 +71,7 @@ class PaymentListAPIView(generics.ListAPIView):
 class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
     queryset = PaymentHistory.objects.all()
     serializer_class = PaymentHistorySerializer
+    pagination_class = CustomPagination
 
 
 class PaymentHistoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
