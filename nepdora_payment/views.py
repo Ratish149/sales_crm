@@ -46,7 +46,7 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     serializer_class = TenantCentralPaymentHistorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = TenantCentralPaymentHistoryFilter
-    search_fields = ["transaction_id"]
+    search_fields = ["transaction_id", "tenant__name"]
     pagination_class = CustomPagination
 
 
