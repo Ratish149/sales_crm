@@ -89,14 +89,14 @@ class PaymentSummaryAPIView(APIView):
     def get(self, request, *args, **kwargs):
         from django.db.models import Sum
 
-        tenant_id = request.query_params.get("tenant")
+        tenant_name_param = request.query_params.get("tenant")
 
         received_qs = TenantCentralPaymentHistory.objects.all()
         transferred_qs = TenantTransferHistory.objects.all()
 
-        if tenant_id:
-            received_qs = received_qs.filter(tenant_id=tenant_id)
-            transferred_qs = transferred_qs.filter(tenant_id=tenant_id)
+        if tenant_name_param:
+            received_qs = received_qs.filter(tenant__name=tenant_name_param)
+            transferred_qs = transferred_qs.filter(tenant__name=tenant_name_param)
 
         total_received = received_qs.aggregate(total=Sum("pay_amount"))[
             "total"
@@ -108,6 +108,7 @@ class PaymentSummaryAPIView(APIView):
 
         return Response(
             {
+                "tenant_name": tenant_name_param or "All Tenants",
                 "total_received": total_received,
                 "total_paid": total_paid,
                 "pending_balance": pending_balance,
