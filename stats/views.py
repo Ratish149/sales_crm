@@ -6,6 +6,7 @@ from appointment.models import Appointment
 from contact.models import Contact, NewsLetter
 from nepdora_payment.models import TenantTransferHistory
 from order.models import Order
+from payment_gateway.models import PaymentHistory
 
 # Create your views here.
 
@@ -17,6 +18,7 @@ class UnreadCountView(APIView):
         unread_contacts = Contact.objects.filter(is_read=False).count()
         unread_orders = Order.objects.filter(status="pending").count()
         unread_newsletters = NewsLetter.objects.filter(is_read=False).count()
+        unread_own_payment = PaymentHistory.objects.filter(is_read=False).count()
         unread_tenant_transfers = TenantTransferHistory.objects.filter(
             tenant=request.tenant, is_read=False
         ).count()
@@ -28,6 +30,7 @@ class UnreadCountView(APIView):
                 "unread_contacts": unread_contacts,
                 "unread_orders": unread_orders,
                 "unread_newsletters": unread_newsletters,
+                "unread_own_payment": unread_own_payment,
                 "unread_tenant_transfers": unread_tenant_transfers,
             }
         )
