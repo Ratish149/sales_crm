@@ -60,11 +60,21 @@ class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(
 # ─── Tenant Transfer History ──────────────────────────────────────────────────
 
 
+class TenantTransferHistoryFilter(django_filters.FilterSet):
+    tenant = django_filters.CharFilter(field_name="tenant__name", lookup_expr="exact")
+    date_range = django_filters.DateFromToRangeFilter(field_name="transfer_date")
+
+    class Meta:
+        model = TenantTransferHistory
+        fields = ["tenant", "date_range"]
+
+
 class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     queryset = TenantTransferHistory.objects.all().select_related("tenant")
     serializer_class = TenantTransferHistorySerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["tenant"]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = TenantTransferHistoryFilter
+    search_fields = ["tenant__name"]
     pagination_class = CustomPagination
 
 
