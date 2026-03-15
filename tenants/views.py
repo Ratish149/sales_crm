@@ -24,6 +24,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import CustomUser
+from payment_gateway.models import Payment
 from tenants.models import (
     Client,
     Domain,
@@ -98,10 +99,41 @@ class TemplateSubCategoryRetrieveUpdateDeleteView(
     lookup_field = "slug"
 
 
+class DomainFilter(django_filters.FilterSet):
+    payment = django_filters.CharFilter(method="filter_payment")
+
+    class Meta:
+        model = Domain
+        fields = ["payment"]
+
+    def filter_payment(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        enabled_tenant_ids = []
+        # Get all clients except public
+        clients = Client.objects.exclude(schema_name="public")
+
+        for client in clients:
+            with schema_context(client.schema_name):
+                # Check if any payment gateway is enabled for this tenant
+                if Payment.objects.filter(is_enabled=True).exists():
+                    enabled_tenant_ids.append(client.id)
+
+        if value.lower() == "enabled":
+            return queryset.filter(tenant_id__in=enabled_tenant_ids)
+        elif value.lower() == "disabled":
+            return queryset.exclude(tenant_id__in=enabled_tenant_ids)
+
+        return queryset
+
+
 class DomainView(generics.ListCreateAPIView):
     queryset = Domain.objects.all()
     serializer_class = DomainSerializer
     pagination_class = CustomPagination
+    filter_backends = [django_filters.DjangoFilterBackend]
+    filterset_class = DomainFilter
 
 
 class DomainDetailView(generics.RetrieveUpdateDestroyAPIView):
