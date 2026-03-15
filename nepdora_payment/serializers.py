@@ -31,7 +31,9 @@ class TenantCentralPaymentHistorySerializer(serializers.ModelSerializer):
                 {"tenant": f"Multiple tenants found with name '{tenant_name}'."}
             )
 
-        return TenantCentralPaymentHistory.objects.create(tenant=tenant, **validated_data)
+        return TenantCentralPaymentHistory.objects.create(
+            tenant=tenant, **validated_data
+        )
 
 
 class TenantTransferHistorySerializer(serializers.ModelSerializer):
