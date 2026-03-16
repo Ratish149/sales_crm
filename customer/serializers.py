@@ -4,7 +4,10 @@ from .models import Customer
 
 
 class CustomerRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(required=False, allow_null=True)
+    password = serializers.CharField(
+        write_only=True, required=False, allow_null=True, allow_blank=True
+    )
 
     class Meta:
         model = Customer

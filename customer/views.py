@@ -34,6 +34,31 @@ class CustomerRegisterView(generics.ListCreateAPIView):
     search_fields = ["first_name", "last_name", "email", "phone"]
     filter_backends = [filters.SearchFilter]
 
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        email = serializer.validated_data.get("email")
+        phone = serializer.validated_data.get("phone")
+        
+        customer = None
+        if phone:
+            customer = Customer.objects.filter(phone=phone).first()
+        if not customer and email:
+            customer = Customer.objects.filter(email=email).first()
+            
+        if customer:
+            # Update existing customer
+            for attr, value in serializer.validated_data.items():
+                setattr(customer, attr, value)
+            customer.save() # Model's save() handles password hashing
+            return Response(self.get_serializer(customer).data, status=status.HTTP_200_OK)
+        
+        # Create new customer
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Customer.objects.all()

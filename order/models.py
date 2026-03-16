@@ -21,6 +21,7 @@ class Order(models.Model):
         ("cod", "Cash On Delivery"),
         ("khalti", "Khalti"),
         ("esewa", "Esewa"),
+        ("cash","Cash")
     ]
     customer = models.ForeignKey(
         "customer.Customer",
