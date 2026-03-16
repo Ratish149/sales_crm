@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models import Sum, Count, Q, Avg, F
 from django.utils import timezone
 from datetime import datetime, date
@@ -123,6 +124,11 @@ class StatsView(APIView):
             qty_sold=Sum("quantity"),
             amount=Sum(F("quantity") * F("price"))
         ).order_by("-qty_sold")[:10]
+        
+        top_selling_products = list(top_selling_products)
+        for p in top_selling_products:
+            if p.get("product__thumbnail_image"):
+                p["product__thumbnail_image"] = request.build_absolute_uri(settings.MEDIA_URL + p["product__thumbnail_image"])
 
         # Least Selling Products
         least_selling_products = order_items_qs.values(
@@ -131,6 +137,11 @@ class StatsView(APIView):
             qty_sold=Sum("quantity"),
             amount=Sum(F("quantity") * F("price"))
         ).order_by("qty_sold")[:10]
+        
+        least_selling_products = list(least_selling_products)
+        for p in least_selling_products:
+            if p.get("product__thumbnail_image"):
+                p["product__thumbnail_image"] = request.build_absolute_uri(settings.MEDIA_URL + p["product__thumbnail_image"])
 
         return Response({
             "revenue": revenue,
