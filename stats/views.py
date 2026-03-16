@@ -108,11 +108,11 @@ class StatsView(APIView):
             amount=Sum("total_amount")
         )
 
-        # Top 10 Cities
+        # Top 5 Cities
         top_cities = valid_orders_qs.exclude(city__isnull=True).exclude(city="").values("city").annotate(
             count=Count("id"),
             amount=Sum("total_amount")
-        ).order_by("-count")[:10]
+        ).order_by("-count")[:5]
 
         # Top Selling Products
         # OrderItem relates to Order
@@ -123,7 +123,7 @@ class StatsView(APIView):
         ).annotate(
             qty_sold=Sum("quantity"),
             amount=Sum(F("quantity") * F("price"))
-        ).order_by("-qty_sold")[:10]
+        ).order_by("-qty_sold")[:5]
         
         top_selling_products = list(top_selling_products)
         for p in top_selling_products:
@@ -136,7 +136,7 @@ class StatsView(APIView):
         ).annotate(
             qty_sold=Sum("quantity"),
             amount=Sum(F("quantity") * F("price"))
-        ).order_by("qty_sold")[:10]
+        ).order_by("qty_sold")[:5]
         
         least_selling_products = list(least_selling_products)
         for p in least_selling_products:
