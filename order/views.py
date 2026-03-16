@@ -37,10 +37,11 @@ class OrderFilter(django_filters.FilterSet):
     date_from = django_filters.DateFilter(field_name="created_at", lookup_expr="gte")
     date_to = django_filters.DateFilter(field_name="created_at", lookup_expr="lte")
     is_manual = django_filters.BooleanFilter(field_name="is_manual")
+    pos_order = django_filters.BooleanFilter(field_name="pos_order")
 
     class Meta:
         model = Order
-        fields = ["status", "date_from", "date_to", "is_manual"]
+        fields = ["status", "date_from", "date_to", "is_manual", "pos_order"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

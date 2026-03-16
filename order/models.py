@@ -55,6 +55,7 @@ class Order(models.Model):
     promo_code = models.ForeignKey(
         PromoCode, on_delete=models.CASCADE, null=True, blank=True
     )
+    pos_order = models.BooleanField(default=False)
     note = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
