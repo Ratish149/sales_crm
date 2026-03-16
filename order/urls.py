@@ -7,6 +7,7 @@ from .views import (
     MyOrderStatusView,
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
+    OrderGetAPIView
 )
 
 urlpatterns = [
@@ -16,6 +17,7 @@ urlpatterns = [
         OrderRetrieveUpdateDestroyAPIView.as_view(),
         name="order-retrieve-update-destroy",
     ),
+    path("get-order/<str:order_number>/", OrderGetAPIView.as_view(), name="order-get"),
     path("dashboard-stats/", DashboardStatsView.as_view(), name="dashboard-stats"),
     path("my-order/", MyOrderListAPIView.as_view(), name="customer-order"),
     path("my-order-status/", MyOrderStatusView.as_view(), name="customer-order-status"),

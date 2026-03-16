@@ -147,6 +147,12 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         return response
 
 
+class OrderGetAPIView(generics.RetrieveAPIView):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    lookup_field = "order_number"
+
+
 class DashboardStatsView(APIView):
     def get(self, request):
         now = timezone.now()
