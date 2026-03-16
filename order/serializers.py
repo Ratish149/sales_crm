@@ -178,6 +178,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 html_content = render_to_string(
@@ -218,6 +219,7 @@ class OrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 admin_html_content = render_to_string(
@@ -350,6 +352,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 html_content = render_to_string(
@@ -390,6 +393,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 admin_html_content = render_to_string(
