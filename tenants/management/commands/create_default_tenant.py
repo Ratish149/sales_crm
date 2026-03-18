@@ -30,7 +30,7 @@ class Command(BaseCommand):
 
             # Create a domain for the tenant
             domain, created = Domain.objects.get_or_create(
-                domain='127.0.0.1',
+                domain='sales-crm-8s09.onrender.com',
                 tenant=default_tenant,
                 is_primary=True
             )
