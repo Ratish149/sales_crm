@@ -1,8 +1,11 @@
 from datetime import date
 
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import connection
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
+from django_tenants.utils import get_tenant_domain_model
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
@@ -54,50 +57,50 @@ RATE_LIMIT_BLOCK_SECONDS = (
 )
 
 
-class TenantValidationMiddleware(MiddlewareMixin):
-    """
-    Validates that tenant-specific endpoints are accessed with a proper tenant subdomain.
-    Returns a proper error message instead of allowing database errors when accessing
-    tenant apps from the public schema.
-    """
+# class TenantValidationMiddleware(MiddlewareMixin):
+#     """
+#     Validates that tenant-specific endpoints are accessed with a proper tenant subdomain.
+#     Returns a proper error message instead of allowing database errors when accessing
+#     tenant apps from the public schema.
+#     """
 
-    def process_request(self, request):
-        tenant = getattr(request, "tenant", None)
+#     def process_request(self, request):
+#         tenant = getattr(request, "tenant", None)
 
-        # If no tenant is set, skip validation
-        if not tenant:
-            return None
+#         # If no tenant is set, skip validation
+#         if not tenant:
+#             return None
 
-        # Check if we're in the public schema
-        is_public_schema = tenant.schema_name == "public"
+#         # Check if we're in the public schema
+#         is_public_schema = tenant.schema_name == "public"
 
-        # If not in public schema, allow the request
-        if not is_public_schema:
-            return None
+#         # If not in public schema, allow the request
+#         if not is_public_schema:
+#             return None
 
-        # Check if the requested path requires a tenant context
-        path = request.path.lower()
-        requires_tenant = any(
-            path.startswith(pattern.lower()) for pattern in TENANT_REQUIRED_PATTERNS
-        )
+#         # Check if the requested path requires a tenant context
+#         path = request.path.lower()
+#         requires_tenant = any(
+#             path.startswith(pattern.lower()) for pattern in TENANT_REQUIRED_PATTERNS
+#         )
 
-        if requires_tenant:
-            return JsonResponse(
-                {
-                    "status": 400,
-                    "error": {
-                        "code": 400,
-                        "message": "Invalid tenant. Please access this endpoint using a tenant subdomain.",
-                        "params": {
-                            "requested_path": request.path,
-                        },
-                    },
-                    "success": False,
-                },
-                status=400,
-            )
+#         if requires_tenant:
+#             return JsonResponse(
+#                 {
+#                     "status": 400,
+#                     "error": {
+#                         "code": 400,
+#                         "message": "Invalid tenant. Please access this endpoint using a tenant subdomain.",
+#                         "params": {
+#                             "requested_path": request.path,
+#                         },
+#                     },
+#                     "success": False,
+#                 },
+#                 status=400,
+#             )
 
-        return None
+#         return None
 
 
 class RateLimitMiddleware(MiddlewareMixin):
@@ -218,3 +221,32 @@ class SubscriptionMiddleware(MiddlewareMixin):
             return True  # Lifetime plan => active
 
         return tenant.paid_until >= date.today()
+
+class CustomDomainTenantMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # 1. Extract domain
+        hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
+        print("hostname", hostname)
+        hostname = hostname.replace("www.", "").split(":")[0]
+
+        try:
+            # 2. Lookup Tenant
+            DomainModel = get_tenant_domain_model()
+            print("DomainModel", DomainModel)
+            domain_obj = DomainModel.objects.select_related("tenant").get(domain=hostname)
+            tenant = domain_obj.tenant
+            
+            # 3. Set the Schema
+            connection.set_tenant(tenant)
+            request.tenant = tenant
+            
+        except (ObjectDoesNotExist, DomainModel.DoesNotExist):
+            # Fallback to public
+            connection.set_schema_to_public()
+            request.tenant = None
+
+        response = self.get_response(request)
+        return response

@@ -123,8 +123,9 @@ SITE_ID = 1
 
 
 MIDDLEWARE = [
-    "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
-    "sales_crm.middleware.TenantValidationMiddleware",  # Validate tenant context
+    "sales_crm.middleware.CustomDomainTenantMiddleware",
+    # "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
+    # "sales_crm.middleware.TenantValidationMiddleware",  # Validate tenant context
     "sales_crm.middleware.RateLimitMiddleware",
     "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -205,6 +206,20 @@ CACHES = {
 
 DATABASES = {
     "default": {
+        "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
+       'NAME': 'builder_he0y',  # database name
+        'USER': 'ratish',        # username
+        'PASSWORD': 'KCGMExnWRObj6NYw1oQs0th3INKcseKT',  # password
+        'HOST': 'dpg-d6t85h6a2pns738knc3g-a.singapore-postgres.render.com',  # host
+        'PORT': '5432',         
+        "OPTIONS": {
+            "options": "-c search_path=public"  # important for first migration
+        },
+    }
+}
+
+""" DATABASES = {
+    "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
         "USER": os.getenv("DB_USER"),
@@ -213,7 +228,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -226,7 +241,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://collectable-incantatory-fredricka.ngrok-free.dev",
+    "https://unknown-kidney-technical-soft.trycloudflare.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
@@ -234,7 +249,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://collectable-incantatory-fredricka.ngrok-free.dev",
+    "https://unknown-kidney-technical-soft.trycloudflare.com",
 ]
 
 # Password validation
@@ -368,6 +383,7 @@ CORS_ALLOW_HEADERS = [
     "X-Password-Reset-Key",
     "Content-Type",
     "Authorization",
+    "X-Tenant-Domain",
 ]
 
 HEADLESS_FRONTEND_URLS = {

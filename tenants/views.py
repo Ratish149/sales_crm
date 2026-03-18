@@ -135,6 +135,8 @@ class DomainView(generics.ListCreateAPIView):
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = DomainFilter
 
+    
+
 
 class DomainDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Domain.objects.all()
@@ -428,3 +430,71 @@ class TenantInternalRepoView(APIView):
             return Response(
                 {"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND
             )
+class TenantDomainView(generics.ListCreateAPIView):
+    serializer_class = DomainSerializer
+
+    def get_queryset(self):
+        """
+        GET: Returns domains scoped strictly to the current tenant context.
+        """
+        tenant = getattr(self.request, 'tenant', None)
+        if not tenant:
+            return Domain.objects.none()
+        
+        queryset = Domain.objects.filter(tenant=tenant)
+        
+        # Filter by specific domain string if passed in query params
+        # Usage: /api/domains/?domain_name=mysite.com
+        domain_name = self.request.query_params.get('domain_name')
+        if domain_name:
+            # Clean input to match DB format
+            clean_name = domain_name.strip().lower()
+            queryset = queryset.filter(domain=clean_name)
+            
+        return queryset
+
+    def perform_create(self, serializer):
+        """
+        POST: Adds a new domain and automatically sets it as the Primary domain.
+        """
+        current_tenant = getattr(self.request, 'tenant', None)
+        
+        if not current_tenant:
+            raise ValidationError({
+                "error": "No tenant context found. Please provide a valid X-Tenant-Domain header."
+            })
+
+        # Standardize domain name (remove http://, https://, and trailing slashes)
+        raw_domain = self.request.data.get('domain', '').lower()
+        clean_domain = raw_domain.replace("https://", "").replace("http://", "").split('/')[0].strip()
+
+        # Wrap in an atomic transaction to ensure data consistency
+        with transaction.atomic():
+            try:
+                # 1. Demote all existing domains for this tenant to non-primary
+                Domain.objects.filter(tenant=current_tenant).update(is_primary=False)
+
+                # 2. Save the new domain as the NEW Primary
+                serializer.save(
+                    tenant=current_tenant, 
+                    domain=clean_domain,
+                    is_primary=True
+                )
+            except IntegrityError:
+                raise ValidationError({
+                    "domain": "This domain is already registered in the system (possibly by another tenant)."
+                })
+
+    def list(self, request, *args, **kwargs):
+        """
+        Custom list to handle 404s when searching for a specific domain name.
+        """
+        response = super().list(request, *args, **kwargs)
+        
+        # If user searched for a specific domain but it's not in their list
+        if not response.data and request.query_params.get('domain_name'):
+            return Response(
+                {"detail": "Domain not found for this tenant account."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        return response

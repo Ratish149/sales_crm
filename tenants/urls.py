@@ -12,10 +12,12 @@ from .views import (
     TemplateTenantListAPIView,
     TemplateTenantRetrieveUpdateDestroyAPIView,
     TenantInternalRepoView,
+    TenantDomainView
 )
 
 urlpatterns = [
     path("domains/", DomainView.as_view(), name="domain-list"),
+    path("custom-domain/", TenantDomainView.as_view(), name="add-custom-domain"),
     path("domains/<int:pk>/", DomainDetailView.as_view(), name="domain-detail"),
     # path("facebook-webhook", FacebookWebhookView.as_view(), name="facebook_webhook"),
     path(
