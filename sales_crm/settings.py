@@ -163,20 +163,30 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
-CHANNEL_LAYERS = {
+""" CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
             "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
         },
     },
+} """
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
 }
 
 # Caching
-CACHES = {
+""" CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": "redis://localhost:6379/2",
+    }
+} """
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
 
@@ -211,7 +221,7 @@ DATABASES = {
         'USER': 'ratish',        # username
         'PASSWORD': 'KCGMExnWRObj6NYw1oQs0th3INKcseKT',  # password
         'HOST': 'dpg-d6t85h6a2pns738knc3g-a.singapore-postgres.render.com',  # host
-        'PORT': '5432',         
+        'PORT': '5432',          
         "OPTIONS": {
             "options": "-c search_path=public"  # important for first migration
         },
