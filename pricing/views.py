@@ -104,8 +104,10 @@ class SubscriptionStatusView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, *args, **kwargs):
+        print("request", request.user)
         try:
             tenant = Client.objects.get(owner=request.user)
+            print("tenant", tenant)
         except Client.DoesNotExist:
             return Response({"error": "Tenant not found for this user"}, status=404)
 

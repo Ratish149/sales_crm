@@ -216,20 +216,6 @@ CACHES = {
 
 DATABASES = {
     "default": {
-        "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
-       'NAME': 'builder_he0y',  # database name
-        'USER': 'ratish',        # username
-        'PASSWORD': 'KCGMExnWRObj6NYw1oQs0th3INKcseKT',  # password
-        'HOST': 'dpg-d6t85h6a2pns738knc3g-a.singapore-postgres.render.com',  # host
-        'PORT': '5432',          
-        "OPTIONS": {
-            "options": "-c search_path=public"  # important for first migration
-        },
-    }
-}
-
-""" DATABASES = {
-    "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
         "USER": os.getenv("DB_USER"),
@@ -238,7 +224,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-} """
+}
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -251,7 +237,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://unknown-kidney-technical-soft.trycloudflare.com",
+    "https://chevy-biggest-assisted-platform.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -260,7 +246,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://unknown-kidney-technical-soft.trycloudflare.com",
+    "https://chevy-biggest-assisted-platform.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 
