@@ -46,7 +46,12 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ["name"]
     list_per_page = 25
     inlines = [ProductImageInline]
-    formfield_overrides = {models.TextField: {"widget": TinyMCE()}}
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        if db_field.name == "content":
+            return db_field.formfield(widget=TinyMCE())
+        return super().formfield_for_dbfield(db_field, **kwargs)
+
+
 
 
 @admin.register(ProductOption)
