@@ -129,7 +129,7 @@ class DomainFilter(django_filters.FilterSet):
 
 
 class DomainView(generics.ListCreateAPIView):
-    queryset = Domain.objects.all()
+    queryset = Domain.objects.all().order_by("-id")
     serializer_class = DomainSerializer
     pagination_class = CustomPagination
     filter_backends = [django_filters.DjangoFilterBackend]
@@ -441,7 +441,7 @@ class TenantDomainView(generics.ListCreateAPIView):
         if not tenant:
             return Domain.objects.none()
         
-        queryset = Domain.objects.filter(tenant=tenant)
+        queryset = Domain.objects.filter(tenant=tenant).order_by('-id')
         
         # Filter by specific domain string if passed in query params
         # Usage: /api/domains/?domain_name=mysite.com

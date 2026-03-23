@@ -72,7 +72,7 @@ class NepdoraTestimonialRetrieveUpdateDestroyView(
 
 
 class ContactListCreateView(generics.ListCreateAPIView):
-    queryset = Contact.objects.all()
+    queryset = Contact.objects.all().order_by("-created_at")
     serializer_class = ContactSerializer
     pagination_class = CustomPagination
 
