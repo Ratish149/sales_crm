@@ -1,8 +1,9 @@
 import re
 
 import pandas as pd
+import io
 from django.db.models import Avg
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -554,24 +555,34 @@ class DownloadProductSampleTemplateView(APIView):
                 ws.cell(row=row_num, column=col, value=value)
 
         # Add data validation for dropdown fields
-        self._add_data_validations(ws, categories, subcategories)
+        self._add_data_validations(wb, ws, categories, subcategories)
 
         # Auto-adjust column widths for better readability
         self._adjust_column_widths(ws)
 
-        # Create HTTP response
-        response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        response["Content-Disposition"] = (
-            'attachment; filename="product_bulk_upload_template.xlsx"'
-        )
+        # Create a buffer to save the workbook
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
 
-        wb.save(response)
+        # Create FileResponse
+        response = FileResponse(
+            buffer,
+            as_attachment=True,
+            filename="product_bulk_upload_template.xlsx",
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
         return response
 
-    def _add_data_validations(self, ws, categories, subcategories):
+    def _add_data_validations(self, wb, ws, categories, subcategories):
         """Add data validation for dropdown fields with dynamic data from database"""
+
+        # Create a hidden sheet for dropdown data to avoid 255-character limit
+        if "_dropdown_data" in wb.sheetnames:
+            dropdown_ws = wb["_dropdown_data"]
+        else:
+            dropdown_ws = wb.create_sheet("_dropdown_data")
+        dropdown_ws.sheet_state = "hidden"
 
         # Boolean fields validation - track_stock
         bool_validation_track = DataValidation(
@@ -633,21 +644,21 @@ class DownloadProductSampleTemplateView(APIView):
         ws.add_data_validation(fast_shipping_validation)
         fast_shipping_validation.add("O2:O1048576")  # fast_shipping
 
-        # Warranty is a free text field, no validation needed
-
         # Category validation (dynamic from database)
         if categories.exists():
-            # Create comma-separated list of category names
+            # Write categories to hidden sheet (Column A)
             category_names = [cat.name for cat in categories]
-            category_formula = '"' + ",".join(category_names) + '"'
+            for i, name in enumerate(category_names, 1):
+                dropdown_ws.cell(row=i, column=1, value=name)
 
+            # Use formula pointing to the hidden sheet
             cat_validation = DataValidation(
                 type="list",
-                formula1=category_formula,
+                formula1=f"'_dropdown_data'!$A$1:$A${len(category_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
                 errorTitle="Invalid category",
-                error=f"Please select from available categories: {', '.join(category_names)}",
+                error="Please select from available categories",
             )
             ws.add_data_validation(cat_validation)
             cat_validation.add("J2:J1048576")  # category
@@ -655,23 +666,19 @@ class DownloadProductSampleTemplateView(APIView):
         # Subcategory validation (dynamic from database) with category name
         if subcategories.exists():
             # Create formatted subcategory names: "Subcategory Name (Category Name)"
+            # Write subcategories to hidden sheet (Column B)
             subcategory_display_names = []
-            subcategory_mapping = {}  # Store mapping for processing during upload
-
             for sub in subcategories:
                 display_name = f"{sub.name} ({sub.category.name})"
                 subcategory_display_names.append(display_name)
-                subcategory_mapping[display_name] = (
-                    sub.name
-                )  # Store original name for lookup
 
-            # Store the mapping in the workbook for later use during upload processing
-            # This would need to be handled in your bulk upload view
-            subcategory_formula = '"' + ",".join(subcategory_display_names) + '"'
+            for i, name in enumerate(subcategory_display_names, 1):
+                dropdown_ws.cell(row=i, column=2, value=name)
 
+            # Use formula pointing to the hidden sheet
             subcat_validation = DataValidation(
                 type="list",
-                formula1=subcategory_formula,
+                formula1=f"'_dropdown_data'!$B$1:$B${len(subcategory_display_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
                 errorTitle="Invalid subcategory",
