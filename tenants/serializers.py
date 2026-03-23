@@ -9,7 +9,7 @@ from pricing.serializers import PricingSmallSerializer
 
 class ClientSerializer(serializers.ModelSerializer):
     owner = CustomUserSerializer(read_only=True)
-    price_plan = PricingSmallSerializer(read_only=True)
+    pricing_plan = PricingSmallSerializer(read_only=True)
 
     class Meta:
         model = Client
