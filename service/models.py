@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
 class ServiceCategory(models.Model):
@@ -7,7 +8,7 @@ class ServiceCategory(models.Model):
     slug = models.SlugField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     thumbnail_image = models.FileField(
-        upload_to="service/thumbnail", null=True, blank=True
+        upload_to="service/thumbnail", storage=PublicMediaStorage(), null=True, blank=True
     )
     thumbnail_image_alt_description = models.CharField(
         max_length=255, null=True, blank=True
@@ -32,7 +33,7 @@ class Service(models.Model):
     slug = models.SlugField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     thumbnail_image = models.FileField(
-        upload_to="service/thumbnail", null=True, blank=True
+        upload_to="service/thumbnail", storage=PublicMediaStorage(), null=True, blank=True
     )
     thumbnail_image_alt_description = models.CharField(
         max_length=255, null=True, blank=True

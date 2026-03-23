@@ -565,3 +565,4 @@ class WishlistSerializer(serializers.ModelSerializer):
 
 class BulkUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
+    zip_file = serializers.FileField(required=False, allow_null=True)

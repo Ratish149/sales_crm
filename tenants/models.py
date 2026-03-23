@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 from django_tenants.models import DomainMixin, TenantMixin
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
 class TemplateCategory(models.Model):
@@ -55,7 +56,7 @@ class Client(TenantMixin):
         related_name="clients",
     )
     template_image = models.FileField(
-        upload_to="template_images", null=True, blank=True
+        upload_to="template_images",storage=PublicMediaStorage(), null=True, blank=True
     )
     is_template_account = models.BooleanField(default=False)
     template_category = models.ForeignKey(

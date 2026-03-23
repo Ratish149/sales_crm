@@ -38,7 +38,12 @@ from .serializers import (
     SubCategorySerializer,
     WishlistSerializer,
 )
-from .utils import download_image_from_url, safe_value
+from .utils import (
+    download_image_from_url,
+    extract_images_from_zip,
+    process_image_field,
+    safe_value,
+)
 
 # Create your views here.
 
@@ -726,13 +731,19 @@ class BulkProductUploadView(APIView):
     """Upload Excel/CSV and create products"""
 
     def post(self, request):
-        file = request.FILES.get("file")
-        if not file:
-            return Response(
-                {"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = BulkUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        file = serializer.validated_data["file"]
+        zip_file = serializer.validated_data.get("zip_file")
 
         try:
+            # Extract images from ZIP if provided
+            images_from_zip = {}
+            if zip_file:
+                images_from_zip = extract_images_from_zip(zip_file)
+
             # Detect file type and read accordingly
             if file.name.endswith(".csv"):
                 df = pd.read_csv(file)
@@ -754,6 +765,7 @@ class BulkProductUploadView(APIView):
 
         created_products = {}
         current_product = None
+        current_option_names = {}
         product_options = {}  # Store option names for each product
 
         for idx, row in df.iterrows():
@@ -823,16 +835,25 @@ class BulkProductUploadView(APIView):
 
                     product = Product(**product_data)
 
-                    # Download thumbnail image
-                    thumb_url = safe_value(row.get("thumbnail_image"))
-                    if thumb_url:
-                        thumb_file, thumb_filename = download_image_from_url(
-                            thumb_url, upload_to="product_images"
-                        )
-                        if thumb_file:
-                            product.thumbnail_image.save(
-                                thumb_filename, thumb_file, save=False
+                    # Handle thumbnail image (from ZIP or URL)
+                    thumb_val = safe_value(row.get("thumbnail_image"))
+                    if thumb_val:
+                        # Try ZIP first if it doesn't look like a URL
+                        if not str(thumb_val).startswith(("http://", "https://")):
+                            thumb_file = process_image_field(thumb_val, images_from_zip)
+                            if thumb_file:
+                                product.thumbnail_image.save(
+                                    thumb_file.name, thumb_file, save=False
+                                )
+                        else:
+                            # Fallback to URL download
+                            thumb_file, thumb_filename = download_image_from_url(
+                                thumb_val, upload_to="product_images"
                             )
+                            if thumb_file:
+                                product.thumbnail_image.save(
+                                    thumb_filename, thumb_file, save=False
+                                )
 
                     try:
                         product.save()
@@ -855,7 +876,9 @@ class BulkProductUploadView(APIView):
 
             # Create variant for current product (even for empty name rows that continue variants)
             if current_product:
-                self._create_product_variant(current_product, row, current_option_names)
+                self._create_product_variant(
+                    current_product, row, current_option_names, images_from_zip
+                )
 
         return Response(
             {
@@ -909,11 +932,11 @@ class BulkProductUploadView(APIView):
 
         return option_names
 
-    def _create_product_variant(self, product, row, option_names):
+    def _create_product_variant(self, product, row, option_names, images_from_zip=None):
         """Create product variant with option values using stored option names"""
         variant_price = safe_value(row.get("variant price"))
         variant_stock = safe_value(row.get("variant stock"))
-        variant_image_url = safe_value(row.get("variant image"))
+        variant_image_val = safe_value(row.get("variant image"))
 
         # Skip if no variant data or if this is the main product row without variant-specific data
         if variant_price is None and variant_stock is None:
@@ -931,13 +954,22 @@ class BulkProductUploadView(APIView):
             stock=variant_stock,
         )
 
-        # Download variant image
-        if variant_image_url:
-            variant_file, variant_filename = download_image_from_url(
-                variant_image_url, upload_to="variant_images"
-            )
-            if variant_file:
-                variant.image.save(variant_filename, variant_file, save=False)
+        # Handle variant image (from ZIP or URL)
+        if variant_image_val:
+            # Try ZIP first if it doesn't look like a URL
+            if images_from_zip and not str(variant_image_val).startswith(
+                ("http://", "https://")
+            ):
+                variant_file = process_image_field(variant_image_val, images_from_zip)
+                if variant_file:
+                    variant.image.save(variant_file.name, variant_file, save=False)
+            else:
+                # Fallback to URL download
+                variant_file, variant_filename = download_image_from_url(
+                    variant_image_val, upload_to="variant_images"
+                )
+                if variant_file:
+                    variant.image.save(variant_filename, variant_file, save=False)
 
         variant.save()
 

@@ -1,13 +1,14 @@
 from django.db import models
 
 # Create your models here.
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
 class TeamMember(models.Model):
     order = models.IntegerField(blank=True)
     name = models.CharField(max_length=200, blank=True)
     role = models.CharField(max_length=200, blank=True)
-    photo = models.FileField(blank=True, null=True)
+    photo = models.FileField(blank=True, null=True, upload_to="team",storage=PublicMediaStorage())
     about = models.TextField(blank=True, null=True)
     email = models.CharField(max_length=200, blank=True, null=True)
     facebook = models.URLField(max_length=200, blank=True, null=True)
