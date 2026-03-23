@@ -4,9 +4,12 @@ from accounts.serializers import CustomUserSerializer
 
 from .models import Client, Domain, TemplateCategory, TemplateSubCategory
 
+from pricing.serializers import PricingSmallSerializer
+
 
 class ClientSerializer(serializers.ModelSerializer):
     owner = CustomUserSerializer(read_only=True)
+    price_plan = PricingSmallSerializer(read_only=True)
 
     class Meta:
         model = Client

@@ -176,7 +176,7 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ("id", "email", "role", "stores", "schema_name")
+        fields = ("id", "email", "role", "stores", "schema_name","phone_number")
 
     def get_stores(self, user):
         # Both owned and joined stores are already prefetched in queryset
