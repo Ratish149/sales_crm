@@ -494,14 +494,15 @@ TINYMCE_DEFAULT_CONFIG = {
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+# Boto3 must use the base origin endpoint, NOT the CDN endpoint, for API operations.
 AWS_S3_ENDPOINT_URL = "https://sgp1.digitaloceanspaces.com"
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
 AWS_DEFAULT_ACL = "public-read"
 # Use a custom domain (e.g. CNAME to your Space) for serving media/static.
-# Override via AWS_S3_CUSTOM_DOMAIN in the environment if needed.
-AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
+# Here we set it to the CDN endpoint so that all returned URLs use the CDN.
+AWS_S3_CUSTOM_DOMAIN = "himalayancrm.sgp1.cdn.digitaloceanspaces.com"
 AWS_S3_FILE_OVERWRITE = False
 AWS_QUERYSTRING_AUTH = False  # This is important for public access
 AWS_S3_SIGNATURE_VERSION = "s3v4"  # Use the latest signature version
