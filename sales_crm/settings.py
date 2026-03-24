@@ -113,6 +113,8 @@ TENANT_APPS = [
     "builder",
     "stats",
     "skills",
+    "s3bucket",
+
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -237,7 +239,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://chevy-biggest-assisted-platform.trycloudflare.com",
+    "https://therapist-duncan-seems-ceo.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -246,7 +248,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://chevy-biggest-assisted-platform.trycloudflare.com",
+    "https://therapist-duncan-seems-ceo.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 

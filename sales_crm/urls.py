@@ -64,6 +64,7 @@ urlpatterns = [
     path("api/", include("nepdora_payment.urls")),
     path("api/", include("skills.urls")),
     path("api/stats/", include("stats.urls")),
+    path("api/s3/", include("s3bucket.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
