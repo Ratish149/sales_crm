@@ -21,7 +21,7 @@ class S3UploadView(APIView):
             file_name = f"{timestamp}-{file_obj.name.replace(' ', '_')}"
             
             # Construct S3 object key
-            s3_key = f"public/nepdora/{tenant_name}/{file_name}"
+            s3_key = f"public/nepdora/tenant/{tenant_name}/{file_name}"
             
             s3 = boto3.client(
                 's3',
@@ -32,7 +32,7 @@ class S3UploadView(APIView):
             
             try:
                 # Explicitly create folder if it doesn't exist (helpful for some S3 clients like DO Spaces)
-                folder_prefix = f"public/nepdora/{tenant_name}/"
+                folder_prefix = f"public/nepdora/tenant/{tenant_name}/"
                 result = s3.list_objects_v2(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Prefix=folder_prefix, MaxKeys=1)
                 if 'Contents' not in result:
                     s3.put_object(Bucket=settings.AWS_STORAGE_BUCKET_NAME, Key=folder_prefix)
@@ -111,7 +111,7 @@ class S3DeleteView(APIView):
 class S3ListView(APIView):
     def get(self, request, *args, **kwargs):
         tenant_name = request.tenant.schema_name if hasattr(request, 'tenant') and request.tenant else 'public'
-        prefix = f"public/nepdora/{tenant_name}/"
+        prefix = f"public/nepdora/tenant/{tenant_name}/"
         
         s3 = boto3.client(
             's3',
@@ -154,7 +154,7 @@ class S3ListView(APIView):
 class S3DeleteFolderView(APIView):
     def delete(self, request, *args, **kwargs):
         tenant_name = request.tenant.schema_name if hasattr(request, 'tenant') and request.tenant else 'public'
-        prefix = f"public/nepdora/{tenant_name}/"
+        prefix = f"public/nepdora/tenant/{tenant_name}/"
         
         s3 = boto3.client(
             's3',
