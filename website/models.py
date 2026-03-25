@@ -1,13 +1,15 @@
 from django.db import models
 from django.utils.text import slugify
 from solo.models import SingletonModel
+from sales_crm.utils.s3bucket import PublicMediaStorage
+
 
 
 class SiteConfig(SingletonModel):
     business_name = models.CharField(max_length=255, blank=True, null=True)
     business_details = models.TextField(blank=True, null=True)
-    favicon = models.FileField(upload_to="favicon", null=True, blank=True)
-    logo = models.FileField(upload_to="logo", null=True, blank=True)
+    favicon = models.FileField(upload_to="favicon", storage=PublicMediaStorage(), null=True, blank=True)
+    logo = models.FileField(upload_to="logo", storage=PublicMediaStorage(), null=True, blank=True)
     address = models.CharField(max_length=255, blank=True, null=True)
     phone = models.CharField(max_length=255, blank=True, null=True)
     email = models.CharField(max_length=255, blank=True, null=True)
