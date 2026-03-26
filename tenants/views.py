@@ -343,7 +343,12 @@ class ClientTokenByIdAPIView(APIView):
                 {"detail": "Client owner not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        domain = Domain.objects.get(tenant=client)
+        domain = Domain.objects.filter(tenant=client).first()
+        if not domain:
+            return Response(
+                {"detail": "Domain not found for this client"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         domain_name = domain.domain
         # Get the first store profile to generate subdomain from store name
         store_profile = owner.owned_stores.first() or owner.stores.first()
