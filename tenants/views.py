@@ -331,9 +331,8 @@ class ClientTokenByIdAPIView(APIView):
             )
 
         # Get the client
-        try:
-            client = Client.objects.get(id=client_id)
-        except Client.DoesNotExist:
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
             return Response(
                 {"detail": "Client not found"}, status=status.HTTP_404_NOT_FOUND
             )
