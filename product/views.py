@@ -390,8 +390,6 @@ class DownloadProductSampleTemplateView(APIView):
             "is_popular",
             "is_featured",
             "status",
-            "fast_shipping",
-            "warranty",
             "option1 name",
             "option1 values",
             "option2 name",
@@ -439,8 +437,6 @@ class DownloadProductSampleTemplateView(APIView):
             "TRUE",
             "FALSE",
             "active",
-            "FALSE",
-            "1 Year Manufacturer Warranty",
             "Color",
             "Green",
             "Size",
@@ -459,8 +455,6 @@ class DownloadProductSampleTemplateView(APIView):
 
         # Add additional variant row (empty except for variant columns)
         variant_only_data = [
-            "",
-            "",
             "",
             "",
             "",
@@ -510,8 +504,6 @@ class DownloadProductSampleTemplateView(APIView):
                 "",
                 "",
                 "",
-                "",
-                "",
                 "Blue",
                 "",
                 "L",
@@ -525,8 +517,6 @@ class DownloadProductSampleTemplateView(APIView):
             ],
             # Color: Red, Size: S
             [
-                "",
-                "",
                 "",
                 "",
                 "",
@@ -636,18 +626,6 @@ class DownloadProductSampleTemplateView(APIView):
         )
         ws.add_data_validation(status_validation)
         status_validation.add("N2:N1048576")  # status
-
-        # Fast shipping validation (boolean)
-        fast_shipping_validation = DataValidation(
-            type="list",
-            formula1='"TRUE,FALSE"',
-            allow_blank=True,
-            showErrorMessage=True,
-            errorTitle="Invalid value for fast shipping",
-            error="Please enter either TRUE or FALSE",
-        )
-        ws.add_data_validation(fast_shipping_validation)
-        fast_shipping_validation.add("O2:O1048576")  # fast_shipping
 
         # Category validation (dynamic from database)
         if categories.exists():
@@ -818,8 +796,6 @@ class BulkProductUploadView(APIView):
                         "is_popular": safe_value(row.get("is_popular"), False),
                         "is_featured": safe_value(row.get("is_featured"), False),
                         "status": safe_value(row.get("status"), "active"),
-                        "fast_shipping": safe_value(row.get("fast_shipping"), False),
-                        "warranty": safe_value(row.get("warranty"), ""),
                         "meta_title": safe_value(
                             row.get("meta_title", row.get("meta title")), ""
                         ),
