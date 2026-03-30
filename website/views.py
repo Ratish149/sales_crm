@@ -824,8 +824,6 @@ class GlobalBulkCreateView(APIView):
     Only models from apps defined in settings.TENANT_APPS are allowed.
     """
 
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TenantJWTAuthentication]
 
     def post(self, request, *args, **kwargs):
         model_name = request.data.get("model_name")
