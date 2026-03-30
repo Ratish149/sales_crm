@@ -202,7 +202,7 @@ CACHES = {
 #     }
 # }
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -214,9 +214,9 @@ CACHES = {
             "options": "-c search_path=public"  # important for first migration
         },
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -226,7 +226,7 @@ DATABASES = {
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -239,7 +239,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://therapist-duncan-seems-ceo.trycloudflare.com",
+    "https://sea-wav-projected-adjust.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -248,7 +248,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://therapist-duncan-seems-ceo.trycloudflare.com",
+    "https://sea-wav-projected-adjust.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com"
 ]
 

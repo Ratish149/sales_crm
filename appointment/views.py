@@ -4,7 +4,9 @@ from rest_framework.pagination import PageNumberPagination
 
 from .models import Appointment, AppointmentReason
 from .serializers import AppointmentReasonSerializer, AppointmentSerializer
+from rest_framework.permissions import IsAuthenticated
 
+from sales_crm.authentication import TenantJWTAuthentication
 
 # Create your views here.
 class CustomPagination(PageNumberPagination):
@@ -21,6 +23,8 @@ class AppointmentReasonListCreateView(generics.ListCreateAPIView):
 class AppointmentReasonRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = AppointmentReason.objects.all()
     serializer_class = AppointmentReasonSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class AppointmentFilterSet(django_filters.FilterSet):
@@ -55,7 +59,20 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
     filterset_class = AppointmentFilterSet
     search_fields = ["full_name", "phone_number"]
 
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 class AppointmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Appointment.objects.all()
     serializer_class = AppointmentSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    

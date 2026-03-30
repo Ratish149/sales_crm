@@ -2,6 +2,9 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Blog, Tags
 from .serializers import BlogSerializer, TagsSerializer
@@ -29,11 +32,25 @@ class BlogListCreateView(generics.ListCreateAPIView):
     filterset_class = BlogFilterSet
     search_fields = ["title"]
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
 
 class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Blog.objects.all()
     serializer_class = BlogSerializer
     lookup_field = "slug"
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
 
 
 class TagsListCreateView(generics.ListCreateAPIView):

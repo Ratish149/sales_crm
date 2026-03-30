@@ -15,6 +15,9 @@ from rest_framework.views import APIView
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 from .models import (
     Category,
     Product,
@@ -107,11 +110,22 @@ class ProductImageListCreateView(generics.ListCreateAPIView):
     queryset = ProductImage.objects.all()
     serializer_class = ProductImageSerializer
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 class ProductImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ProductImage.objects.all()
     serializer_class = ProductImageSerializer
-
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 class ProductFilterSet(django_filters.FilterSet):
     category = django_filters.CharFilter(
@@ -149,6 +163,16 @@ class ProductListCreateView(generics.ListCreateAPIView):
     filterset_class = ProductFilterSet
     ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
     search_fields = ["name"]
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.request.method == "POST":
@@ -202,6 +226,16 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     lookup_field = "slug"
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """
@@ -706,6 +740,8 @@ class DownloadProductSampleTemplateView(APIView):
 
 class BulkProductUploadView(APIView):
     serializer_class = BulkUploadSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
     """Upload Excel/CSV and create products"""
 
     def post(self, request):

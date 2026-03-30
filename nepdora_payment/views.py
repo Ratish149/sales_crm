@@ -3,8 +3,11 @@ from decimal import Decimal
 from django_filters import rest_framework as django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from sales_crm.pagination import CustomPagination
 
@@ -23,11 +26,15 @@ class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
     serializer_class = NepdoraPaymentSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["payment_type"]
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
-
+    
 class NepdoraPaymentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NepdoraPayment.objects.all()
     serializer_class = NepdoraPaymentSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 # ─── Tenant Central Payment History ──────────────────────────────────────────
@@ -49,12 +56,24 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     search_fields = ["transaction_id", "tenant__name"]
     pagination_class = CustomPagination
 
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for POST
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(
     generics.RetrieveUpdateDestroyAPIView
 ):
     queryset = TenantCentralPaymentHistory.objects.all()
     serializer_class = TenantCentralPaymentHistorySerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 # ─── Tenant Transfer History ──────────────────────────────────────────────────
@@ -76,6 +95,8 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     filterset_class = TenantTransferHistoryFilter
     search_fields = ["tenant__name"]
     pagination_class = CustomPagination
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class TenantTransferHistoryRetrieveUpdateDestroyView(
@@ -83,6 +104,8 @@ class TenantTransferHistoryRetrieveUpdateDestroyView(
 ):
     queryset = TenantTransferHistory.objects.all()
     serializer_class = TenantTransferHistorySerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 # ─── Payment Summary ──────────────────────────────────────────────────────────

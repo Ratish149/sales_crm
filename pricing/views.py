@@ -1,5 +1,6 @@
 # Create your views here.
 # pricing/views.py
+from rest_framework.permissions import AllowAny
 from datetime import date, timedelta
 
 from rest_framework import generics, permissions, status
@@ -101,7 +102,7 @@ class SubscriptionStatusView(generics.GenericAPIView):
     Returns `active` or `inactive`.
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
         print("request", request.user)

@@ -9,7 +9,9 @@ from sales_crm.pagination import CustomPagination
 
 from .models import Collection, CollectionData
 from .serializers import CollectionDataSerializer, CollectionSerializer
+from rest_framework.permissions import IsAuthenticated
 
+from sales_crm.authentication import TenantJWTAuthentication
 
 class CollectionListCreateView(generics.ListCreateAPIView):
     """
@@ -20,6 +22,17 @@ class CollectionListCreateView(generics.ListCreateAPIView):
 
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
 
 
 class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -33,6 +46,9 @@ class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
     lookup_field = "slug"
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
 
 
 class CollectionDataListCreateView(generics.ListCreateAPIView):
@@ -44,6 +60,16 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
 
     serializer_class = CollectionDataSerializer
     pagination_class = CustomPagination
+
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """Filter data by the collection slug from URL and apply dynamic filters"""
@@ -166,6 +192,8 @@ class CollectionDataRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
 
     serializer_class = CollectionDataSerializer
     lookup_field = "pk"
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     def get_queryset(self):
         """Filter data by collection slug and ensure data belongs to the collection"""

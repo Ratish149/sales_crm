@@ -10,8 +10,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
-
+from sales_crm.authentication import TenantJWTAuthentication
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 
@@ -86,7 +85,8 @@ class AdminOrderListAPIView(generics.ListCreateAPIView):
         filters.OrderingFilter,
         django_filters.DjangoFilterBackend,
     ]
-    authentication_classes = [JWTAuthentication]
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     search_fields = ["customer_name", "order_number", "customer_phone"]
     ordering_fields = ["created_at", "total_amount"]
     filterset_class = OrderFilter
@@ -125,6 +125,8 @@ class MyOrderListAPIView(generics.ListAPIView):
 class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -155,6 +157,9 @@ class OrderGetAPIView(generics.RetrieveAPIView):
 
 
 class DashboardStatsView(APIView):
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         now = timezone.now()
 

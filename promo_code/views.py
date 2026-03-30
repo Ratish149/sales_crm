@@ -10,6 +10,9 @@ from .serializers import (
     PromoCodeValidationSerializer,
 )
 
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 # Create your views here.
 
 
@@ -23,11 +26,15 @@ class PromoCodeListCreateView(generics.ListCreateAPIView):
     queryset = PromoCode.objects.all()
     serializer_class = PromoCodeSerializer
     pagination_class = CustomPagination
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 
 class PromoCodeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PromoCode.objects.all()
     serializer_class = PromoCodeSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 
 @api_view(["POST"])

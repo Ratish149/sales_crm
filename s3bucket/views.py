@@ -6,9 +6,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from .serializers import FileUploadSerializer, FileDeleteSerializer
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 class S3UploadView(APIView):
     parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
 
     def post(self, request, *args, **kwargs):
         serializer = FileUploadSerializer(data=request.data)
@@ -59,6 +64,8 @@ class S3UploadView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class S3DeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     def delete(self, request, *args, **kwargs):
         # Support both body payload and query params (useful if frontend tool drops body on DELETE)
@@ -109,6 +116,9 @@ class S3DeleteView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class S3ListView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+    
     def get(self, request, *args, **kwargs):
         tenant_name = request.tenant.schema_name if hasattr(request, 'tenant') and request.tenant else 'public'
         prefix = f"public/nepdora/tenant/{tenant_name}/"
@@ -152,6 +162,9 @@ class S3ListView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class S3DeleteFolderView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+    
     def delete(self, request, *args, **kwargs):
         tenant_name = request.tenant.schema_name if hasattr(request, 'tenant') and request.tenant else 'public'
         prefix = f"public/nepdora/tenant/{tenant_name}/"

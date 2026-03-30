@@ -20,6 +20,9 @@ from .serializers import (
     CustomerRegisterSerializer,
     CustomerSerializer,
 )
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 from .tokens import customer_token_generator
 from .utils import get_customer_from_request
 
@@ -33,6 +36,16 @@ class CustomerRegisterView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
     search_fields = ["first_name", "last_name", "email", "phone"]
     filter_backends = [filters.SearchFilter]
+
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for POST
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -63,6 +76,9 @@ class CustomerRegisterView(generics.ListCreateAPIView):
 class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Customer.objects.all()
     serializer_class = CustomerRegisterSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
 
 
 class CustomerDetailView(generics.RetrieveUpdateAPIView):

@@ -10,6 +10,9 @@ from .serializers import (
     PaymentSmallSerializer,
 )
 
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 
 # Create your views here.
 class PaymentFilterSet(django_filters.FilterSet):
@@ -27,6 +30,16 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
     serializer_class = PaymentSerializer
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = PaymentFilterSet
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -49,6 +62,8 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
 class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
@@ -66,14 +81,29 @@ class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
 class PaymentListAPIView(generics.ListAPIView):
     queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 
 class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
     queryset = PaymentHistory.objects.all()
     serializer_class = PaymentHistorySerializer
     pagination_class = CustomPagination
+    
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 
 class PaymentHistoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PaymentHistory.objects.all()
     serializer_class = PaymentHistorySerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]

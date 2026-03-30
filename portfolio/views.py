@@ -11,6 +11,9 @@ from .serializers import (
     PortfolioTagsSerializer,
 )
 
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
@@ -60,6 +63,16 @@ class PortfolioListCreateAPIView(generics.ListCreateAPIView):
     search_fields = ["title"]
     pagination_class = CustomPagination
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def get_serializer_class(self):
         if self.request.method == "GET":
             return PortfolioListSerializer
@@ -70,6 +83,9 @@ class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
     queryset = Portfolio.objects.all()
     serializer_class = PortfolioSerializer
     lookup_field = "slug"
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
 
     def get_serializer_class(self):
         if self.request.method == "GET":

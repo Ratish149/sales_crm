@@ -7,7 +7,9 @@ from sales_crm.utils.error_handler import (
     ErrorMessage,
     handle_transaction_errors
 )
+from rest_framework.permissions import IsAuthenticated
 
+from sales_crm.authentication import TenantJWTAuthentication
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
@@ -20,10 +22,22 @@ class ContactCreateView(generics.ListCreateAPIView):
     serializer_class = ContactSerializer
     pagination_class = CustomPagination
 
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 class ContactRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Contact.objects.all()
     serializer_class = ContactSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class NewsLetterCreateView(generics.ListCreateAPIView):
@@ -31,6 +45,16 @@ class NewsLetterCreateView(generics.ListCreateAPIView):
     serializer_class = NewsLetterSerializer
     pagination_class = CustomPagination
 
+    def get_authenticators(self):
+        if self.request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+    
     @handle_transaction_errors
     def create(self, request, *args, **kwargs):
         email = request.data.get('email')
@@ -46,3 +70,5 @@ class NewsLetterCreateView(generics.ListCreateAPIView):
 class NewsLetterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NewsLetter.objects.all()
     serializer_class = NewsLetterSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]

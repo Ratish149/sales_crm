@@ -12,9 +12,15 @@ from nepdora_payment.models import TenantCentralPaymentHistory, TenantTransferHi
 from order.models import Order, OrderItem
 from payment_gateway.models import PaymentHistory
 from product.models import Product
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 
 
 class StatsView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+    
     def get(self, request):
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
@@ -161,6 +167,9 @@ class StatsView(APIView):
 
 
 class UnreadCountView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+    
     def get(self, request):
         unread_appointments = Appointment.objects.filter(status="pending").count()
         unread_popup_forms = PopUpForm.objects.filter(is_read=False).count()

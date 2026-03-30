@@ -12,7 +12,8 @@ from .models import Logistics
 from .serializers import LogisticsSerializer
 
 DASH_BASE_URL = "https://dashlogistics.dev"
-
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 def dash_login(email, password, dash_obj=None):
     # Use values from dash_obj if provided, else use defaults
@@ -81,6 +82,16 @@ class LogisticsListCreateView(generics.ListCreateAPIView):
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = LogisticsFilterSet
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -125,6 +136,8 @@ class LogisticsListCreateView(generics.ListCreateAPIView):
 class LogisticsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Logistics.objects.all()
     serializer_class = LogisticsSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()

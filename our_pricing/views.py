@@ -3,6 +3,9 @@ from rest_framework import generics
 from .models import OurPricing
 from .serializers import OurPricingSerializer
 
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
+
 
 class OurPricingListCreateAPIView(generics.ListCreateAPIView):
     """
@@ -13,6 +16,17 @@ class OurPricingListCreateAPIView(generics.ListCreateAPIView):
 
     queryset = OurPricing.objects.all()
     serializer_class = OurPricingSerializer
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for GET
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
     def get_queryset(self):
         """Optimize query by prefetching related features"""
@@ -30,6 +44,8 @@ class OurPricingRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVi
     queryset = OurPricing.objects.all()
     serializer_class = OurPricingSerializer
     lookup_field = "pk"
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     def get_queryset(self):
         """Optimize query by prefetching related features"""

@@ -10,6 +10,8 @@ from .serializers import (
     ServiceListSerializer,
     ServiceSerializer,
 )
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 
 class CustomPagination(PageNumberPagination):
@@ -36,6 +38,16 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     filterset_class = ServiceFilterSet
     search_fields = ["title"]
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def get_serializer_class(self):
         if self.request.method == "GET":
             return ServiceListSerializer
@@ -46,6 +58,8 @@ class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
     lookup_field = "slug"
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 
 class ServiceCategoryListCreateView(generics.ListCreateAPIView):

@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.apps import apps
 from django.conf import settings
 from rest_framework import generics, status, serializers
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -21,16 +21,30 @@ from .serializers import (
     ThemeSerializer,
 )
 from .utils import import_template_to_tenant, publish_instance
+from sales_crm.authentication import TenantJWTAuthentication
+from rest_framework.permissions import IsAuthenticated
 
 
 class SiteConfigListCreateView(generics.ListCreateAPIView):
     serializer_class = SiteConfigSerializer
     queryset = SiteConfig.objects.all()
 
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
 class SiteConfigRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SiteConfigSerializer
     queryset = SiteConfig.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
 
 # ------------------------------
@@ -39,6 +53,16 @@ class SiteConfigRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
 class ThemeListCreateView(generics.ListCreateAPIView):
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         status = self.request.query_params.get("status")
@@ -53,12 +77,16 @@ class ThemeListCreateView(generics.ListCreateAPIView):
 class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ThemeSerializer
     queryset = Theme.objects.all()
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
 
 class ThemePublishView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
     def post(self, request, pk):
         theme = get_object_or_404(Theme, id=pk, status="draft")
         publish_instance(theme)
@@ -70,6 +98,16 @@ class ThemePublishView(APIView):
 # ------------------------------
 class PageListCreateView(generics.ListCreateAPIView):
     queryset = Page.objects.all()
+    
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -91,11 +129,23 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Page.objects.all()
     lookup_field = "slug"
 
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def perform_update(self, serializer):
         serializer.save(status="draft")
 
 
 class PagePublishView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
     @transaction.atomic
     def post(self, request, slug):
         page = get_object_or_404(Page, slug=slug, status="draft")
@@ -125,6 +175,16 @@ class PagePublishView(APIView):
 # ------------------------------
 class PageComponentListCreateView(generics.ListCreateAPIView):
     serializer_class = PageComponentSerializer
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         slug = self.kwargs["slug"]
@@ -182,6 +242,16 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     serializer_class = PageComponentSerializer
     queryset = PageComponent.objects.all()
 
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
     def get_object(self):
         slug = self.kwargs["slug"]
         component_id = self.kwargs["component_id"]
@@ -217,6 +287,8 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 
 
 class PageComponentPublishView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
     @transaction.atomic
     def post(self, request, slug):
         component = get_object_or_404(PageComponent, page__slug=slug, status="draft")
@@ -241,6 +313,8 @@ class ReplaceComponentByIDView(APIView):
     Replaces all PageComponents sharing the same component_id on a specific page
     by deleting them and creating new ones from the payload.
     """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     @transaction.atomic
     def post(self, request, page_slug, component_id):
@@ -298,6 +372,16 @@ class NavbarView(APIView):
       /api/navbar/                 → published navbar
       /api/navbar?status=preview   → draft navbar
     """
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return []
+        
 
     def get(self, request):
         status_param = request.query_params.get("status", "published")
@@ -337,6 +421,15 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     serializer_class = PageComponentSerializer
     queryset = PageComponent.objects.all()
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
 
     def get_object(self):
         return PageComponent.objects.get(id=self.kwargs["id"])
@@ -379,6 +472,7 @@ class NavbarPublishView(APIView):
     Publishes the navbar draft and cleans up deleted ones.
     """
 
+
     @transaction.atomic
     def post(self, request, id):
         navbar = get_object_or_404(
@@ -404,6 +498,16 @@ class ReplaceNavbarView(APIView):
     POST /api/navbar/replace/
     Replaces the current draft navbar with a new one provided in the payload.
     """
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
     @transaction.atomic
     def post(self, request):
@@ -433,6 +537,16 @@ class FooterView(APIView):
       /api/footer/                → published footer
       /api/footer?status=preview  → draft footer
     """
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
 
     def get(self, request):
         status_param = request.query_params.get("status", "live")
@@ -471,6 +585,17 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     """
 
     serializer_class = PageComponentSerializer
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+        
 
     def get_object(self):
         return PageComponent.objects.get(id=self.kwargs["id"])
@@ -512,6 +637,15 @@ class FooterPublishView(APIView):
     POST /api/footer/<id>/publish/
     Publishes the footer draft and cleans up deleted ones.
     """
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     @transaction.atomic
     def post(self, request, id):
@@ -538,6 +672,15 @@ class ReplaceFooterView(APIView):
     POST /api/footer/replace/
     Replaces the current draft footer with a new one provided in the payload.
     """
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     @transaction.atomic
     def post(self, request):
@@ -561,6 +704,9 @@ class ReplaceFooterView(APIView):
 # 🚀 PUBLISH ALL
 # ------------------------------
 class PublishAllView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+        
     @transaction.atomic
     def post(self, request):
         # Delete published items whose draft version no longer exists (optimized using bulk delete)
@@ -601,6 +747,8 @@ class ResetUIView(APIView):
     Deletes all draft versions of Theme, Page, and PageComponent,
     and re-creates them from the published versions.
     """
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
 
     @transaction.atomic
     def post(self, request):
@@ -648,6 +796,8 @@ class ResetUIView(APIView):
 
 
 @api_view(["POST"])
+@authentication_classes([TenantJWTAuthentication])
+@permission_classes([IsAuthenticated])
 def import_template(request):
     template_id = request.data.get("template_id")
     template_client = Client.objects.get(id=template_id)
