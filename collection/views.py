@@ -4,14 +4,14 @@ import resend
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 
+from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
 
 from .models import Collection, CollectionData
 from .serializers import CollectionDataSerializer, CollectionSerializer
-from rest_framework.permissions import IsAuthenticated
 
-from sales_crm.authentication import TenantJWTAuthentication
 
 class CollectionListCreateView(generics.ListCreateAPIView):
     """
@@ -32,7 +32,6 @@ class CollectionListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
-    
 
 
 class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -46,17 +45,16 @@ class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
     lookup_field = "slug"
-    
+
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
-    
 
 
 class CollectionDataListCreateView(generics.ListCreateAPIView):
@@ -190,8 +188,16 @@ class CollectionDataRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
 
     serializer_class = CollectionDataSerializer
     lookup_field = "pk"
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TenantJWTAuthentication]
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_queryset(self):
         """Filter data by collection slug and ensure data belongs to the collection"""
