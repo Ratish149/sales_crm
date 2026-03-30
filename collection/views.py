@@ -46,8 +46,16 @@ class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer
     lookup_field = "slug"
-    authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return [] 
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
     
 
 
