@@ -24,6 +24,9 @@ from .utils import import_template_to_tenant, publish_instance
 from sales_crm.authentication import TenantJWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 
+from collection.models import Collection
+from collection.serializers import CollectionDataSerializer
+
 
 class SiteConfigListCreateView(generics.ListCreateAPIView):
     serializer_class = SiteConfigSerializer
@@ -821,6 +824,9 @@ class GlobalBulkCreateView(APIView):
     Only models from apps defined in settings.TENANT_APPS are allowed.
     """
 
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
     def post(self, request, *args, **kwargs):
         model_name = request.data.get("model_name")
         data = request.data.get("data")
@@ -836,6 +842,72 @@ class GlobalBulkCreateView(APIView):
                 {"error": "'data' must be a list of objects."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        if model_name.lower() == "collectiondata" or model_name.lower() == "collection_data":
+            created_instances = []
+            errors = []
+            
+            # Check for root-level collection identifier
+            root_collection_identifier = request.data.get("collection_name") or request.data.get("collection_slug") or request.data.get("collection")
+            root_collection = None
+            
+            if root_collection_identifier:
+                if isinstance(root_collection_identifier, int) or (isinstance(root_collection_identifier, str) and str(root_collection_identifier).isdigit()):
+                    root_collection = Collection.objects.filter(id=root_collection_identifier).first()
+                else:
+                    root_collection = Collection.objects.filter(name__iexact=str(root_collection_identifier)).first() or Collection.objects.filter(slug__iexact=str(root_collection_identifier)).first()
+                if not root_collection:
+                    return Response({"error": f"Root collection '{root_collection_identifier}' not found."}, status=status.HTTP_404_NOT_FOUND)
+            
+            for index, raw_item in enumerate(data):
+                if not isinstance(raw_item, dict):
+                    errors.append({"index": index, "error": "Item must be a JSON object."})
+                    continue
+                    
+                if root_collection:
+                    # User passed collection at root; raw_item IS the dynamic fields payload
+                    payload = {
+                        "collection": root_collection.id,
+                        "data": raw_item
+                    }
+                else:
+                    # Backward compatible: User is passing collection_name and nested "data" per item
+                    item = raw_item.copy()
+                    item_identifier = item.pop("collection_name", None) or item.pop("collection_slug", None) or item.get("collection")
+                    
+                    if not item_identifier:
+                        errors.append({"index": index, "error": "Must provide 'collection' (ID), 'collection_name', or 'collection_slug' either at root level or inside each item."})
+                        continue
+                    
+                    # Resolve the collection
+                    if isinstance(item_identifier, int) or (isinstance(item_identifier, str) and str(item_identifier).isdigit()):
+                        collection = Collection.objects.filter(id=item_identifier).first()
+                    else:
+                        collection = Collection.objects.filter(name__iexact=str(item_identifier)).first() or Collection.objects.filter(slug__iexact=str(item_identifier)).first()
+                    
+                    if not collection:
+                        errors.append({"index": index, "error": f"Collection '{item_identifier}' not found."})
+                        continue
+                    
+                    item["collection"] = collection.id
+                    payload = item
+                
+                # Create using the custom serializer
+                serializer = CollectionDataSerializer(data=payload)
+                if serializer.is_valid():
+                    serializer.save()
+                    created_instances.append(serializer.data)
+                else:
+                    errors.append({"index": index, "errors": serializer.errors})
+            
+            response_data = {}
+            if created_instances:
+                response_data["message"] = f"Successfully created {len(created_instances)} CollectionData(s)."
+                if errors:
+                    response_data["errors"] = errors
+                return Response(response_data, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
         target_model = None
         # Iterate over TENANT_APPS to find the specified model

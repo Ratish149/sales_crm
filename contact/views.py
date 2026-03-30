@@ -1,19 +1,21 @@
 from rest_framework import generics
-from .models import Contact, NewsLetter
-from .serializers import ContactSerializer, NewsLetterSerializer
 from rest_framework.pagination import PageNumberPagination
-from sales_crm.utils.error_handler import (
-    duplicate_entry,
-    ErrorMessage,
-    handle_transaction_errors
-)
 from rest_framework.permissions import IsAuthenticated
 
 from sales_crm.authentication import TenantJWTAuthentication
+from sales_crm.utils.error_handler import (
+    ErrorMessage,
+    duplicate_entry,
+    handle_transaction_errors,
+)
+
+from .models import Contact, NewsLetter
+from .serializers import ContactSerializer, NewsLetterSerializer
+
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
@@ -54,15 +56,19 @@ class NewsLetterCreateView(generics.ListCreateAPIView):
         if self.request.method == "GET":
             return [IsAuthenticated()]
         return super().get_permissions()
-    
+
     @handle_transaction_errors
     def create(self, request, *args, **kwargs):
-        email = request.data.get('email')
-        if email and NewsLetter.objects.filter(email__iexact=email, is_subscribed=True).exists():
+        email = request.data.get("email")
+        if (
+            email
+            and NewsLetter.objects.filter(
+                email__iexact=email, is_subscribed=True
+            ).exists()
+        ):
             return duplicate_entry(
                 message=ErrorMessage.DUPLICATE_ENTRY,
-                params={
-                    'email': 'This email is already subscribed to the newsletter.'}
+                params={"email": "This email is already subscribed to the newsletter."},
             )
         return super().create(request, *args, **kwargs)
 

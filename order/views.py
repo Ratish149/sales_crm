@@ -10,9 +10,10 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from sales_crm.authentication import TenantJWTAuthentication
+
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Order
 from .serializers import AdminOrderSerializer, OrderListSerializer, OrderSerializer
