@@ -61,16 +61,6 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
     serializer_class = CollectionDataSerializer
     pagination_class = CustomPagination
 
-    def get_authenticators(self):
-        if self.request.method == "GET":
-            return [TenantJWTAuthentication()]
-        return []  # No authentication for GET
-
-    def get_permissions(self):
-        if self.request.method == "GET":
-            return [IsAuthenticated()]
-        return super().get_permissions()
-
     def get_queryset(self):
         """Filter data by the collection slug from URL and apply dynamic filters"""
         slug = self.kwargs.get("slug")
