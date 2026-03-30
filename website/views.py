@@ -864,14 +864,14 @@ class GlobalBulkCreateView(APIView):
                     
                 if root_collection:
                     # User passed collection at root; raw_item IS the dynamic fields payload
+                    target_collection = root_collection
                     payload = {
-                        "collection": root_collection.id,
                         "data": raw_item
                     }
                 else:
                     # Backward compatible: User is passing collection_name and nested "data" per item
                     item = raw_item.copy()
-                    item_identifier = item.pop("collection_name", None) or item.pop("collection_slug", None) or item.get("collection")
+                    item_identifier = item.pop("collection_name", None) or item.pop("collection_slug", None) or item.pop("collection", None)
                     
                     if not item_identifier:
                         errors.append({"index": index, "error": "Must provide 'collection' (ID), 'collection_name', or 'collection_slug' either at root level or inside each item."})
@@ -879,21 +879,24 @@ class GlobalBulkCreateView(APIView):
                     
                     # Resolve the collection
                     if isinstance(item_identifier, int) or (isinstance(item_identifier, str) and str(item_identifier).isdigit()):
-                        collection = Collection.objects.filter(id=item_identifier).first()
+                        target_collection = Collection.objects.filter(id=item_identifier).first()
                     else:
-                        collection = Collection.objects.filter(name__iexact=str(item_identifier)).first() or Collection.objects.filter(slug__iexact=str(item_identifier)).first()
+                        target_collection = Collection.objects.filter(name__iexact=str(item_identifier)).first() or Collection.objects.filter(slug__iexact=str(item_identifier)).first()
                     
-                    if not collection:
+                    if not target_collection:
                         errors.append({"index": index, "error": f"Collection '{item_identifier}' not found."})
                         continue
                     
-                    item["collection"] = collection.id
-                    payload = item
+                    # Wrap remaining fields into "data" unless explicitly nested
+                    if "data" in item and isinstance(item["data"], dict):
+                        payload = item
+                    else:
+                        payload = {"data": item}
                 
                 # Create using the custom serializer
-                serializer = CollectionDataSerializer(data=payload)
+                serializer = CollectionDataSerializer(data=payload, context={"collection": target_collection})
                 if serializer.is_valid():
-                    serializer.save()
+                    serializer.save(collection=target_collection)
                     created_instances.append(serializer.data)
                 else:
                     errors.append({"index": index, "errors": serializer.errors})
