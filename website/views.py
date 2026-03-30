@@ -3,7 +3,9 @@ from copy import deepcopy
 
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework import generics, status
+from django.apps import apps
+from django.conf import settings
+from rest_framework import generics, status, serializers
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -658,3 +660,67 @@ def import_template(request):
     import_template_to_tenant(template_client, target_client)
 
     return Response({"status": "Template imported successfully!"})
+
+
+# ------------------------------
+# 📦 GLOBAL BULK CREATE VIEW
+# ------------------------------
+class GlobalBulkCreateView(APIView):
+    """
+    Accepts a 'model_name' and 'data' (list of dicts).
+    Only models from apps defined in settings.TENANT_APPS are allowed.
+    """
+
+    def post(self, request, *args, **kwargs):
+        model_name = request.data.get("model_name")
+        data = request.data.get("data")
+
+        if not model_name or not data:
+            return Response(
+                {"error": "Both 'model_name' and 'data' are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(data, list):
+            return Response(
+                {"error": "'data' must be a list of objects."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_model = None
+        # Iterate over TENANT_APPS to find the specified model
+        for app_path in settings.TENANT_APPS:
+            app_label = app_path.split(".")[-1]
+            try:
+                # Case-insensitive model lookup via Django apps
+                model = apps.get_model(app_label, model_name.lower())
+                target_model = model
+                break
+            except LookupError:
+                continue
+
+        if not target_model:
+            return Response(
+                {"error": f"Model '{model_name}' not found in any configuration."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Create a dynamic ModelSerializer for the target model
+        class DynamicModelSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = target_model
+                fields = "__all__"
+
+        # Validate and save data using DRF generic capabilities
+        serializer = DynamicModelSerializer(data=data, many=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "message": f"Successfully created {len(serializer.data)} {model_name}(s).",
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
