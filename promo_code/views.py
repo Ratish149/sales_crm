@@ -1,7 +1,10 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import PromoCode
 from .serializers import (
@@ -9,9 +12,6 @@ from .serializers import (
     PromoCodeSerializer,
     PromoCodeValidationSerializer,
 )
-
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -23,7 +23,7 @@ class CustomPagination(PageNumberPagination):
 
 
 class PromoCodeListCreateView(generics.ListCreateAPIView):
-    queryset = PromoCode.objects.all()
+    queryset = PromoCode.objects.all().order_by("-created_at")
     serializer_class = PromoCodeSerializer
     pagination_class = CustomPagination
     permission_classes = [IsAuthenticated]

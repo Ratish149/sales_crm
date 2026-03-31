@@ -3,6 +3,9 @@ from rest_framework import filters, generics
 
 # Create your views here.
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Service, ServiceCategory
 from .serializers import (
@@ -10,8 +13,6 @@ from .serializers import (
     ServiceListSerializer,
     ServiceSerializer,
 )
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 
 class CustomPagination(PageNumberPagination):
@@ -31,7 +32,7 @@ class ServiceFilterSet(django_filters.FilterSet):
 
 
 class ServiceListCreateView(generics.ListCreateAPIView):
-    queryset = Service.objects.all()
+    queryset = Service.objects.all().order_by("-created_at")
     serializer_class = ServiceSerializer
     pagination_class = CustomPagination
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
@@ -41,7 +42,7 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":

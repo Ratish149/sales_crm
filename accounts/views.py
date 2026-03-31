@@ -28,7 +28,7 @@ from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
-from rest_framework import generics, permissions, serializers, status
+from rest_framework import filters, generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -533,7 +533,8 @@ class UserWithStoresListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return (
-            CustomUser.objects.all()
+            CustomUser.objects
+            .all()
             .prefetch_related("stores")  # prefetch many-to-many stores
             .prefetch_related("owned_stores")  # prefetch owned stores
         )
@@ -558,13 +559,11 @@ class CompleteOnboardingView(APIView):
             user.is_onboarding_complete = True
             user.save(update_fields=["is_onboarding_complete"])
 
-        return Response(
-            {
-                "status": "success",
-                "message": "Onboarding marked as completed",
-                "onboarding_complete": True,
-            }
-        )
+        return Response({
+            "status": "success",
+            "message": "Onboarding marked as completed",
+            "onboarding_complete": True,
+        })
 
 
 class UserListDestroyAPIView(generics.ListAPIView):
@@ -573,9 +572,20 @@ class UserListDestroyAPIView(generics.ListAPIView):
     For deletion, use the UserDeleteAPIView below.
     """
 
-    queryset = CustomUser.objects.all().order_by('-id')
+    queryset = CustomUser.objects.all().order_by("-id")
     serializer_class = UserWithStoresSerializer
     pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = [
+        "username",
+        "email",
+        "first_name",
+        "last_name",
+        "phone_number",
+        "owned_stores__store_name",
+        "stores__store_name",
+        "client__name",
+    ]
 
 
 class UserDeleteAPIView(generics.RetrieveDestroyAPIView):

@@ -18,7 +18,7 @@ class IssueCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAP
 
 
 class IssueListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Issue.objects.all()
+    queryset = Issue.objects.all().order_by("-created_at")
     serializer_class = IssueSerializer
 
     def create(self, request, *args, **kwargs):

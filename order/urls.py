@@ -5,9 +5,9 @@ from .views import (
     DashboardStatsView,
     MyOrderListAPIView,
     MyOrderStatusView,
+    OrderGetAPIView,
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
-    OrderGetAPIView
 )
 
 urlpatterns = [

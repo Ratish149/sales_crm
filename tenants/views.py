@@ -3,8 +3,11 @@
 import logging
 import os
 
+from django.core.exceptions import ValidationError
+
 # import requests
 from django.db import connection, transaction
+from django.db.utils import IntegrityError
 
 # from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
@@ -132,10 +135,14 @@ class DomainView(generics.ListCreateAPIView):
     queryset = Domain.objects.all().order_by("-id")
     serializer_class = DomainSerializer
     pagination_class = CustomPagination
-    filter_backends = [django_filters.DjangoFilterBackend]
+    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = DomainFilter
-
-    
+    search_fields = [
+        "domain",
+        "tenant__name",
+        "tenant__owner__email",
+        "tenant__owner__username",
+    ]
 
 
 class DomainDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -265,7 +272,8 @@ class TemplateTenantListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         return (
-            Client.objects.filter(is_template_account=True)
+            Client.objects
+            .filter(is_template_account=True)
             .select_related("owner")
             .prefetch_related("owner__owned_stores")
             .distinct()
@@ -434,6 +442,8 @@ class TenantInternalRepoView(APIView):
             return Response(
                 {"error": "Tenant not found"}, status=status.HTTP_404_NOT_FOUND
             )
+
+
 class TenantDomainView(generics.ListCreateAPIView):
     serializer_class = DomainSerializer
 
@@ -441,36 +451,42 @@ class TenantDomainView(generics.ListCreateAPIView):
         """
         GET: Returns domains scoped strictly to the current tenant context.
         """
-        tenant = getattr(self.request, 'tenant', None)
+        tenant = getattr(self.request, "tenant", None)
         if not tenant:
             return Domain.objects.none()
-        
-        queryset = Domain.objects.filter(tenant=tenant).order_by('-id')
-        
+
+        queryset = Domain.objects.filter(tenant=tenant).order_by("-id")
+
         # Filter by specific domain string if passed in query params
         # Usage: /api/domains/?domain_name=mysite.com
-        domain_name = self.request.query_params.get('domain_name')
+        domain_name = self.request.query_params.get("domain_name")
         if domain_name:
             # Clean input to match DB format
             clean_name = domain_name.strip().lower()
             queryset = queryset.filter(domain=clean_name)
-            
+
         return queryset
 
     def perform_create(self, serializer):
         """
         POST: Adds a new domain and automatically sets it as the Primary domain.
         """
-        current_tenant = getattr(self.request, 'tenant', None)
-        
+        current_tenant = getattr(self.request, "tenant", None)
+
         if not current_tenant:
             raise ValidationError({
                 "error": "No tenant context found. Please provide a valid X-Tenant-Domain header."
             })
 
         # Standardize domain name (remove http://, https://, and trailing slashes)
-        raw_domain = self.request.data.get('domain', '').lower()
-        clean_domain = raw_domain.replace("https://", "").replace("http://", "").split('/')[0].strip()
+        raw_domain = self.request.data.get("domain", "").lower()
+        clean_domain = (
+            raw_domain
+            .replace("https://", "")
+            .replace("http://", "")
+            .split("/")[0]
+            .strip()
+        )
 
         # Wrap in an atomic transaction to ensure data consistency
         with transaction.atomic():
@@ -480,9 +496,7 @@ class TenantDomainView(generics.ListCreateAPIView):
 
                 # 2. Save the new domain as the NEW Primary
                 serializer.save(
-                    tenant=current_tenant, 
-                    domain=clean_domain,
-                    is_primary=True
+                    tenant=current_tenant, domain=clean_domain, is_primary=True
                 )
             except IntegrityError:
                 raise ValidationError({
@@ -494,11 +508,11 @@ class TenantDomainView(generics.ListCreateAPIView):
         Custom list to handle 404s when searching for a specific domain name.
         """
         response = super().list(request, *args, **kwargs)
-        
+
         # If user searched for a specific domain but it's not in their list
-        if not response.data and request.query_params.get('domain_name'):
+        if not response.data and request.query_params.get("domain_name"):
             return Response(
-                {"detail": "Domain not found for this tenant account."}, 
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "Domain not found for this tenant account."},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return response

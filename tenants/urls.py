@@ -11,8 +11,8 @@ from .views import (
     TemplateSubCategoryRetrieveUpdateDeleteView,
     TemplateTenantListAPIView,
     TemplateTenantRetrieveUpdateDestroyAPIView,
+    TenantDomainView,
     TenantInternalRepoView,
-    TenantDomainView
 )
 
 urlpatterns = [

@@ -101,18 +101,12 @@ class ContactListCreateView(generics.ListCreateAPIView):
             )
 
             # Send via Resend to Admin
-            resend.Emails.send(
-                {
-                    "from": f"{tenant_name} <nepdora@baliyoventures.com>",
-                    "to": "baliyotechnologies@gmail.com",
-                    "subject": f"New Contact Submission: {contact.name}",
-                    "html": html_content,
-                }
-            )
-            print(
-                "Contact notification email sent successfully to baliyotechnologies@gmail.com"
-            )
-
+            resend.Emails.send({
+                "from": f"{tenant_name} <nepdora@baliyoventures.com>",
+                "to": "baliyotechnologies@gmail.com",
+                "subject": f"New Contact Submission: {contact.name}",
+                "html": html_content,
+            })
             # --- Send Acknowledgment to User ---
             try:
                 # Render Acknowledgment HTML
@@ -120,15 +114,12 @@ class ContactListCreateView(generics.ListCreateAPIView):
                     "support/email/contact_acknowledgment.html", context
                 )
 
-                resend.Emails.send(
-                    {
-                        "from": f"{tenant_name} <nepdora@baliyoventures.com>",
-                        "to": contact.email,
-                        "subject": "Thank you for contacting Nepdora",
-                        "html": user_html_content,
-                    }
-                )
-                print(f"Acknowledgment email sent successfully to {contact.email}")
+                resend.Emails.send({
+                    "from": f"{tenant_name} <nepdora@baliyoventures.com>",
+                    "to": contact.email,
+                    "subject": "Thank you for contacting Nepdora",
+                    "html": user_html_content,
+                })
             except Exception as user_e:
                 print(f"Failed to send acknowledgment email to user: {user_e}")
 

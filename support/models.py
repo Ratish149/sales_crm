@@ -1,4 +1,5 @@
 from django.db import models
+
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
 # Create your models here.
@@ -36,7 +37,12 @@ class FAQ(models.Model):
 class NepdoraTestimonial(models.Model):
     name = models.CharField(max_length=255)
     designation = models.CharField(max_length=255, null=True, blank=True)
-    image = models.FileField(upload_to="nepdora/testimonial/", storage=PublicMediaStorage(), null=True, blank=True)
+    image = models.FileField(
+        upload_to="nepdora/testimonial/",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+    )
     comment = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

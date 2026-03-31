@@ -1,6 +1,9 @@
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Portfolio, PortfolioCategory, PortfolioTags
 from .serializers import (
@@ -10,9 +13,6 @@ from .serializers import (
     PortfolioSerializer,
     PortfolioTagsSerializer,
 )
-
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 
 class CustomPagination(PageNumberPagination):
@@ -56,7 +56,7 @@ class PortfolioFilterSet(django_filters.FilterSet):
 
 
 class PortfolioListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Portfolio.objects.all()
+    queryset = Portfolio.objects.all().order_by("-created_at")
     serializer_class = PortfolioSerializer
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = PortfolioFilterSet
@@ -66,7 +66,7 @@ class PortfolioListCreateAPIView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -85,7 +85,6 @@ class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
     lookup_field = "slug"
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-
 
     def get_serializer_class(self):
         if self.request.method == "GET":

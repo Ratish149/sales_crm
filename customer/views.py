@@ -6,10 +6,12 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from dotenv import load_dotenv
 from rest_framework import filters, generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
 
 from .authentication import CustomerJWTAuthentication
@@ -20,9 +22,6 @@ from .serializers import (
     CustomerRegisterSerializer,
     CustomerSerializer,
 )
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-
 from .tokens import customer_token_generator
 from .utils import get_customer_from_request
 
@@ -31,7 +30,7 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 class CustomerRegisterView(generics.ListCreateAPIView):
-    queryset = Customer.objects.all()
+    queryset = Customer.objects.all().order_by("-created_at")
     serializer_class = CustomerRegisterSerializer
     pagination_class = CustomPagination
     search_fields = ["first_name", "last_name", "email", "phone"]
@@ -50,27 +49,31 @@ class CustomerRegisterView(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         email = serializer.validated_data.get("email")
         phone = serializer.validated_data.get("phone")
-        
+
         customer = None
         if phone:
             customer = Customer.objects.filter(phone=phone).first()
         if not customer and email:
             customer = Customer.objects.filter(email=email).first()
-            
+
         if customer:
             # Update existing customer
             for attr, value in serializer.validated_data.items():
                 setattr(customer, attr, value)
-            customer.save() # Model's save() handles password hashing
-            return Response(self.get_serializer(customer).data, status=status.HTTP_200_OK)
-        
+            customer.save()  # Model's save() handles password hashing
+            return Response(
+                self.get_serializer(customer).data, status=status.HTTP_200_OK
+            )
+
         # Create new customer
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        return Response(
+            serializer.data, status=status.HTTP_201_CREATED, headers=headers
+        )
 
 
 class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
@@ -78,7 +81,6 @@ class CustomerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CustomerRegisterSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
-
 
 
 class CustomerDetailView(generics.RetrieveUpdateAPIView):
@@ -125,9 +127,6 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-
-
 class CustomerRequestPasswordResetView(APIView):
     def post(self, request, *args, **kwargs):
         email = request.data.get("email")
@@ -159,8 +158,6 @@ class CustomerRequestPasswordResetView(APIView):
             for word in request.tenant.schema_name.replace("-", " ").split()
         )
         reset_link = f"{frontend_url}/customer/password/reset?uid={uid}&token={token}"
-
-
 
         # Context for your template
         context = {
@@ -268,12 +265,10 @@ class CustomerLoginView(APIView):
         refresh["email"] = customer.email
         refresh["phone"] = customer.phone
 
-        return Response(
-            {
-                "message": "Login successful",
-                "tokens": {
-                    "refresh": str(refresh),
-                    "access": str(refresh.access_token),
-                },
-            }
-        )
+        return Response({
+            "message": "Login successful",
+            "tokens": {
+                "refresh": str(refresh),
+                "access": str(refresh.access_token),
+            },
+        })

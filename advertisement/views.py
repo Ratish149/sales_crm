@@ -1,22 +1,28 @@
 from rest_framework import generics
-from .models import PopUp, PopUpForm, Banner, BannerImage
-from .serializers import PopUpSerializer, PopUpFormSerializer, BannerImageSerializer, BannerSerializer
+
+# Create your views here.
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 
 from sales_crm.authentication import TenantJWTAuthentication
 
-# Create your views here.
-from rest_framework.pagination import PageNumberPagination
+from .models import Banner, BannerImage, PopUp, PopUpForm
+from .serializers import (
+    BannerImageSerializer,
+    BannerSerializer,
+    PopUpFormSerializer,
+    PopUpSerializer,
+)
 
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
-    page_size_query_param = 'page_size'
+    page_size_query_param = "page_size"
     max_page_size = 100
 
 
 class PopUpCreateView(generics.ListCreateAPIView):
-    queryset = PopUp.objects.all()
+    queryset = PopUp.objects.all().order_by("-created_at")
     serializer_class = PopUpSerializer
 
     def get_authenticators(self):
@@ -28,7 +34,7 @@ class PopUpCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
-    
+
 
 class PopUpRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PopUp.objects.all()
@@ -38,7 +44,7 @@ class PopUpRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class PopUpFormCreateView(generics.ListCreateAPIView):
-    queryset = PopUpForm.objects.all()
+    queryset = PopUpForm.objects.all().order_by("-created_at")
     serializer_class = PopUpFormSerializer
     pagination_class = CustomPagination
 
@@ -61,7 +67,7 @@ class PopUpFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class BannerImageListCreateView(generics.ListCreateAPIView):
-    queryset = BannerImage.objects.all()
+    queryset = BannerImage.objects.all().order_by("-created_at")
     serializer_class = BannerImageSerializer
 
     def get_authenticators(self):
@@ -82,9 +88,8 @@ class BannerImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView
     permission_classes = [IsAuthenticated]
 
 
-
 class BannerListCreateView(generics.ListCreateAPIView):
-    queryset = Banner.objects.all()
+    queryset = Banner.objects.all().order_by("-created_at")
     serializer_class = BannerSerializer
 
     def get_authenticators(self):
@@ -96,6 +101,7 @@ class BannerListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
+
 
 class BannerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Banner.objects.all()
