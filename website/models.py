@@ -70,6 +70,8 @@ class Page(models.Model):
         on_delete=models.SET_NULL,
         related_name="draft_version",
     )
+    meta_title = models.CharField(max_length=255, blank=True, null=True)
+    meta_description = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
