@@ -3,8 +3,6 @@ import uuid
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
-# Create your models here.
-
 
 class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
@@ -26,6 +24,10 @@ class CustomUser(AbstractUser):
     sub_domain = models.CharField(max_length=255, null=True, blank=True)
     is_first_login = models.BooleanField(default=True)
     is_onboarding_complete = models.BooleanField(default=False)
+
+    # Soft delete fields
+    is_deleted = models.BooleanField(default=False)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     def is_owner_of(self, store):
         return self == store.owner

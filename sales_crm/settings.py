@@ -14,6 +14,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -526,3 +527,11 @@ CELERY_TASK_ALWAYS_EAGER = False  # Set True only for local debugging
 # Optional: avoid running multiple instances of same task simultaneously
 CELERY_TASK_ACKS_LATE = True
 CELERYD_MAX_TASKS_PER_CHILD = 50
+
+# Celery Beat Schedule
+CELERY_BEAT_SCHEDULE = {
+    "purge-deleted-users-daily": {
+        "task": "accounts.tasks.auto_purge_deleted_users",
+        "schedule": crontab(hour=0, minute=0),  # Runs every night at midnight
+    },
+}

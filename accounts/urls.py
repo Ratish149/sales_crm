@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AcceptInvitationView,
     ChangePasswordView,
+    CheckUserStatusAPIView,
     CompleteOnboardingView,
     CustomSignupView,
     CustomVerifyEmailView,
@@ -17,6 +18,8 @@ from .views import (
     UserDataAPIView,
     UserDeleteAPIView,
     UserListDestroyAPIView,
+    UserRecoverAPIView,
+    UserSoftDeleteAPIView,
     UserUpdateAPIView,
     UserWithStoresListAPIView,
     UseTemplateView,
@@ -56,6 +59,21 @@ urlpatterns = [
     ),
     path("user-lists/", UserListDestroyAPIView.as_view(), name="user-list"),
     path("user-lists/<int:id>/", UserDeleteAPIView.as_view(), name="user-delete"),
+    path(
+        "users/check-status/",
+        CheckUserStatusAPIView.as_view(),
+        name="user-check-status",
+    ),
+    path(
+        "user-lists/<int:id>/delete/",
+        UserSoftDeleteAPIView.as_view(),
+        name="user-soft-delete",
+    ),
+    path(
+        "user-lists/<int:id>/recover/",
+        UserRecoverAPIView.as_view(),
+        name="user-recover",
+    ),
     path(
         "reset-password-request/",
         RequestPasswordResetAPIView.as_view(),

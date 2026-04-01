@@ -21,6 +21,7 @@ from django.db import connection, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.template.loader import render_to_string
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -534,7 +535,7 @@ class UserWithStoresListAPIView(generics.ListAPIView):
     def get_queryset(self):
         return (
             CustomUser.objects
-            .all()
+            .filter(is_deleted=False)
             .prefetch_related("stores")  # prefetch many-to-many stores
             .prefetch_related("owned_stores")  # prefetch owned stores
         )
@@ -543,7 +544,7 @@ class UserWithStoresListAPIView(generics.ListAPIView):
 class UserUpdateAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = CustomUserSerializer
     permission_classes = [IsAuthenticated]
-    queryset = CustomUser.objects.all()
+    queryset = CustomUser.objects.filter(is_deleted=False)
 
     def get_object(self):
         # Return the authenticated user from the token
@@ -572,7 +573,7 @@ class UserListDestroyAPIView(generics.ListAPIView):
     For deletion, use the UserDeleteAPIView below.
     """
 
-    queryset = CustomUser.objects.all().order_by("-id")
+    queryset = CustomUser.objects.filter(is_deleted=False).order_by("-id")
     serializer_class = UserWithStoresSerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
@@ -593,7 +594,7 @@ class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
     Deletes a user inside the tenant schema, then drops the tenant schema.
     """
 
-    queryset = CustomUser.objects.all()
+    queryset = CustomUser.objects.filter(is_deleted=False)
     serializer_class = CustomUserSerializer
     lookup_field = "id"
 
@@ -629,6 +630,109 @@ class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
                 {"error": f"Failed to delete user and drop tenant schema: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class UserSoftDeleteAPIView(APIView):
+    """
+    Soft deletes a user. Mark them as is_deleted=True and set deleted_at.
+    """
+
+    def post(self, request, id):
+        try:
+            user = CustomUser.objects.get(id=id, is_deleted=False)
+            user.is_deleted = True
+            user.deleted_at = timezone.now()
+            user.save()
+            return Response(
+                {
+                    "message": "User deleted successfully. You can recover this user within 7 days."
+                },
+                status=status.HTTP_200_OK,
+            )
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "User not found or already deleted."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class UserRecoverAPIView(APIView):
+    """
+    Recovers a soft-deleted user within 7 days.
+    """
+
+    def post(self, request, id):
+        try:
+            user = CustomUser.objects.get(id=id, is_deleted=True)
+
+            # Check if recovery period (7 days) has expired
+            if user.deleted_at and user.deleted_at < timezone.now() - timedelta(days=7):
+                return Response(
+                    {"error": "Recovery period (7 days) has expired for this user."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.is_deleted = False
+            user.deleted_at = None
+            user.save()
+            return Response(
+                {"message": "User recovered successfully."}, status=status.HTTP_200_OK
+            )
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "Soft-deleted user not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class CheckUserStatusAPIView(APIView):
+    """
+    Checks if a given email is soft-deleted or active.
+    Returns user details if soft-deleted.
+    """
+
+    def get(self, request):
+        email = request.query_params.get("email")
+        if not email:
+            return Response(
+                {"error": "Email parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # We look for the user regardless of is_deleted status
+        user = CustomUser.objects.filter(email=email).first()
+
+        if not user:
+            return Response(
+                {
+                    "is_deleted": False,
+                    "exists": False,
+                    "message": "Email is available.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        if user.is_deleted:
+            return Response(
+                {
+                    "is_deleted": True,
+                    "exists": True,
+                    "id": user.id,
+                    "email": user.email,
+                    "deleted_at": user.deleted_at,
+                    "message": "This email is soft-deleted and can be recovered.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "is_deleted": False,
+                "exists": True,
+                "message": "This email belongs to an active user.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class RequestPasswordResetAPIView(APIView):
