@@ -1,7 +1,8 @@
-from django.conf import settings
-from django.db.models import Sum, Count, Q, Avg, F
+from datetime import datetime
+
+from django.db.models import Avg, Count, F, Q, Sum
 from django.utils import timezone
-from datetime import datetime, date
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,17 +12,16 @@ from contact.models import Contact, NewsLetter
 from nepdora_payment.models import TenantCentralPaymentHistory, TenantTransferHistory
 from order.models import Order, OrderItem
 from payment_gateway.models import PaymentHistory
-from product.models import Product
 from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
 class StatsView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-    
+
     def get(self, request):
+        storage = PublicMediaStorage()
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         month = request.query_params.get("month")
@@ -37,7 +37,9 @@ class StatsView(APIView):
                 )
                 filters &= Q(created_at__range=(start_dt, end_dt))
             except ValueError:
-                return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=400)
+                return Response(
+                    {"error": "Invalid date format. Use YYYY-MM-DD"}, status=400
+                )
         elif month:
             try:
                 filters &= Q(created_at__month=month, created_at__year=year)
@@ -59,14 +61,14 @@ class StatsView(APIView):
 
         # Base Orders Queryset
         orders_qs = Order.objects.filter(filters)
-        
+
         # Valid orders for revenue (excluding cancelled)
         valid_orders_qs = orders_qs.exclude(status="cancelled")
 
         # Daily Metrics
         daily_stats = []
         current_day = start_dt
-        
+
         # Determine the number of days to iterate
         if month:
             # For month filter, we stop at the last day of the month or today if it's the current month
@@ -80,74 +82,92 @@ class StatsView(APIView):
 
         while current_day.date() <= limit_dt.date():
             day_orders = valid_orders_qs.filter(created_at__date=current_day.date())
-            daily_revenue = day_orders.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+            daily_revenue = (
+                day_orders.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+            )
             daily_count = day_orders.count()
-            
+
             daily_stats.append({
                 "date": current_day.strftime("%Y-%m-%d"),
                 "revenue": daily_revenue,
-                "orders": daily_count
+                "orders": daily_count,
             })
             current_day += timezone.timedelta(days=1)
 
         # Basic Metrics
-        revenue = valid_orders_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        revenue = (
+            valid_orders_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        )
         order_count = orders_qs.count()
-        delivery_charge = valid_orders_qs.aggregate(Sum("delivery_charge"))["delivery_charge__sum"] or 0
-        
-        online_payments = valid_orders_qs.filter(
-            ~Q(payment_type__in=["cod", "cash"])
-        ).aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        delivery_charge = (
+            valid_orders_qs.aggregate(Sum("delivery_charge"))["delivery_charge__sum"]
+            or 0
+        )
+
+        online_payments = (
+            valid_orders_qs.filter(~Q(payment_type__in=["cod", "cash"])).aggregate(
+                Sum("total_amount")
+            )["total_amount__sum"]
+            or 0
+        )
 
         unique_customers = valid_orders_qs.values("customer_phone").distinct().count()
-        avg_order_value = valid_orders_qs.aggregate(Avg("total_amount"))["total_amount__avg"] or 0
+        avg_order_value = (
+            valid_orders_qs.aggregate(Avg("total_amount"))["total_amount__avg"] or 0
+        )
 
         # Distribution Channel (POS vs Online)
         channel_dist = orders_qs.values("pos_order").annotate(
-            count=Count("id"),
-            amount=Sum("total_amount")
+            count=Count("id"), amount=Sum("total_amount")
         )
-        
+
         # Order Status Distribution
         status_dist = orders_qs.values("status").annotate(
-            count=Count("id"),
-            amount=Sum("total_amount")
+            count=Count("id"), amount=Sum("total_amount")
         )
 
         # Top 5 Cities
-        top_cities = valid_orders_qs.exclude(city__isnull=True).exclude(city="").values("city").annotate(
-            count=Count("id"),
-            amount=Sum("total_amount")
-        ).order_by("-count")[:5]
+        top_cities = (
+            valid_orders_qs
+            .exclude(city__isnull=True)
+            .exclude(city="")
+            .values("city")
+            .annotate(count=Count("id"), amount=Sum("total_amount"))
+            .order_by("-count")[:5]
+        )
 
         # Top Selling Products
         # OrderItem relates to Order
         order_items_qs = OrderItem.objects.filter(order__in=valid_orders_qs)
-        
-        top_selling_products = order_items_qs.values(
-            "product__id", "product__name", "product__thumbnail_image"
-        ).annotate(
-            qty_sold=Sum("quantity"),
-            amount=Sum(F("quantity") * F("price"))
-        ).order_by("-qty_sold")[:5]
-        
+
+        top_selling_products = (
+            order_items_qs
+            .values("product__id", "product__name", "product__thumbnail_image")
+            .annotate(qty_sold=Sum("quantity"), amount=Sum(F("quantity") * F("price")))
+            .order_by("-qty_sold")[:5]
+        )
+
         top_selling_products = list(top_selling_products)
         for p in top_selling_products:
             if p.get("product__thumbnail_image"):
-                p["product__thumbnail_image"] = request.build_absolute_uri(settings.MEDIA_URL + p["product__thumbnail_image"])
+                p["product__thumbnail_image"] = storage.url(
+                    p["product__thumbnail_image"]
+                )
 
         # Least Selling Products
-        least_selling_products = order_items_qs.values(
-            "product__id", "product__name", "product__thumbnail_image"
-        ).annotate(
-            qty_sold=Sum("quantity"),
-            amount=Sum(F("quantity") * F("price"))
-        ).order_by("qty_sold")[:5]
-        
+        least_selling_products = (
+            order_items_qs
+            .values("product__id", "product__name", "product__thumbnail_image")
+            .annotate(qty_sold=Sum("quantity"), amount=Sum(F("quantity") * F("price")))
+            .order_by("qty_sold")[:5]
+        )
+
         least_selling_products = list(least_selling_products)
         for p in least_selling_products:
             if p.get("product__thumbnail_image"):
-                p["product__thumbnail_image"] = request.build_absolute_uri(settings.MEDIA_URL + p["product__thumbnail_image"])
+                p["product__thumbnail_image"] = storage.url(
+                    p["product__thumbnail_image"]
+                )
 
         return Response({
             "revenue": revenue,
@@ -169,7 +189,7 @@ class StatsView(APIView):
 class UnreadCountView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-    
+
     def get(self, request):
         unread_appointments = Appointment.objects.filter(status="pending").count()
         unread_popup_forms = PopUpForm.objects.filter(is_read=False).count()
@@ -184,15 +204,13 @@ class UnreadCountView(APIView):
             tenant=request.tenant, is_read=False
         ).count()
 
-        return Response(
-            {
-                "unread_appointments": unread_appointments,
-                "unread_popup_forms": unread_popup_forms,
-                "unread_contacts": unread_contacts,
-                "unread_orders": unread_orders,
-                "unread_newsletters": unread_newsletters,
-                "unread_own_payment": unread_own_payment,
-                "unread_tenant_transfers": unread_tenant_transfers,
-                "unread_tenant_payments": unread_tenant_central_payments,
-            }
-        )
+        return Response({
+            "unread_appointments": unread_appointments,
+            "unread_popup_forms": unread_popup_forms,
+            "unread_contacts": unread_contacts,
+            "unread_orders": unread_orders,
+            "unread_newsletters": unread_newsletters,
+            "unread_own_payment": unread_own_payment,
+            "unread_tenant_transfers": unread_tenant_transfers,
+            "unread_tenant_payments": unread_tenant_central_payments,
+        })
