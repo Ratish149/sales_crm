@@ -8,7 +8,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from sales_crm.authentication import TenantJWTAuthentication
-
 from sales_crm.pagination import CustomPagination
 
 from .models import NepdoraPayment, TenantCentralPaymentHistory, TenantTransferHistory
@@ -26,10 +25,18 @@ class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
     serializer_class = NepdoraPaymentSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["payment_type"]
-    authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
-    
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for POST
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
 class NepdoraPaymentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NepdoraPayment.objects.all()
     serializer_class = NepdoraPaymentSerializer
