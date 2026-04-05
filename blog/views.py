@@ -47,8 +47,6 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Blog.objects.all()
     serializer_class = BlogSerializer
     lookup_field = "slug"
-    authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
