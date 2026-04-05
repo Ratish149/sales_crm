@@ -43,14 +43,22 @@ class BlogListCreateView(generics.ListCreateAPIView):
         return super().get_permissions()
 
 
-
 class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Blog.objects.all()
     serializer_class = BlogSerializer
     lookup_field = "slug"
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
 
 class TagsListCreateView(generics.ListCreateAPIView):
@@ -63,6 +71,16 @@ class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Tags.objects.all()
     serializer_class = TagsSerializer
     lookup_field = "slug"
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
 
 # Get recent blogs api
