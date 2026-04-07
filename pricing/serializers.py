@@ -2,7 +2,6 @@
 from rest_framework import serializers
 
 from accounts.serializers import CustomUserSerializer
-from tenants.serializers import ClientSerializer
 
 from .models import Pricing, PricingFeature, UserSubscription
 
@@ -72,7 +71,12 @@ class UserSubscriptionListSerializer(serializers.ModelSerializer):
         queryset=Pricing.objects.all(), source="plan", write_only=True
     )
     user = CustomUserSerializer(read_only=True)
-    tenant = ClientSerializer(read_only=True)
+    tenant = serializers.SerializerMethodField()
+
+    def get_tenant(self, obj):
+        from tenants.serializers import ClientSerializer
+
+        return ClientSerializer(obj.tenant).data
 
     class Meta:
         model = UserSubscription
