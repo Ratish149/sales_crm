@@ -5,6 +5,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from sales_crm.utils.decorators import allow_inactive_subscription
+from tenants.models import Client
 
 from .models import Pricing, UserSubscription
 from .serializers import PricingSerializer, UserSubscriptionSerializer
@@ -79,8 +80,9 @@ class UserSubscriptionListView(generics.ListAPIView):
     serializer_class = UserSubscriptionSerializer
 
     def get_queryset(self):
-        tenant = getattr(self.request, "tenant", None)
-        if not tenant or tenant.schema_name == "public":
+        try:
+            tenant = Client.objects.get(owner=self.request.user)
+        except Client.DoesNotExist:
             return UserSubscription.objects.none()
         return UserSubscription.objects.filter(tenant=tenant)
 
