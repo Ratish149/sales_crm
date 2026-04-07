@@ -83,8 +83,16 @@ class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
     queryset = Portfolio.objects.all()
     serializer_class = PortfolioSerializer
     lookup_field = "slug"
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TenantJWTAuthentication]
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
     def get_serializer_class(self):
         if self.request.method == "GET":

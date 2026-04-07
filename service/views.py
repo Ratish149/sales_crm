@@ -59,8 +59,16 @@ class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
     lookup_field = "slug"
-    permission_classes = [IsAuthenticated]
-    authentication_classes = [TenantJWTAuthentication]
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
 
 class ServiceCategoryListCreateView(generics.ListCreateAPIView):
