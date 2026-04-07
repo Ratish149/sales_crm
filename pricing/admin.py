@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.db import models
 from tinymce.widgets import TinyMCE
 
-from .models import Pricing, PricingFeature
+from .models import Pricing, PricingFeature, UserSubscription
 
 # Register your models here.
 
@@ -18,4 +18,18 @@ class PricingAdmin(admin.ModelAdmin):
     inlines = [PricingFeatureInline]
 
 
+class UserSubscriptionAdmin(admin.ModelAdmin):
+    list_display = (
+        "tenant",
+        "user",
+        "plan",
+        "transaction_id",
+        "payment_type",
+        "amount",
+        "started_on",
+        "expires_on",
+    )
+
+
 admin.site.register(Pricing, PricingAdmin)
+admin.site.register(UserSubscription, UserSubscriptionAdmin)
