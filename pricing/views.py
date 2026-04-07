@@ -1,6 +1,7 @@
 from datetime import date
 
 from rest_framework import generics, permissions, status
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -91,6 +92,17 @@ class UserSubscriptionListView(generics.ListAPIView):
         except Client.DoesNotExist:
             return UserSubscription.objects.none()
         return UserSubscription.objects.filter(tenant=tenant).order_by("-created_at")
+
+
+class AdminUserSubscriptionListView(generics.ListAPIView):
+    serializer_class = UserSubscriptionListSerializer
+    pagination_class = CustomPagination
+    permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [SearchFilter]
+    search_fields = ["tenant__name", "user__email", "plan__name"]
+
+    def get_queryset(self):
+        return UserSubscription.objects.all().order_by("-created_at")
 
 
 @allow_inactive_subscription

@@ -1,10 +1,9 @@
 from rest_framework import serializers
 
 from accounts.serializers import CustomUserSerializer
+from pricing.serializers import PricingSmallSerializer
 
 from .models import Client, Domain, TemplateCategory, TemplateSubCategory
-
-from pricing.serializers import PricingSmallSerializer
 
 
 class ClientSerializer(serializers.ModelSerializer):

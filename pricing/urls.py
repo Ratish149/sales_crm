@@ -2,6 +2,7 @@
 from django.urls import path
 
 from .views import (
+    AdminUserSubscriptionListView,
     PricingListView,
     SubscriptionStatusView,
     TenantUpgradePlanView,
@@ -20,5 +21,10 @@ urlpatterns = [
         "subscription-status/",
         SubscriptionStatusView.as_view(),
         name="subscription-status",
+    ),
+    path(
+        "admin-subscription/",
+        AdminUserSubscriptionListView.as_view(),
+        name="admin-subscription-list",
     ),
 ]
