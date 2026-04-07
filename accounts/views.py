@@ -163,6 +163,7 @@ class CustomSignupView(APIView):
                         pricing_plan=free_plan,
                         paid_until=paid_until,
                     )
+                    
                     EmailAddress.objects.create(
                         email=user.email,
                         user=user,

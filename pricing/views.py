@@ -1,13 +1,10 @@
-# Create your views here.
-# pricing/views.py
-from rest_framework.permissions import AllowAny
-from datetime import date, timedelta
+from datetime import date
 
 from rest_framework import generics, permissions, status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from sales_crm.utils.decorators import allow_inactive_subscription
-from tenants.models import Client
 
 from .models import Pricing, UserSubscription
 from .serializers import PricingSerializer, UserSubscriptionSerializer
@@ -22,11 +19,12 @@ class PricingListView(generics.ListAPIView):
 @allow_inactive_subscription
 class TenantUpgradePlanView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = UserSubscriptionSerializer
 
     def post(self, request, *args, **kwargs):
         plan_id = request.data.get("plan_id")
         transaction_id = request.data.get("transaction_id")
-        payment_type = request.data.get("payment_type", "cash")  # default to cash
+        payment_type = request.data.get("payment_type", "cash")
 
         if not plan_id:
             return Response({"error": "plan_id is required"}, status=400)
@@ -36,37 +34,29 @@ class TenantUpgradePlanView(generics.GenericAPIView):
         except Pricing.DoesNotExist:
             return Response({"error": "Invalid plan_id"}, status=400)
 
-        try:
-            tenant = Client.objects.get(owner=request.user)
-        except Client.DoesNotExist:
-            return Response({"error": "Tenant not found for this user"}, status=400)
+        tenant = getattr(request, "tenant", None)
+        if not tenant or tenant.schema_name == "public":
+            return Response(
+                {"error": "Tenant context required for upgrade"}, status=400
+            )
 
-        # Assign the plan
+        # Assign the plan and extend subscription
         tenant.pricing_plan = plan
+        tenant.extend_subscription(plan)
 
-        # Extend subscription based on plan's duration_days
-        duration_days = plan.get_duration_days()
-        if duration_days is None:
-            # Lifetime plan
-            tenant.paid_until = None
-        else:
-            if tenant.paid_until and tenant.paid_until > date.today():
-                tenant.paid_until += timedelta(days=duration_days)
-            else:
-                tenant.paid_until = date.today() + timedelta(days=duration_days)
-
-        tenant.save()
-
-        # Create subscription history record
-        UserSubscription.objects.create(
-            tenant=tenant,
-            plan=plan,
-            transaction_id=transaction_id,
-            payment_type=payment_type,
-            amount=plan.price,
-            started_on=date.today(),
-            expires_on=tenant.paid_until,
+        # Create subscription history record using serializer
+        serializer = self.get_serializer(
+            data={
+                "plan_id": plan.id,
+                "transaction_id": transaction_id,
+                "payment_type": payment_type,
+                "amount": plan.price,
+                "started_on": date.today(),
+                "expires_on": tenant.paid_until,
+            }
         )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(tenant=tenant, user=request.user)
 
         return Response(
             {
@@ -78,6 +68,7 @@ class TenantUpgradePlanView(generics.GenericAPIView):
                     "unit": plan.unit,
                     "expires_on": tenant.paid_until if tenant.paid_until else "Never",
                 },
+                "subscription": serializer.data,
             },
             status=status.HTTP_200_OK,
         )
@@ -88,9 +79,8 @@ class UserSubscriptionListView(generics.ListAPIView):
     serializer_class = UserSubscriptionSerializer
 
     def get_queryset(self):
-        try:
-            tenant = Client.objects.get(owner=self.request.user)
-        except Client.DoesNotExist:
+        tenant = getattr(self.request, "tenant", None)
+        if not tenant or tenant.schema_name == "public":
             return UserSubscription.objects.none()
         return UserSubscription.objects.filter(tenant=tenant)
 
@@ -105,35 +95,16 @@ class SubscriptionStatusView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
     def get(self, request, *args, **kwargs):
-        print("request", request.user)
-        try:
-            tenant = Client.objects.get(owner=request.user)
-            print("tenant", tenant)
-        except Client.DoesNotExist:
-            return Response({"error": "Tenant not found for this user"}, status=404)
+        tenant = getattr(request, "tenant", None)
+        if not tenant or tenant.schema_name == "public":
+            return Response({"error": "Tenant context required"}, status=400)
 
-        if tenant.pricing_plan is None:
-            # No plan => inactive
-            status_flag = False
-            status_text = "inactive"
-        elif tenant.paid_until is None:
-            # Lifetime plan => active
-            status_flag = True
-            status_text = "active"
-        else:
-            # Check expiry date
-            if tenant.paid_until >= date.today():
-                status_flag = True
-                status_text = "active"
-            else:
-                status_flag = False
-                status_text = "inactive"
+        is_active = tenant.is_plan_active()
+        status_text = "active" if is_active else "inactive"
 
-        return Response(
-            {
-                "active": status_flag,
-                "status": status_text,
-                "plan": tenant.pricing_plan.name if tenant.pricing_plan else "No plan",
-                "expires_on": tenant.paid_until if tenant.paid_until else "Never",
-            }
-        )
+        return Response({
+            "active": is_active,
+            "status": status_text,
+            "plan": tenant.pricing_plan.name if tenant.pricing_plan else "No plan",
+            "expires_on": tenant.paid_until if tenant.paid_until else "Never",
+        })

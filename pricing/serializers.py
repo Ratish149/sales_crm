@@ -40,14 +40,19 @@ class PricingSmallSerializer(serializers.ModelSerializer):
 
 
 class UserSubscriptionSerializer(serializers.ModelSerializer):
-    plan = PricingSmallSerializer()
+    plan = PricingSmallSerializer(read_only=True)
+    plan_id = serializers.PrimaryKeyRelatedField(
+        queryset=Pricing.objects.all(), source="plan", write_only=True
+    )
 
     class Meta:
         model = UserSubscription
         fields = [
             "id",
             "tenant",
+            "user",
             "plan",
+            "plan_id",
             "transaction_id",
             "payment_type",
             "amount",
@@ -55,3 +60,4 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
             "expires_on",
             "created_at",
         ]
+        read_only_fields = ["tenant", "user"]

@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.conf import settings
 from django.db import models
 
 from tenants.models import Client
@@ -38,6 +39,10 @@ class Pricing(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        verbose_name = "Pricing"
+        verbose_name_plural = "Pricings"
+
     def __str__(self):
         return self.name
 
@@ -58,10 +63,6 @@ class Pricing(models.Model):
         """Return duration days, fallback to 30 if None"""
         if self.duration_days is not None:
             return self.duration_days
-
-    class Meta:
-        verbose_name = "Pricing"
-        verbose_name_plural = "Pricings"
 
 
 class PricingFeature(models.Model):
@@ -93,6 +94,13 @@ class UserSubscription(models.Model):
 
     tenant = models.ForeignKey(
         Client, on_delete=models.CASCADE, related_name="subscription_history"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="subscriptions",
     )
     plan = models.ForeignKey("Pricing", on_delete=models.SET_NULL, null=True)
     transaction_id = models.CharField(max_length=255, blank=True, null=True)

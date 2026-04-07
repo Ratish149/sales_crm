@@ -19,12 +19,12 @@ class TemplateCategory(models.Model):
         max_length=10, choices=WEBSITE_TYPE, null=True, blank=True
     )
 
+    def __str__(self):
+        return self.name
+
     def save(self, *args, **kwargs):
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
 
 
 class TemplateSubCategory(models.Model):
@@ -34,12 +34,12 @@ class TemplateSubCategory(models.Model):
         TemplateCategory, on_delete=models.CASCADE, related_name="subcategories"
     )
 
+    def __str__(self):
+        return self.name
+
     def save(self, *args, **kwargs):
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
 
 
 class Client(TenantMixin):
