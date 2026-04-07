@@ -4,6 +4,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from sales_crm.pagination import CustomPagination
 from sales_crm.utils.decorators import allow_inactive_subscription
 from tenants.models import Client
 
@@ -82,6 +83,7 @@ class TenantUpgradePlanView(generics.GenericAPIView):
 class UserSubscriptionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSubscriptionListSerializer
+    pagination_class = CustomPagination
 
     def get_queryset(self):
         try:
