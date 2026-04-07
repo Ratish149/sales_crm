@@ -90,7 +90,7 @@ class UserSubscriptionListView(generics.ListAPIView):
             tenant = Client.objects.get(owner=self.request.user)
         except Client.DoesNotExist:
             return UserSubscription.objects.none()
-        return UserSubscription.objects.filter(tenant=tenant)
+        return UserSubscription.objects.filter(tenant=tenant).order_by("-created_at")
 
 
 @allow_inactive_subscription
