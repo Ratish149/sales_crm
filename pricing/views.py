@@ -8,7 +8,11 @@ from sales_crm.utils.decorators import allow_inactive_subscription
 from tenants.models import Client
 
 from .models import Pricing, UserSubscription
-from .serializers import PricingSerializer, UserSubscriptionSerializer
+from .serializers import (
+    PricingSerializer,
+    UserSubscriptionListSerializer,
+    UserSubscriptionSerializer,
+)
 
 
 class PricingListView(generics.ListAPIView):
@@ -77,7 +81,7 @@ class TenantUpgradePlanView(generics.GenericAPIView):
 
 class UserSubscriptionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = UserSubscriptionSerializer
+    serializer_class = UserSubscriptionListSerializer
 
     def get_queryset(self):
         try:

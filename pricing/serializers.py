@@ -1,6 +1,8 @@
 # pricing/serializers.py
 from rest_framework import serializers
 
+from accounts.serializers import CustomUserSerializer
+
 from .models import Pricing, PricingFeature, UserSubscription
 
 
@@ -44,6 +46,31 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan_id = serializers.PrimaryKeyRelatedField(
         queryset=Pricing.objects.all(), source="plan", write_only=True
     )
+
+    class Meta:
+        model = UserSubscription
+        fields = [
+            "id",
+            "tenant",
+            "user",
+            "plan",
+            "plan_id",
+            "transaction_id",
+            "payment_type",
+            "amount",
+            "started_on",
+            "expires_on",
+            "created_at",
+        ]
+        read_only_fields = ["tenant", "user"]
+
+
+class UserSubscriptionListSerializer(serializers.ModelSerializer):
+    plan = PricingSmallSerializer(read_only=True)
+    plan_id = serializers.PrimaryKeyRelatedField(
+        queryset=Pricing.objects.all(), source="plan", write_only=True
+    )
+    user = CustomUserSerializer(read_only=True)
 
     class Meta:
         model = UserSubscription
