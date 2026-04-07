@@ -97,7 +97,6 @@ class UserSubscriptionListView(generics.ListAPIView):
 class AdminUserSubscriptionListView(generics.ListAPIView):
     serializer_class = UserSubscriptionListSerializer
     pagination_class = CustomPagination
-    permission_classes = [permissions.IsAuthenticated]
     filter_backends = [SearchFilter]
     search_fields = ["tenant__name", "user__email", "plan__name"]
 
