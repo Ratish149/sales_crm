@@ -28,6 +28,8 @@ class CustomUser(AbstractUser):
     # Soft delete fields
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def is_owner_of(self, store):
         return self == store.owner
@@ -72,15 +74,15 @@ class StoreProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.store_name or f"Store {self.id}"
+
     def save(self, *args, **kwargs):
         is_new = self._state.adding
         super().save(*args, **kwargs)
         # Add the owner to the store's users if not already added
         if is_new and self.owner_id:
             self.users.add(self.owner)
-
-    def __str__(self):
-        return self.store_name or f"Store {self.id}"
 
 
 class Invitation(models.Model):
@@ -103,6 +105,9 @@ class Invitation(models.Model):
     class Meta:
         unique_together = ("email", "store")
 
+    def __str__(self):
+        return f"Invitation for {self.email} to {self.store.store_name}"
+
     def accept(self, user):
         """Accept the invitation and add user to the store"""
         if self.accepted:
@@ -121,6 +126,3 @@ class Invitation(models.Model):
             user.save()
 
         return True
-
-    def __str__(self):
-        return f"Invitation for {self.email} to {self.store.store_name}"

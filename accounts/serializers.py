@@ -173,10 +173,19 @@ class StoreUserSerializer(serializers.ModelSerializer):
 class UserWithStoresSerializer(serializers.ModelSerializer):
     stores = serializers.SerializerMethodField()
     schema_name = serializers.SerializerMethodField()
+    created_at = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "email", "role", "stores", "schema_name","phone_number")
+        fields = (
+            "id",
+            "email",
+            "role",
+            "stores",
+            "schema_name",
+            "phone_number",
+            "created_at",
+        )
 
     def get_stores(self, user):
         # Both owned and joined stores are already prefetched in queryset
@@ -192,6 +201,10 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
             return user.client.schema_name
         except AttributeError:
             return None
+
+    def get_created_at(self, user):
+        # Fallback to date_joined if created_at is not available
+        return user.created_at or user.date_joined
 
 
 class ClientDataSerializer(serializers.Serializer):

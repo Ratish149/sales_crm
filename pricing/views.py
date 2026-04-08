@@ -30,7 +30,7 @@ class TenantUpgradePlanView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         plan_id = request.data.get("plan_id")
-        transaction_id = request.data.get("transaction_id", "")
+        transaction_id = request.data.get("transaction_id") or None
         payment_type = request.data.get("payment_type", "cash")
 
         if not plan_id:
