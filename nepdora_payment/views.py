@@ -64,12 +64,12 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "GET":
+        if self.request.method == "POST":
             return [TenantJWTAuthentication()]
         return []  # No authentication for POST
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -102,8 +102,16 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     filterset_class = TenantTransferHistoryFilter
     search_fields = ["tenant__name"]
     pagination_class = CustomPagination
-    authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []  # No authentication for POST
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
 
 class TenantTransferHistoryRetrieveUpdateDestroyView(
