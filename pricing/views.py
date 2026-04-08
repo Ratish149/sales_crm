@@ -41,7 +41,15 @@ class TenantUpgradePlanView(generics.GenericAPIView):
         except Pricing.DoesNotExist:
             return Response({"error": "Invalid plan_id"}, status=400)
 
-        tenant = getattr(request, "tenant", None)
+        tenant_id = request.data.get("tenant_id")
+        if tenant_id:
+            try:
+                tenant = Client.objects.get(id=tenant_id)
+            except Client.DoesNotExist:
+                return Response({"error": "Invalid tenant_id"}, status=400)
+        else:
+            tenant = getattr(request, "tenant", None)
+
         if not tenant or tenant.schema_name == "public":
             return Response(
                 {"error": "Tenant context required for upgrade"}, status=400
