@@ -25,7 +25,6 @@ class PricingListView(generics.ListAPIView):
 
 @allow_inactive_subscription
 class TenantUpgradePlanView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSubscriptionSerializer
 
     def post(self, request, *args, **kwargs):
@@ -71,7 +70,13 @@ class TenantUpgradePlanView(generics.GenericAPIView):
             }
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save(tenant=tenant, user=request.user)
+
+        # Save user only if authenticated
+        save_kwargs = {"tenant": tenant}
+        if request.user and request.user.is_authenticated:
+            save_kwargs["user"] = request.user
+
+        serializer.save(**save_kwargs)
 
         return Response(
             {
