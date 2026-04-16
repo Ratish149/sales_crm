@@ -23,11 +23,8 @@ class PortfolioImageSerializer(serializers.ModelSerializer):
 
 class PortfolioSerializer(serializers.ModelSerializer):
     images = serializers.ListField(
-        child=serializers.FileField(
-            max_length=1000000, allow_empty_file=False, use_url=False
-        ),
-        write_only=True,
         required=False,
+        write_only=True,
     )
 
     class Meta:
@@ -51,11 +48,35 @@ class PortfolioSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        images = validated_data.pop("images", [])
+        images_data = validated_data.pop("images", [])
         portfolio = super().create(validated_data)
-        for image in images:
-            PortfolioImage.objects.create(portfolio=portfolio, image=image)
+        for item in images_data:
+            if not isinstance(item, str):  # Ignore strings during creation
+                PortfolioImage.objects.create(portfolio=portfolio, image=item)
         return portfolio
+
+    def update(self, instance, validated_data):
+        images_data = validated_data.pop("images", [])
+        instance = super().update(instance, validated_data)
+
+        existing_images = instance.images.all()
+        keep_image_ids = []
+
+        for item in images_data:
+            if isinstance(item, str):
+                # Sync logic: If it's a URL, find the matching existing image to keep it
+                for img in existing_images:
+                    if img.image and img.image.url in item:
+                        keep_image_ids.append(img.id)
+                        break
+            else:
+                # If it's a file, it's a new image
+                PortfolioImage.objects.create(portfolio=instance, image=item)
+
+        # Delete existing images that were NOT in the provided list of URLs
+        existing_images.exclude(id__in=keep_image_ids).delete()
+
+        return instance
 
 
 class PortfolioListSerializer(PortfolioSerializer):
