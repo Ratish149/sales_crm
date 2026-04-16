@@ -26,6 +26,7 @@ class PortfolioSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
+    images_data = PortfolioImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Portfolio
@@ -45,6 +46,7 @@ class PortfolioSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "images",
+            "images_data",
         ]
 
     def create(self, validated_data):
