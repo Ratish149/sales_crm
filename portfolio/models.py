@@ -67,3 +67,23 @@ class PortfolioTags(models.Model):
     def save(self, *args, **kwargs):
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+
+class PortfolioImage(models.Model):
+    portfolio = models.ForeignKey(
+        Portfolio, related_name="images", on_delete=models.CASCADE
+    )
+    image = models.FileField(
+        upload_to="portfolio/images/",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
+    )
+    alt_description = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Image for {self.portfolio.title}"
+

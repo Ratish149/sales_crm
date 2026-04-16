@@ -5,10 +5,11 @@ from rest_framework.permissions import IsAuthenticated
 
 from sales_crm.authentication import TenantJWTAuthentication
 
-from .models import Portfolio, PortfolioCategory, PortfolioTags
+from .models import Portfolio, PortfolioCategory, PortfolioImage, PortfolioTags
 from .serializers import (
     PortfolioCategorySerializer,
     PortfolioDetailSerializer,
+    PortfolioImageSerializer,
     PortfolioListSerializer,
     PortfolioSerializer,
     PortfolioTagsSerializer,
@@ -98,3 +99,33 @@ class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
         if self.request.method == "GET":
             return PortfolioDetailSerializer
         return PortfolioSerializer
+
+
+class PortfolioImageListCreateAPIView(generics.ListCreateAPIView):
+    queryset = PortfolioImage.objects.all()
+    serializer_class = PortfolioImageSerializer
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class PortfolioImageRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PortfolioImage.objects.all()
+    serializer_class = PortfolioImageSerializer
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()

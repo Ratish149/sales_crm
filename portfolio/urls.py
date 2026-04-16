@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     PortfolioCategoryListCreateAPIView,
     PortfolioCategoryRetrieveUpdateDestroyAPIView,
+    PortfolioImageListCreateAPIView,
+    PortfolioImageRetrieveUpdateDestroyAPIView,
     PortfolioListCreateAPIView,
     PortfolioRetrieveUpdateDestroyAPIView,
     PortfolioTagsListCreateAPIView,
@@ -37,5 +39,15 @@ urlpatterns = [
         "portfolio-tags/<int:pk>/",
         PortfolioTagsRetrieveUpdateDestroyAPIView.as_view(),
         name="portfolio_tags_retrieve_update_destroy",
+    ),
+    path(
+        "portfolio-image/",
+        PortfolioImageListCreateAPIView.as_view(),
+        name="portfolio_image_list_create",
+    ),
+    path(
+        "portfolio-image/<int:pk>/",
+        PortfolioImageRetrieveUpdateDestroyAPIView.as_view(),
+        name="portfolio_image_retrieve_update_destroy",
     ),
 ]
