@@ -65,8 +65,10 @@ class PortfolioSerializer(serializers.ModelSerializer):
         for item in images_data:
             if isinstance(item, str):
                 # Sync logic: If it's a URL, find the matching existing image to keep it
+                # We use img.image.name because S3 URLs can be dynamic/signed,
+                # but the file name (path) remains stable and is part of the URL.
                 for img in existing_images:
-                    if img.image and img.image.url in item:
+                    if img.image and img.image.name in item:
                         keep_image_ids.append(img.id)
                         break
             else:
