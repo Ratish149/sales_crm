@@ -161,6 +161,12 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
             domain_url = f"{schema_name}.{backend_url}"
             Domain.objects.create(domain=domain_url, tenant=tenant, is_primary=True)
 
+            # Initialise the SMSSetting singleton for the new tenant schema
+            from sms.models import SMSSetting  # noqa: PLC0415
+
+            with schema_context(schema_name):
+                SMSSetting.objects.get_or_create(pk=1)
+
         return user
 
 
@@ -197,14 +203,12 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
             store_name = getattr(store_profile, "store_name", "") or ""
             owner = getattr(store_profile, "owner", None)
             sub_domain = slugify(store_name) if store_name else ""
-            has_profile_completed = all(
-                [
-                    bool(getattr(store_profile, "logo", None)),
-                    bool(getattr(store_profile, "store_number", None)),
-                    bool(getattr(store_profile, "store_address", None)),
-                    bool(getattr(store_profile, "business_category", None)),
-                ]
-            )
+            has_profile_completed = all([
+                bool(getattr(store_profile, "logo", None)),
+                bool(getattr(store_profile, "store_number", None)),
+                bool(getattr(store_profile, "store_address", None)),
+                bool(getattr(store_profile, "business_category", None)),
+            ])
 
             try:
                 if owner:
@@ -251,19 +255,17 @@ class CustomHeadlessAdapter(DefaultHeadlessAdapter):
         except Exception as e:
             raise ValueError(f"Error generating JWT token: {e}")
 
-        ret.update(
-            {
-                "store_name": store_name,
-                "role": role,
-                "phone_number": phone_number,
-                "domain": domain_name,
-                "sub_domain": sub_domain,
-                "has_profile_completed": has_profile_completed,
-                "first_login": is_first_login,
-                "is_onboarding_complete": is_onboarding_complete,
-                "website_type": website_type,
-            }
-        )
+        ret.update({
+            "store_name": store_name,
+            "role": role,
+            "phone_number": phone_number,
+            "domain": domain_name,
+            "sub_domain": sub_domain,
+            "has_profile_completed": has_profile_completed,
+            "first_login": is_first_login,
+            "is_onboarding_complete": is_onboarding_complete,
+            "website_type": website_type,
+        })
 
         return ret
 
@@ -329,6 +331,12 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 domain_url = f"{schema_name}.{backend_url}"
                 Domain.objects.create(domain=domain_url, tenant=tenant, is_primary=True)
 
+                # Initialise the SMSSetting singleton for the new tenant schema
+                from sms.models import SMSSetting  # noqa: PLC0415
+
+                with schema_context(schema_name):
+                    SMSSetting.objects.get_or_create(pk=1)
+
         return user
 
     def send_mail(self, template_prefix, email, context):
@@ -344,15 +352,13 @@ class CustomAccountAdapter(DefaultAccountAdapter):
                 )
                 subject = "Sales CRM - Email Verification"
 
-            resend.Emails.send(
-                {
-                    "from": "Nepdora <nepdora@baliyoventures.com>",
-                    "to": [email],
-                    "subject": subject,
-                    "html": html_body,
-                    "reply_to": "nepdora@gmail.com",
-                }
-            )
+            resend.Emails.send({
+                "from": "Nepdora <nepdora@baliyoventures.com>",
+                "to": [email],
+                "subject": subject,
+                "html": html_body,
+                "reply_to": "nepdora@gmail.com",
+            })
 
         except Exception:
             # Fallback to default email sending if Resend fails

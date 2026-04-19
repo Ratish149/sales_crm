@@ -177,6 +177,11 @@ class CustomSignupView(APIView):
                         is_primary=True,
                     )
 
+                    # Initialise the SMSSetting singleton for the new tenant schema
+                    from sms.models import SMSSetting  # noqa: PLC0415
+                    with schema_context(storeName):
+                        SMSSetting.objects.get_or_create(pk=1)
+
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:
                         user.is_onboarding_complete = True
