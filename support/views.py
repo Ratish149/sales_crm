@@ -7,13 +7,23 @@ from django_filters import rest_framework as django_filters
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 
-from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial, Newsletter
+from .models import (
+    FAQ,
+    Contact,
+    FAQCategory,
+    NepdoraTestimonial,
+    Newsletter,
+    Showcase,
+    VideoTestimonial,
+)
 from .serializers import (
     ContactSerializer,
     FAQCategorySerializer,
     FAQSerializer,
     NepdoraTestimonialSerializer,
     NewsletterSerializer,
+    ShowcaseSerializer,
+    VideoTestimonialSerializer,
 )
 
 # Initialize Resend
@@ -142,3 +152,25 @@ class NewsletterListCreateView(generics.ListCreateAPIView):
 class NewsletterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Newsletter.objects.all()
     serializer_class = NewsletterSerializer
+
+
+class ShowcaseListCreateView(generics.ListCreateAPIView):
+    queryset = Showcase.objects.all().order_by("-created_at")
+    serializer_class = ShowcaseSerializer
+    pagination_class = CustomPagination
+
+
+class ShowcaseRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Showcase.objects.all()
+    serializer_class = ShowcaseSerializer
+
+
+class VideoTestimonialListCreateView(generics.ListCreateAPIView):
+    queryset = VideoTestimonial.objects.all().order_by("-created_at")
+    serializer_class = VideoTestimonialSerializer
+    pagination_class = CustomPagination
+
+
+class VideoTestimonialRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = VideoTestimonial.objects.all()
+    serializer_class = VideoTestimonialSerializer

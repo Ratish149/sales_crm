@@ -1,6 +1,14 @@
 from rest_framework import serializers
 
-from .models import FAQ, Contact, FAQCategory, NepdoraTestimonial, Newsletter
+from .models import (
+    FAQ,
+    Contact,
+    FAQCategory,
+    NepdoraTestimonial,
+    Newsletter,
+    Showcase,
+    VideoTestimonial,
+)
 
 
 class FAQCategorySerializer(serializers.ModelSerializer):
@@ -52,7 +60,8 @@ class NewsletterSerializer(serializers.ModelSerializer):
     def validate_email(self, value):
         if self.instance:
             if (
-                Newsletter.objects.filter(email=value)
+                Newsletter.objects
+                .filter(email=value)
                 .exclude(id=self.instance.id)
                 .exists()
             ):
@@ -65,3 +74,24 @@ class NewsletterSerializer(serializers.ModelSerializer):
                     "Newsletter with this email already exists."
                 )
         return value
+
+
+class ShowcaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Showcase
+        fields = ["id", "name", "description", "image", "website_url"]
+
+
+class VideoTestimonialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoTestimonial
+        fields = [
+            "id",
+            "name",
+            "designation",
+            "description",
+            "video",
+            "website_name",
+            "website_url",
+            "video_url",
+        ]

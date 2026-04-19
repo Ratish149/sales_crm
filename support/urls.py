@@ -11,6 +11,10 @@ from .views import (
     NepdoraTestimonialRetrieveUpdateDestroyView,
     NewsletterListCreateView,
     NewsletterRetrieveUpdateDestroyView,
+    ShowcaseListCreateView,
+    ShowcaseRetrieveUpdateDestroyView,
+    VideoTestimonialListCreateView,
+    VideoTestimonialRetrieveUpdateDestroyView,
 )
 
 urlpatterns = [
@@ -59,5 +63,25 @@ urlpatterns = [
         "nepdora-newsletter/<int:pk>/",
         NewsletterRetrieveUpdateDestroyView.as_view(),
         name="nepdora-newsletter-retrieve-update-destroy",
+    ),
+    path(
+        "showcase/",
+        ShowcaseListCreateView.as_view(),
+        name="showcase-list-create",
+    ),
+    path(
+        "showcase/<int:pk>/",
+        ShowcaseRetrieveUpdateDestroyView.as_view(),
+        name="showcase-retrieve-update-destroy",
+    ),
+    path(
+        "video-testimonial/",
+        VideoTestimonialListCreateView.as_view(),
+        name="video-testimonial-list-create",
+    ),
+    path(
+        "video-testimonial/<int:pk>/",
+        VideoTestimonialRetrieveUpdateDestroyView.as_view(),
+        name="video-testimonial-retrieve-update-destroy",
     ),
 ]
