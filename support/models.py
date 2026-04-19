@@ -76,7 +76,12 @@ class Newsletter(models.Model):
 class Showcase(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-    image = models.ImageField(upload_to="showcase", null=True, blank=True)
+    image = models.ImageField(
+        upload_to="showcase",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+    )
     website_url = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -91,15 +96,13 @@ class Showcase(models.Model):
 
 class VideoTestimonial(models.Model):
     name = models.CharField(max_length=255)
-    designation = models.CharField(max_length=255, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     website_name = models.CharField(max_length=255, null=True, blank=True)
     website_url = models.CharField(max_length=255, null=True, blank=True)
     video_url = models.CharField(max_length=255, null=True, blank=True)
-    video = models.FileField(upload_to="video_testimonial", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
+    
     class Meta:
         verbose_name = "Video Testimonial"
         verbose_name_plural = "Video Testimonials"

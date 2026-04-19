@@ -1,7 +1,7 @@
 from django.contrib import admin
-from .models import Blog, Tags
 from tinymce.widgets import TinyMCE
-from django.db import models
+
+from .models import Blog, Tags
 
 # Register your models here.
 admin.site.register(Tags)

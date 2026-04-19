@@ -6,6 +6,7 @@ from django.db import connection
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from django_tenants.utils import get_tenant_domain_model
+
 from tenants.models import Client
 
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
@@ -223,6 +224,7 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
         return tenant.paid_until >= date.today()
 
+
 class CustomDomainTenantMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
@@ -230,42 +232,44 @@ class CustomDomainTenantMiddleware:
     def __call__(self, request):
         # 1. Extract domain from header
         hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
-        print("hostname", hostname)
-        
+
         # 2. If no header, fallback to public schema
         if not hostname:
             connection.set_schema_to_public()
-            print("public schema")
             # Set request.tenant to the public tenant object if it exists
             try:
                 from django_tenants.utils import get_public_schema_name
-                request.tenant = Client.objects.get(schema_name=get_public_schema_name())
+
+                request.tenant = Client.objects.get(
+                    schema_name=get_public_schema_name()
+                )
             except Client.DoesNotExist:
                 request.tenant = None
             return self.get_response(request)
 
         # 3. Clean hostname
         hostname = hostname.replace("www.", "").split(":")[0]
-        print(f"🔍 [TenantMiddleware] Looking up tenant for hostname: {hostname}")
 
         try:
             # 4. Lookup Tenant
             DomainModel = get_tenant_domain_model()
-            domain_obj = DomainModel.objects.select_related("tenant").get(domain=hostname)
+            domain_obj = DomainModel.objects.select_related("tenant").get(
+                domain=hostname
+            )
             tenant = domain_obj.tenant
-            
+
             # 5. Set the Schema
             connection.set_tenant(tenant)
             request.tenant = tenant
-            print(f"✅ [TenantMiddleware] Found tenant: {tenant.schema_name} for hostname: {hostname}")
-            
         except (ObjectDoesNotExist, DomainModel.DoesNotExist):
             # Fallback to public if domain not found
-            print(f"⚠️ [TenantMiddleware] Domain '{hostname}' not found - falling back to public schema")
             connection.set_schema_to_public()
             try:
                 from django_tenants.utils import get_public_schema_name
-                request.tenant = Client.objects.get(schema_name=get_public_schema_name())
+
+                request.tenant = Client.objects.get(
+                    schema_name=get_public_schema_name()
+                )
             except Client.DoesNotExist:
                 request.tenant = None
 

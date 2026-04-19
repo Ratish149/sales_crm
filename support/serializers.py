@@ -79,7 +79,15 @@ class NewsletterSerializer(serializers.ModelSerializer):
 class ShowcaseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Showcase
-        fields = ["id", "name", "description", "image", "website_url"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "image",
+            "website_url",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class VideoTestimonialSerializer(serializers.ModelSerializer):
@@ -88,10 +96,10 @@ class VideoTestimonialSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-            "designation",
             "description",
-            "video",
             "website_name",
             "website_url",
             "video_url",
+            "created_at",
+            "updated_at",
         ]
