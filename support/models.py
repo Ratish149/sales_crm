@@ -76,7 +76,7 @@ class Newsletter(models.Model):
 class Showcase(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
-    image = models.ImageField(
+    image = models.FileField(
         upload_to="showcase",
         storage=PublicMediaStorage(),
         null=True,
@@ -102,7 +102,7 @@ class VideoTestimonial(models.Model):
     video_url = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         verbose_name = "Video Testimonial"
         verbose_name_plural = "Video Testimonials"
