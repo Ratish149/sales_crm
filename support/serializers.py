@@ -4,6 +4,7 @@ from .models import (
     FAQ,
     Contact,
     FAQCategory,
+    NepdoraPopupForm,
     NepdoraTestimonial,
     Newsletter,
     Showcase,
@@ -103,3 +104,36 @@ class VideoTestimonialSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class NepdoraPopupFormSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NepdoraPopupForm
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone_number",
+            "message",
+            "website_type",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_email(self, value):
+        if self.instance:
+            if (
+                NepdoraPopupForm.objects
+                .filter(email=value)
+                .exclude(id=self.instance.id)
+                .exists()
+            ):
+                raise serializers.ValidationError(
+                    "Nepdora Popup Form with this email already exists."
+                )
+        else:
+            if NepdoraPopupForm.objects.filter(email=value).exists():
+                raise serializers.ValidationError(
+                    "Nepdora Popup Form with this email already exists."
+                )
+        return value

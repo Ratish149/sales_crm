@@ -7,6 +7,8 @@ from .views import (
     FAQCategoryRetrieveUpdateDestroyView,
     FAQListCreateView,
     FAQRetrieveUpdateDestroyView,
+    NepdoraPopupFormListCreateView,
+    NepdoraPopupFormRetrieveUpdateDestroyView,
     NepdoraTestimonialListCreateView,
     NepdoraTestimonialRetrieveUpdateDestroyView,
     NewsletterListCreateView,
@@ -83,5 +85,15 @@ urlpatterns = [
         "video-testimonial/<int:pk>/",
         VideoTestimonialRetrieveUpdateDestroyView.as_view(),
         name="video-testimonial-retrieve-update-destroy",
+    ),
+    path(
+        "nepdora-popup-form/",
+        NepdoraPopupFormListCreateView.as_view(),
+        name="nepdora-popup-form-list-create",
+    ),
+    path(
+        "nepdora-popup-form/<int:pk>/",
+        NepdoraPopupFormRetrieveUpdateDestroyView.as_view(),
+        name="nepdora-popup-form-retrieve-update-destroy",
     ),
 ]

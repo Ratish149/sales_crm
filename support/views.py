@@ -11,6 +11,7 @@ from .models import (
     FAQ,
     Contact,
     FAQCategory,
+    NepdoraPopupForm,
     NepdoraTestimonial,
     Newsletter,
     Showcase,
@@ -20,6 +21,7 @@ from .serializers import (
     ContactSerializer,
     FAQCategorySerializer,
     FAQSerializer,
+    NepdoraPopupFormSerializer,
     NepdoraTestimonialSerializer,
     NewsletterSerializer,
     ShowcaseSerializer,
@@ -174,3 +176,14 @@ class VideoTestimonialListCreateView(generics.ListCreateAPIView):
 class VideoTestimonialRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = VideoTestimonial.objects.all()
     serializer_class = VideoTestimonialSerializer
+
+
+class NepdoraPopupFormListCreateView(generics.ListCreateAPIView):
+    queryset = NepdoraPopupForm.objects.all().order_by("-created_at")
+    serializer_class = NepdoraPopupFormSerializer
+    pagination_class = CustomPagination
+
+
+class NepdoraPopupFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = NepdoraPopupForm.objects.all()
+    serializer_class = NepdoraPopupFormSerializer
