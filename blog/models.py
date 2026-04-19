@@ -4,7 +4,6 @@ from django.utils.text import slugify
 from sales_crm.utils.file_size_validator import file_size
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
-
 # Create your models here.
 
 
@@ -13,7 +12,11 @@ class Blog(models.Model):
     slug = models.CharField(max_length=255, null=True, blank=True)
     content = models.TextField()
     thumbnail_image = models.FileField(
-        upload_to="blog/images/", storage=PublicMediaStorage(), null=True, blank=True, validators=[file_size]
+        upload_to="blog/images/",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
     )
     thumbnail_image_alt_description = models.CharField(
         max_length=255, blank=True, null=True

@@ -25,7 +25,8 @@ class StatsView(APIView):
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         month = request.query_params.get("month")
-        year = request.query_params.get("year", timezone.now().year)
+        year_param = request.query_params.get("year")
+        year = year_param if year_param else timezone.now().year
 
         filters = Q()
 
@@ -51,6 +52,14 @@ class StatsView(APIView):
                     end_dt = datetime(int(year), int(month) + 1, 1)
             except ValueError:
                 return Response({"error": "Invalid month or year"}, status=400)
+        elif year_param:
+            try:
+                filters &= Q(created_at__year=year)
+                # Calculate start and end for year to generate daily stats
+                start_dt = datetime(int(year), 1, 1)
+                end_dt = datetime(int(year) + 1, 1, 1)
+            except ValueError:
+                return Response({"error": "Invalid year"}, status=400)
         else:
             # Default to last 7 days
             end_dt = timezone.now()
@@ -74,6 +83,13 @@ class StatsView(APIView):
             # For month filter, we stop at the last day of the month or today if it's the current month
             today = timezone.now()
             if int(year) == today.year and int(month) == today.month:
+                limit_dt = today
+            else:
+                limit_dt = end_dt - timezone.timedelta(seconds=1)
+        elif year_param:
+            # For year filter, we stop today if it's the current year
+            today = timezone.now()
+            if int(year) == today.year:
                 limit_dt = today
             else:
                 limit_dt = end_dt - timezone.timedelta(seconds=1)
