@@ -11,6 +11,7 @@ from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
 from product.serializers import ProductOnlySerializer, ProductVariantSerializer
 from promo_code.models import PromoCode
+from sms.utils import send_sms_test
 
 from .models import Order, OrderItem
 
@@ -120,13 +121,11 @@ class OrderSerializer(serializers.ModelSerializer):
 
                 # Create order item
                 order_item = OrderItem.objects.create(order=order, **item_data)
-                created_items.append(
-                    {
-                        "product_name": str(order_item.product or order_item.variant),
-                        "quantity": order_item.quantity,
-                        "price": order_item.price,
-                    }
-                )
+                created_items.append({
+                    "product_name": str(order_item.product or order_item.variant),
+                    "quantity": order_item.quantity,
+                    "price": order_item.price,
+                })
 
                 # Update stock based on whether it's a variant or base product
                 if variant:
@@ -147,6 +146,11 @@ class OrderSerializer(serializers.ModelSerializer):
             # send mail to customer using resend
             if order.customer_email:
                 self.send_order_email(order, created_items)
+
+            # send sms notification
+            tenant = getattr(connection, "tenant", None)
+            if tenant and tenant.sms_enabled and order.customer_phone:
+                self.send_order_sms(order, tenant)
 
             return order
 
@@ -179,7 +183,9 @@ class OrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
-                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}"
+                    if tenant
+                    else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 html_content = render_to_string(
@@ -187,14 +193,12 @@ class OrderSerializer(serializers.ModelSerializer):
                 )
 
                 # Send via Resend
-                resend.Emails.send(
-                    {
-                        "from": from_email,
-                        "to": order.customer_email,
-                        "subject": f"Order Confirmation #{order.order_number}",
-                        "html": html_content,
-                    }
-                )
+                resend.Emails.send({
+                    "from": from_email,
+                    "to": order.customer_email,
+                    "subject": f"Order Confirmation #{order.order_number}",
+                    "html": html_content,
+                })
                 print(
                     f"Order confirmation email sent successfully to {order.customer_email}"
                 )
@@ -220,27 +224,95 @@ class OrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
-                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}"
+                    if tenant
+                    else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 admin_html_content = render_to_string(
                     "order/email/admin_new_order.html", admin_context
                 )
 
-                resend.Emails.send(
-                    {
-                        "from": from_email,
-                        "to": admin_email,
-                        "subject": f"New Order Received #{order.order_number}",
-                        "html": admin_html_content,
-                    }
-                )
+                resend.Emails.send({
+                    "from": from_email,
+                    "to": admin_email,
+                    "subject": f"New Order Received #{order.order_number}",
+                    "html": admin_html_content,
+                })
                 print(f"Admin order notification sent successfully to {admin_email}")
 
         except Exception as e:
             # Log the error but don't fail the order creation
             print(f"Email sending failed for order {order.order_number}: {e}")
             # Don't raise ValidationError - allow order to be created even if email fails
+
+    def send_delivery_sms(self, order, tenant):
+        try:
+            from sms.models import SMSSetting
+
+            setting = SMSSetting.load()
+
+            if not setting or not setting.sms_enabled:
+                return
+
+            if not setting.delivery_sms_enabled:
+                return
+
+            if setting.sms_credit <= 0:
+                print(
+                    f"SMS failed for order delivery {order.order_number}: Insufficient credits."
+                )
+                return
+
+            # Build product list string
+            products_list = (
+                ", ".join([
+                    item.product.name if item.product else str(item.variant)
+                    for item in order.items.select_related("product", "variant").all()
+                ])
+                or "your items"
+            )
+
+            # Resolve location: prefer shipping_address, then city, then customer_address
+            location = (
+                order.shipping_address
+                or order.city
+                or order.customer_address
+                or "your address"
+            )
+
+            # Get template or fall back to a default
+            template = setting.delivery_sms_template or (
+                "Hi {{name}}, your order containing {{products}} worth "
+                "Rs. {{total_amount}} has been delivered to {{location}}. "
+                "Thank you for your purchase!"
+            )
+
+            message = (
+                template
+                .replace("{{name}}", order.customer_name or "")
+                .replace("{{products}}", products_list)
+                .replace("{{total_amount}}", str(order.total_amount))
+                .replace("{{location}}", location)
+            )
+
+            send_sms_test(to=order.customer_phone, text=message)
+        except Exception as e:
+            print(f"SMS sending failed for order delivery {order.order_number}: {e}")
+
+    def update(self, instance, validated_data):
+        validated_data.pop("items", None)
+        old_status = instance.status
+
+        instance = super().update(instance, validated_data)
+
+        new_status = instance.status
+
+        if old_status != "delivered" and new_status == "delivered":
+            if instance.customer_phone:
+                self.send_delivery_sms(instance, tenant=None)
+
+        return instance
 
 
 class AdminOrderSerializer(serializers.ModelSerializer):
@@ -281,7 +353,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
         read_only_fields = ["order_number", "created_at", "updated_at"]
 
     def create(self, validated_data):
-        request = self.context.get("request")
         items_data = validated_data.pop("items", [])
 
         with transaction.atomic():
@@ -295,13 +366,11 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 
                 # Create order item
                 order_item = OrderItem.objects.create(order=order, **item_data)
-                created_items.append(
-                    {
-                        "product_name": str(order_item.product or order_item.variant),
-                        "quantity": order_item.quantity,
-                        "price": order_item.price,
-                    }
-                )
+                created_items.append({
+                    "product_name": str(order_item.product or order_item.variant),
+                    "quantity": order_item.quantity,
+                    "price": order_item.price,
+                })
 
                 # Update stock based on whether it's a variant or base product
                 if variant:
@@ -322,6 +391,11 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             # send mail to customer using resend
             if order.customer_email:
                 self.send_order_email(order, created_items)
+
+            # send sms notification
+            tenant = getattr(connection, "tenant", None)
+            if tenant and tenant.sms_enabled and order.customer_phone:
+                self.send_order_sms(order, tenant)
 
             return order
 
@@ -354,7 +428,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
-                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}"
+                    if tenant
+                    else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 html_content = render_to_string(
@@ -362,14 +438,12 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                 )
 
                 # Send via Resend
-                resend.Emails.send(
-                    {
-                        "from": from_email,
-                        "to": order.customer_email,
-                        "subject": f"Order Confirmation #{order.order_number}",
-                        "html": html_content,
-                    }
-                )
+                resend.Emails.send({
+                    "from": from_email,
+                    "to": order.customer_email,
+                    "subject": f"Order Confirmation #{order.order_number}",
+                    "html": html_content,
+                })
                 print(
                     f"Order confirmation email sent successfully to {order.customer_email}"
                 )
@@ -395,27 +469,95 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                     "delivery_charge": order.delivery_charge,
                     "tenant_name": tenant_name,
                     "created_at": order.created_at,
-                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}" if tenant else f"https://nepdora.com/track-order/{order.order_number}",
+                    "track_order_url": f"https://{tenant.schema_name}.nepdora.com/track-order/{order.order_number}"
+                    if tenant
+                    else f"https://nepdora.com/track-order/{order.order_number}",
                 }
 
                 admin_html_content = render_to_string(
                     "order/email/admin_new_order.html", admin_context
                 )
 
-                resend.Emails.send(
-                    {
-                        "from": from_email,
-                        "to": admin_email,
-                        "subject": f"New Order Received #{order.order_number}",
-                        "html": admin_html_content,
-                    }
-                )
+                resend.Emails.send({
+                    "from": from_email,
+                    "to": admin_email,
+                    "subject": f"New Order Received #{order.order_number}",
+                    "html": admin_html_content,
+                })
                 print(f"Admin order notification sent successfully to {admin_email}")
 
         except Exception as e:
             # Log the error but don't fail the order creation
             print(f"Email sending failed for order {order.order_number}: {e}")
             # Don't raise ValidationError - allow order to be created even if email fails
+
+    def send_delivery_sms(self, order, tenant):
+        try:
+            from sms.models import SMSSetting
+
+            setting = SMSSetting.load()
+
+            if not setting or not setting.sms_enabled:
+                return
+
+            if not setting.delivery_sms_enabled:
+                return
+
+            if setting.sms_credit <= 0:
+                print(
+                    f"SMS failed for order delivery {order.order_number}: Insufficient credits."
+                )
+                return
+
+            # Build product list string
+            products_list = (
+                ", ".join([
+                    item.product.name if item.product else str(item.variant)
+                    for item in order.items.select_related("product", "variant").all()
+                ])
+                or "your items"
+            )
+
+            # Resolve location: prefer shipping_address, then city, then customer_address
+            location = (
+                order.shipping_address
+                or order.city
+                or order.customer_address
+                or "your address"
+            )
+
+            # Get template or fall back to a default
+            template = setting.delivery_sms_template or (
+                "Hi {{name}}, your order containing {{products}} worth "
+                "Rs. {{total_amount}} has been delivered to {{location}}. "
+                "Thank you for your purchase!"
+            )
+
+            message = (
+                template
+                .replace("{{name}}", order.customer_name or "")
+                .replace("{{products}}", products_list)
+                .replace("{{total_amount}}", str(order.total_amount))
+                .replace("{{location}}", location)
+            )
+
+            send_sms_test(to=order.customer_phone, text=message)
+        except Exception as e:
+            print(f"SMS sending failed for order delivery {order.order_number}: {e}")
+
+    def update(self, instance, validated_data):
+        validated_data.pop("items", None)
+        old_status = instance.status
+
+        instance = super().update(instance, validated_data)
+
+        new_status = instance.status
+
+        if old_status != "delivered" and new_status == "delivered":
+            if instance.customer_phone:
+                self.send_delivery_sms(instance, tenant=None)
+
+        return instance
 
 
 class OrderListSerializer(serializers.ModelSerializer):

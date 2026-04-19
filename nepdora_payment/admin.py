@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import NepdoraPayment, TenantCentralPaymentHistory, TenantTransferHistory
+from .models import (
+    NepdoraPayment,
+    SMSPurchaseHistory,
+    TenantCentralPaymentHistory,
+    TenantTransferHistory,
+)
 
 
 @admin.register(NepdoraPayment)
@@ -31,3 +36,11 @@ class TenantTransferHistoryAdmin(admin.ModelAdmin):
     search_fields = ("reference_note",)
     readonly_fields = ("created_at", "updated_at")
     date_hierarchy = "transfer_date"
+
+
+@admin.register(SMSPurchaseHistory)
+class SMSPurchaseHistoryAdmin(admin.ModelAdmin):
+    list_display = ("tenant", "amount", "transaction_id", "purchased_at")
+    list_filter = ("tenant", "purchased_at")
+    search_fields = ("transaction_id",)
+    readonly_fields = ("purchased_at",)

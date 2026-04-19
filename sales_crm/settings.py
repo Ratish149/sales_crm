@@ -116,6 +116,7 @@ TENANT_APPS = [
     "stats",
     "skills",
     "s3bucket",
+    "sms",
 ]
 
 INSTALLED_APPS = list(SHARED_APPS) + [
@@ -536,3 +537,6 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=0, minute=0),  # Runs every night at midnight
     },
 }
+
+# Aakash SMS Configuration
+AAKASH_SMS_TOKEN = os.getenv("AAKASH_SMS_TOKEN")

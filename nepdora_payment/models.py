@@ -11,6 +11,13 @@ class NepdoraPayment(models.Model):
     secret_key = models.CharField(max_length=255, null=True, blank=True)
     merchant_code = models.CharField(max_length=255, null=True, blank=True)
 
+    def __str__(self):
+        return self.payment_type
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def clean(self):
         """Ensure at most one record per payment_type (esewa, khalti)."""
         qs = NepdoraPayment.objects.filter(payment_type=self.payment_type)
@@ -21,13 +28,6 @@ class NepdoraPayment(models.Model):
                 f"A '{self.get_payment_type_display()}' configuration already exists. "
                 "Only one entry per payment type is allowed."
             )
-
-    def save(self, *args, **kwargs):
-        self.full_clean()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.payment_type
 
 
 class TenantCentralPaymentHistory(models.Model):
@@ -74,3 +74,16 @@ class TenantTransferHistory(models.Model):
 
     def __str__(self):
         return f"{self.tenant.name} — {self.amount} on {self.transfer_date}"
+
+
+class SMSPurchaseHistory(models.Model):
+    tenant = models.ForeignKey(
+        "tenants.Client", on_delete=models.CASCADE, related_name="sms_purchase_history"
+    )
+    amount = models.IntegerField(help_text="Number of credits purchased")
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    transaction_id = models.CharField(max_length=255, unique=True)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tenant.name} - {self.amount} credits - {self.transaction_id}"

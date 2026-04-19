@@ -1,7 +1,9 @@
 # tenants/signals.py
 from datetime import date
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+
 from tenants.models import Client
 
 

@@ -24,7 +24,13 @@ class TemplateSubCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ["name", "schema_name", "owner", "created_on", "is_template_account"]
+    list_display = [
+        "name",
+        "schema_name",
+        "owner",
+        "created_on",
+        "is_template_account",
+    ]
     search_fields = ["name", "schema_name", "owner__email"]
     list_filter = ["is_template_account", "created_on"]
     readonly_fields = ["schema_name", "created_on"]
