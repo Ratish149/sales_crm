@@ -85,7 +85,11 @@ class AdminSMSListCreateView(generics.ListCreateAPIView):
         return SMSPurchaseHistorySerializer
 
     def get_queryset(self):
-        return SMSPurchaseHistory.objects.all().order_by("-purchased_at")
+        queryset = SMSPurchaseHistory.objects.all().order_by("-purchased_at")
+        client_id = self.request.query_params.get("client")
+        if client_id:
+            queryset = queryset.filter(tenant__id=client_id)
+        return queryset
 
     def perform_create(self, serializer):
         client_id = serializer.validated_data.get("client")
