@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 from nepdora_payment.models import SMSPurchaseHistory
 from order.models import Order
 from sales_crm.authentication import TenantJWTAuthentication
+from sales_crm.pagination import CustomPagination
 from sms.serializers import SMSPurchaseListSerializer
 from tenants.models import Client
 
@@ -52,6 +53,7 @@ class SMSPurchaseListCreateView(generics.ListCreateAPIView):
     """
 
     serializer_class = SMSPurchaseHistorySerializer
+    pagination_class = CustomPagination
 
     def get_authenticators(self):
         if self.request.method == "POST":
@@ -133,6 +135,7 @@ class SMSSendHistoryListCreateView(generics.ListCreateAPIView):
     """
 
     serializer_class = SMSSendHistorySerializer
+    pagination_class = CustomPagination
 
     def get_authenticators(self):
         if self.request.method == "POST":
