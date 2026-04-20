@@ -19,6 +19,8 @@ jobs:
             cd /home/ratish/sales_crm/
             git fetch origin main
             git reset --hard origin/main
+            source ../myprojectenv/bin/activate
+            python manage.py migrate
             sudo systemctl daemon-reload
             sudo systemctl restart daphne
             sudo nginx -t
