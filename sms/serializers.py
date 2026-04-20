@@ -24,7 +24,15 @@ class SMSPurchaseHistorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SMSPurchaseHistory
-        fields = ["id", "amount", "price", "transaction_id", "purchased_at", "client"]
+        fields = [
+            "id",
+            "amount",
+            "price",
+            "transaction_id",
+            "payment_type",
+            "purchased_at",
+            "client",
+        ]
         read_only_fields = ["purchased_at"]
 
 
@@ -33,7 +41,15 @@ class SMSPurchaseListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SMSPurchaseHistory
-        fields = ["id", "tenant", "amount", "price", "transaction_id", "purchased_at"]
+        fields = [
+            "id",
+            "tenant",
+            "amount",
+            "price",
+            "payment_type",
+            "transaction_id",
+            "purchased_at",
+        ]
         read_only_fields = ["purchased_at"]
 
 

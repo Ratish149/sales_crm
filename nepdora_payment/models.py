@@ -77,6 +77,13 @@ class TenantTransferHistory(models.Model):
 
 
 class SMSPurchaseHistory(models.Model):
+    PAYMENT_CHOICES = (
+        ("esewa", "Esewa"),
+        ("khalti", "Khalti"),
+    )
+    payment_type = models.CharField(
+        max_length=10, choices=PAYMENT_CHOICES, null=True, blank=True
+    )
     tenant = models.ForeignKey(
         "tenants.Client", on_delete=models.CASCADE, related_name="sms_purchase_history"
     )
