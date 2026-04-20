@@ -138,7 +138,7 @@ def send_sms_test(to, text):
         return {"success": False, "message": str(e)}
 
 
-def add_sms_credits(tenant, amount, transaction_id, price=None):
+def add_sms_credits(tenant, amount, transaction_id, price=None, payment_type=None):
     """
     Adds credits to a client and logs the purchase history.
     """
@@ -150,7 +150,11 @@ def add_sms_credits(tenant, amount, transaction_id, price=None):
             new_balance = setting.sms_credit
 
         purchase = SMSPurchaseHistory.objects.create(
-            tenant=tenant, amount=amount, price=price, transaction_id=transaction_id
+            tenant=tenant,
+            amount=amount,
+            price=price,
+            transaction_id=transaction_id,
+            payment_type=payment_type,
         )
     return {
         "success": True,

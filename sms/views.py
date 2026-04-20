@@ -73,6 +73,7 @@ class SMSPurchaseListCreateView(generics.ListCreateAPIView):
         add_sms_credits(
             tenant=self.request.tenant,
             amount=serializer.validated_data["amount"],
+            payment_type=serializer.validated_data["payment_type"],
             transaction_id=serializer.validated_data["transaction_id"],
             price=serializer.validated_data.get("price"),
         )
