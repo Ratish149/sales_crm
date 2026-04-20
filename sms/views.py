@@ -77,8 +77,8 @@ class SMSPurchaseListCreateView(generics.ListCreateAPIView):
         add_sms_credits(
             tenant=self.request.tenant,
             amount=serializer.validated_data["amount"],
-            payment_type=serializer.validated_data["payment_type"],
-            transaction_id=serializer.validated_data["transaction_id"],
+            payment_type=serializer.validated_data.get("payment_type"),
+            transaction_id=serializer.validated_data.get("transaction_id"),
             price=serializer.validated_data.get("price"),
         )
 
@@ -98,6 +98,10 @@ class AdminSMSListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         client_id = serializer.validated_data.get("client")
+        payment_type = serializer.validated_data.get("payment_type") or None
+        transaction_id = serializer.validated_data.get("transaction_id") or None
+        price = serializer.validated_data.get("price") or None
+
         if not client_id:
             raise ValidationError({"client": "This field is required."})
         tenant = Client.objects.get(id=client_id)
@@ -105,9 +109,9 @@ class AdminSMSListCreateView(generics.ListCreateAPIView):
         add_sms_credits(
             tenant=tenant,
             amount=serializer.validated_data["amount"],
-            payment_type=serializer.validated_data["payment_type"],
-            transaction_id=serializer.validated_data["transaction_id"],
-            price=serializer.validated_data.get("price"),
+            payment_type=payment_type,
+            transaction_id=transaction_id,
+            price=price,
         )
 
 
