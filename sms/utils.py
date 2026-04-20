@@ -31,6 +31,8 @@ def send_sms(to, text):
     """
     cost = calculate_sms_credits(text)
     setting = SMSSetting.load()
+    if not setting.sms_enabled:
+        return {"success": False, "message": "SMS service is disabled."}
 
     if setting.sms_credit < cost:
         return {
@@ -89,6 +91,8 @@ def send_sms_test(to, text):
     """
     cost = calculate_sms_credits(text)
     setting = SMSSetting.load()
+    if not setting.sms_enabled:
+        return {"success": False, "message": "SMS service is disabled."}
 
     if setting.sms_credit < cost:
         return {

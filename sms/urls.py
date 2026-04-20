@@ -8,6 +8,7 @@ from .views import (
     SMSPurchaseListCreateView,
     SMSSendHistoryDetailView,
     SMSSendHistoryListCreateView,
+    SMSSettingDetailView,
 )
 
 urlpatterns = [
@@ -34,4 +35,5 @@ urlpatterns = [
         name="admin-sms-purchase-list",
     ),
     path("sms/send-sms/", SendCustomSMSView.as_view(), name="sms-send-sms"),
+    path("sms/settings/", SMSSettingDetailView.as_view(), name="sms-setting-detail"),
 ]
