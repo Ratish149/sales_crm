@@ -227,10 +227,22 @@ class AllTenantSMSSettingView(APIView):
     Only accessible to superusers (global admins).
     """
 
+    pagination_class = CustomPagination
+
     def get(self, request):
-        tenants = Client.objects.exclude(schema_name="public")
+        search_query = request.query_params.get("search", None)
+        tenants = Client.objects.exclude(schema_name="public").order_by("-id")
+
+        if search_query:
+            tenants = tenants.filter(name__icontains=search_query)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(tenants, request)
+
         data = []
-        for tenant in tenants:
+        target_tenants = page if page is not None else tenants
+
+        for tenant in target_tenants:
             with schema_context(tenant.schema_name):
                 setting = SMSSetting.load()
                 data.append({
@@ -239,7 +251,12 @@ class AllTenantSMSSettingView(APIView):
                     "sms_credit": setting.sms_credit,
                     "delivery_sms_enabled": setting.delivery_sms_enabled,
                 })
+
         serializer = TenantSMSSettingSerializer(data, many=True)
+
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+
         return Response(serializer.data)
 
 
