@@ -78,3 +78,10 @@ class SendCustomSMSSerializer(serializers.Serializer):
     order_id = serializers.IntegerField(required=False, allow_null=True)
     phone_number = serializers.CharField(required=False, allow_null=True)
     message = serializers.CharField()
+
+
+class TenantSMSSettingSerializer(serializers.Serializer):
+    tenant = ClientSerializer(read_only=True)
+    sms_enabled = serializers.BooleanField()
+    sms_credit = serializers.IntegerField()
+    delivery_sms_enabled = serializers.BooleanField()

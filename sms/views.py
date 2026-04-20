@@ -1,3 +1,4 @@
+from django_tenants.utils import schema_context
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -17,6 +18,7 @@ from .serializers import (
     SMSPurchaseHistorySerializer,
     SMSSendHistorySerializer,
     SMSSettingSerializer,
+    TenantSMSSettingSerializer,
 )
 from .utils import add_sms_credits, send_sms_test
 
@@ -103,6 +105,7 @@ class AdminSMSListCreateView(generics.ListCreateAPIView):
         add_sms_credits(
             tenant=tenant,
             amount=serializer.validated_data["amount"],
+            payment_type=serializer.validated_data["payment_type"],
             transaction_id=serializer.validated_data["transaction_id"],
             price=serializer.validated_data.get("price"),
         )
@@ -216,6 +219,28 @@ class SMSBalanceView(APIView):
             "sms_enabled": setting.sms_enabled if setting else False,
             "sms_credit": setting.sms_credit if setting else 0,
         })
+
+
+class AllTenantSMSSettingView(APIView):
+    """
+    Get SMS settings for all tenants.
+    Only accessible to superusers (global admins).
+    """
+
+    def get(self, request):
+        tenants = Client.objects.exclude(schema_name="public")
+        data = []
+        for tenant in tenants:
+            with schema_context(tenant.schema_name):
+                setting = SMSSetting.load()
+                data.append({
+                    "tenant": tenant,
+                    "sms_enabled": setting.sms_enabled,
+                    "sms_credit": setting.sms_credit,
+                    "delivery_sms_enabled": setting.delivery_sms_enabled,
+                })
+        serializer = TenantSMSSettingSerializer(data, many=True)
+        return Response(serializer.data)
 
 
 class SendCustomSMSView(APIView):

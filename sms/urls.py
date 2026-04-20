@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AdminSMSListCreateView,
+    AllTenantSMSSettingView,
     SendCustomSMSView,
     SMSBalanceView,
     SMSPurchaseDetailView,
@@ -36,4 +37,9 @@ urlpatterns = [
     ),
     path("sms/send-sms/", SendCustomSMSView.as_view(), name="sms-send-sms"),
     path("sms/settings/", SMSSettingDetailView.as_view(), name="sms-setting-detail"),
+    path(
+        "sms/admin/tenants-settings/",
+        AllTenantSMSSettingView.as_view(),
+        name="all-tenant-sms-settings",
+    ),
 ]
