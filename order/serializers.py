@@ -147,11 +147,6 @@ class OrderSerializer(serializers.ModelSerializer):
             if order.customer_email:
                 self.send_order_email(order, created_items)
 
-            # send sms notification
-            tenant = getattr(connection, "tenant", None)
-            if tenant and tenant.sms_enabled and order.customer_phone:
-                self.send_order_sms(order, tenant)
-
             return order
 
     def send_order_email(self, order, items):
