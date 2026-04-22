@@ -26,13 +26,21 @@ class Portfolio(models.Model):
     slug = models.CharField(max_length=255, null=True, blank=True)
     content = models.TextField()
     thumbnail_image = models.FileField(
-        upload_to="portfolio/images/", storage=PublicMediaStorage(), null=True, blank=True, validators=[file_size]
+        upload_to="portfolio/images/",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
     )
     thumbnail_image_alt_description = models.CharField(
         max_length=255, blank=True, null=True
     )
     category = models.ForeignKey(
-        "PortfolioCategory", related_name="portfolios", on_delete=models.CASCADE
+        "PortfolioCategory",
+        related_name="portfolios",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
     )
     tags = models.ManyToManyField(
         "PortfolioTags", related_name="portfolios", blank=True
@@ -86,4 +94,3 @@ class PortfolioImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.portfolio.title}"
-
