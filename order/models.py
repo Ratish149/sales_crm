@@ -21,7 +21,7 @@ class Order(models.Model):
         ("cod", "Cash On Delivery"),
         ("khalti", "Khalti"),
         ("esewa", "Esewa"),
-        ("cash","Cash")
+        ("cash", "Cash"),
     ]
     customer = models.ForeignKey(
         "customer.Customer",
@@ -81,6 +81,32 @@ class Order(models.Model):
         # Convert id to a hash and take first 8 hex digits
         hashed = hashlib.md5(str(self.id).encode()).hexdigest()[:8].upper()
         return f"ORD-{hashed}"
+
+    def deduct_stock(self):
+        from product.models import ProductVariant
+        for item in self.items.all():
+            if item.variant:
+                if item.variant.product.track_stock and item.variant.stock is not None:
+                    ProductVariant.objects.filter(pk=item.variant.pk).update(
+                        stock=models.F("stock") - item.quantity
+                    )
+            elif item.product and item.product.track_stock and item.product.stock is not None:
+                Product.objects.filter(pk=item.product.pk).update(
+                    stock=models.F("stock") - item.quantity
+                )
+
+    def return_stock(self):
+        from product.models import ProductVariant
+        for item in self.items.all():
+            if item.variant:
+                if item.variant.product.track_stock and item.variant.stock is not None:
+                    ProductVariant.objects.filter(pk=item.variant.pk).update(
+                        stock=models.F("stock") + item.quantity
+                    )
+            elif item.product and item.product.track_stock and item.product.stock is not None:
+                Product.objects.filter(pk=item.product.pk).update(
+                    stock=models.F("stock") + item.quantity
+                )
 
 
 class OrderItem(models.Model):

@@ -115,10 +115,6 @@ class OrderSerializer(serializers.ModelSerializer):
             created_items = []
             # Now create order items and update stock
             for item_data in items_data:
-                product = item_data.get("product")
-                variant = item_data.get("variant")
-                quantity = item_data["quantity"]
-
                 # Create order item
                 order_item = OrderItem.objects.create(order=order, **item_data)
                 created_items.append({
@@ -126,17 +122,6 @@ class OrderSerializer(serializers.ModelSerializer):
                     "quantity": order_item.quantity,
                     "price": order_item.price,
                 })
-
-                # Update stock based on whether it's a variant or base product
-                if variant:
-                    if variant.product.track_stock and variant.stock is not None:
-                        ProductVariant.objects.filter(pk=variant.pk).update(
-                            stock=models.F("stock") - quantity
-                        )
-                elif product and product.track_stock and product.stock is not None:
-                    Product.objects.filter(pk=product.pk).update(
-                        stock=models.F("stock") - quantity
-                    )
 
             # Increment used_count for promo code if one was used
             if order.promo_code:
@@ -355,10 +340,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             created_items = []
             # Now create order items and update stock
             for item_data in items_data:
-                product = item_data.get("product")
-                variant = item_data.get("variant")
-                quantity = item_data["quantity"]
-
                 # Create order item
                 order_item = OrderItem.objects.create(order=order, **item_data)
                 created_items.append({
@@ -366,17 +347,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                     "quantity": order_item.quantity,
                     "price": order_item.price,
                 })
-
-                # Update stock based on whether it's a variant or base product
-                if variant:
-                    if variant.product.track_stock and variant.stock is not None:
-                        ProductVariant.objects.filter(pk=variant.pk).update(
-                            stock=models.F("stock") - quantity
-                        )
-                elif product and product.track_stock and product.stock is not None:
-                    Product.objects.filter(pk=product.pk).update(
-                        stock=models.F("stock") - quantity
-                    )
 
             # Increment used_count for promo code if one was used
             if order.promo_code:

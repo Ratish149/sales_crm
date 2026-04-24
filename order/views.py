@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
+from logistics.models import Logistics
 from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Order
@@ -138,15 +139,25 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         instance.refresh_from_db()
         new_status = instance.status
 
-        # Only trigger Dash API when status changes to "confirmed"
+        # Handle transitions to "confirmed" status (Deduct stock and Sync with Logistics)
         if old_status != "confirmed" and new_status == "confirmed":
-            dash_response = send_order_to_dash(instance)
+            instance.deduct_stock()
 
-            # If Dash failed, raise error and revert status
-            if dash_response.status_code != 200:
-                instance.status = old_status
-                instance.save(update_fields=["status"])
-                return dash_response  # Return Dash error directly
+            # Check if Dash logistics is enabled
+            if Logistics.objects.filter(is_enabled=True, logistic="Dash").exists():
+                dash_response = send_order_to_dash(instance)
+
+                # If Dash failed, raise error and revert status/stock
+                if dash_response.status_code != 200:
+                    instance.return_stock()
+                    instance.status = old_status
+                    instance.save(update_fields=["status"])
+                    return dash_response  # Return Dash error directly
+
+        # Handle transitions to "pending" or "cancelled" from a deducted state (Restock)
+        DEDUCTED_STATUSES = ["confirmed", "processing", "shipped", "delivered"]
+        if old_status in DEDUCTED_STATUSES and new_status in ["pending", "cancelled"]:
+            instance.return_stock()
 
         return response
 
@@ -180,14 +191,12 @@ class DashboardStatsView(APIView):
             or 0
         )
 
-        return Response(
-            {
-                "total_orders": total_orders,
-                "total_orders_this_month": total_orders_this_month,
-                "total_revenue": total_revenue,
-                "revenue_this_month": revenue_this_month,
-            }
-        )
+        return Response({
+            "total_orders": total_orders,
+            "total_orders_this_month": total_orders_this_month,
+            "total_revenue": total_revenue,
+            "revenue_this_month": revenue_this_month,
+        })
 
 
 class MyOrderStatusView(APIView):
