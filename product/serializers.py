@@ -271,8 +271,12 @@ class ProductSerializer(serializers.ModelSerializer):
         for key in keys_to_remove:
             data.pop(key, None)
 
-        # Don't add variant_images to data - we'll handle it separately
-        # This avoids DictField validation issues
+        # Handle compositions JSON string if it's from FormData
+        if "compositions" in data and isinstance(data["compositions"], str):
+            try:
+                data["compositions"] = json.loads(data["compositions"])
+            except (json.JSONDecodeError, TypeError):
+                pass
 
         # Call parent to do normal validation
         validated = super().to_internal_value(data)
