@@ -1,15 +1,23 @@
 # views.py
 from copy import deepcopy
 
-from django.db import transaction
-from django.shortcuts import get_object_or_404
 from django.apps import apps
 from django.conf import settings
-from rest_framework import generics, status, serializers
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, serializers, status
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from collection.models import Collection
+from collection.serializers import CollectionDataSerializer
+from sales_crm.authentication import TenantJWTAuthentication
 from tenants.models import Client
 
 from .models import Page, PageComponent, SiteConfig, Theme
@@ -21,11 +29,6 @@ from .serializers import (
     ThemeSerializer,
 )
 from .utils import import_template_to_tenant, publish_instance
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
-
-from collection.models import Collection
-from collection.serializers import CollectionDataSerializer
 
 
 class SiteConfigListCreateView(generics.ListCreateAPIView):
@@ -35,7 +38,7 @@ class SiteConfigListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -60,7 +63,7 @@ class ThemeListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -90,6 +93,7 @@ class ThemeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class ThemePublishView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
     def post(self, request, pk):
         theme = get_object_or_404(Theme, id=pk, status="draft")
         publish_instance(theme)
@@ -101,11 +105,11 @@ class ThemePublishView(APIView):
 # ------------------------------
 class PageListCreateView(generics.ListCreateAPIView):
     queryset = Page.objects.all()
-    
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -135,7 +139,7 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
@@ -149,6 +153,7 @@ class PageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 class PagePublishView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
     @transaction.atomic
     def post(self, request, slug):
         page = get_object_or_404(Page, slug=slug, status="draft")
@@ -182,7 +187,7 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -213,7 +218,8 @@ class PageComponentListCreateView(generics.ListCreateAPIView):
             return qs.filter(status="published").order_by("order")
 
         return (
-            PageComponent.objects.filter(page=page)
+            PageComponent.objects
+            .filter(page=page)
             .exclude(component_type__in=["navbar", "footer"])
             .order_by("order")
         )
@@ -248,7 +254,7 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
@@ -292,6 +298,7 @@ class PageComponentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
 class PageComponentPublishView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
     @transaction.atomic
     def post(self, request, slug):
         component = get_object_or_404(PageComponent, page__slug=slug, status="draft")
@@ -316,6 +323,7 @@ class ReplaceComponentByIDView(APIView):
     Replaces all PageComponents sharing the same component_id on a specific page
     by deleting them and creating new ones from the payload.
     """
+
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
 
@@ -375,16 +383,16 @@ class NavbarView(APIView):
       /api/navbar/                 → published navbar
       /api/navbar?status=preview   → draft navbar
     """
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return []
-        
 
     def get(self, request):
         status_param = request.query_params.get("status", "published")
@@ -428,7 +436,7 @@ class NavbarRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
@@ -475,7 +483,6 @@ class NavbarPublishView(APIView):
     Publishes the navbar draft and cleans up deleted ones.
     """
 
-
     @transaction.atomic
     def post(self, request, id):
         navbar = get_object_or_404(
@@ -501,16 +508,16 @@ class ReplaceNavbarView(APIView):
     POST /api/navbar/replace/
     Replaces the current draft navbar with a new one provided in the payload.
     """
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
-
 
     @transaction.atomic
     def post(self, request):
@@ -540,16 +547,16 @@ class FooterView(APIView):
       /api/footer/                → published footer
       /api/footer?status=preview  → draft footer
     """
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
-
 
     def get(self, request):
         status_param = request.query_params.get("status", "live")
@@ -592,13 +599,12 @@ class FooterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
-        
 
     def get_object(self):
         return PageComponent.objects.get(id=self.kwargs["id"])
@@ -640,10 +646,11 @@ class FooterPublishView(APIView):
     POST /api/footer/<id>/publish/
     Publishes the footer draft and cleans up deleted ones.
     """
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -675,10 +682,11 @@ class ReplaceFooterView(APIView):
     POST /api/footer/replace/
     Replaces the current draft footer with a new one provided in the payload.
     """
+
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -709,7 +717,7 @@ class ReplaceFooterView(APIView):
 class PublishAllView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-        
+
     @transaction.atomic
     def post(self, request):
         # Delete published items whose draft version no longer exists (optimized using bulk delete)
@@ -750,6 +758,7 @@ class ResetUIView(APIView):
     Deletes all draft versions of Theme, Page, and PageComponent,
     and re-creates them from the published versions.
     """
+
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
 
@@ -824,7 +833,6 @@ class GlobalBulkCreateView(APIView):
     Only models from apps defined in settings.TENANT_APPS are allowed.
     """
 
-
     def post(self, request, *args, **kwargs):
         model_name = request.data.get("model_name")
         data = request.data.get("data")
@@ -841,69 +849,120 @@ class GlobalBulkCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if model_name.lower() == "collectiondata" or model_name.lower() == "collection_data":
+        if (
+            model_name.lower() == "collectiondata"
+            or model_name.lower() == "collection_data"
+        ):
             created_instances = []
             errors = []
-            
+
             # Check for root-level collection identifier
-            root_collection_identifier = request.data.get("collection_name") or request.data.get("collection_slug") or request.data.get("collection")
+            root_collection_identifier = (
+                request.data.get("collection_name")
+                or request.data.get("collection_slug")
+                or request.data.get("collection")
+            )
             root_collection = None
-            
+
             if root_collection_identifier:
-                if isinstance(root_collection_identifier, int) or (isinstance(root_collection_identifier, str) and str(root_collection_identifier).isdigit()):
-                    root_collection = Collection.objects.filter(id=root_collection_identifier).first()
+                if isinstance(root_collection_identifier, int) or (
+                    isinstance(root_collection_identifier, str)
+                    and str(root_collection_identifier).isdigit()
+                ):
+                    root_collection = Collection.objects.filter(
+                        id=root_collection_identifier
+                    ).first()
                 else:
-                    root_collection = Collection.objects.filter(name__iexact=str(root_collection_identifier)).first() or Collection.objects.filter(slug__iexact=str(root_collection_identifier)).first()
+                    root_collection = (
+                        Collection.objects.filter(
+                            name__iexact=str(root_collection_identifier)
+                        ).first()
+                        or Collection.objects.filter(
+                            slug__iexact=str(root_collection_identifier)
+                        ).first()
+                    )
                 if not root_collection:
-                    return Response({"error": f"Root collection '{root_collection_identifier}' not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+                    return Response(
+                        {
+                            "error": f"Root collection '{root_collection_identifier}' not found."
+                        },
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
             for index, raw_item in enumerate(data):
                 if not isinstance(raw_item, dict):
-                    errors.append({"index": index, "error": "Item must be a JSON object."})
+                    errors.append({
+                        "index": index,
+                        "error": "Item must be a JSON object.",
+                    })
                     continue
-                    
+
                 if root_collection:
                     # User passed collection at root; raw_item IS the dynamic fields payload
                     target_collection = root_collection
-                    payload = {
-                        "data": raw_item
-                    }
+                    payload = {"data": raw_item}
                 else:
                     # Backward compatible: User is passing collection_name and nested "data" per item
                     item = raw_item.copy()
-                    item_identifier = item.pop("collection_name", None) or item.pop("collection_slug", None) or item.pop("collection", None)
-                    
+                    item_identifier = (
+                        item.pop("collection_name", None)
+                        or item.pop("collection_slug", None)
+                        or item.pop("collection", None)
+                    )
+
                     if not item_identifier:
-                        errors.append({"index": index, "error": "Must provide 'collection' (ID), 'collection_name', or 'collection_slug' either at root level or inside each item."})
+                        errors.append({
+                            "index": index,
+                            "error": "Must provide 'collection' (ID), 'collection_name', or 'collection_slug' either at root level or inside each item.",
+                        })
                         continue
-                    
+
                     # Resolve the collection
-                    if isinstance(item_identifier, int) or (isinstance(item_identifier, str) and str(item_identifier).isdigit()):
-                        target_collection = Collection.objects.filter(id=item_identifier).first()
+                    if isinstance(item_identifier, int) or (
+                        isinstance(item_identifier, str)
+                        and str(item_identifier).isdigit()
+                    ):
+                        target_collection = Collection.objects.filter(
+                            id=item_identifier
+                        ).first()
                     else:
-                        target_collection = Collection.objects.filter(name__iexact=str(item_identifier)).first() or Collection.objects.filter(slug__iexact=str(item_identifier)).first()
-                    
+                        target_collection = (
+                            Collection.objects.filter(
+                                name__iexact=str(item_identifier)
+                            ).first()
+                            or Collection.objects.filter(
+                                slug__iexact=str(item_identifier)
+                            ).first()
+                        )
+
                     if not target_collection:
-                        errors.append({"index": index, "error": f"Collection '{item_identifier}' not found."})
+                        errors.append({
+                            "index": index,
+                            "error": f"Collection '{item_identifier}' not found.",
+                        })
                         continue
-                    
+
                     # Wrap remaining fields into "data" unless explicitly nested
                     if "data" in item and isinstance(item["data"], dict):
                         payload = item
                     else:
                         payload = {"data": item}
-                
+
                 # Create using the custom serializer
-                serializer = CollectionDataSerializer(data=payload, context={"collection": target_collection})
+                serializer = CollectionDataSerializer(
+                    data=payload, context={"collection": target_collection}
+                )
                 if serializer.is_valid():
                     serializer.save(collection=target_collection)
                     created_instances.append(serializer.data)
                 else:
                     errors.append({"index": index, "errors": serializer.errors})
-            
+
             response_data = {}
             if created_instances:
-                response_data["message"] = f"Successfully created {len(created_instances)} CollectionData(s)."
+                response_data["message"] = (
+                    f"Successfully created {len(created_instances)} CollectionData(s)."
+                )
                 if errors:
                     response_data["errors"] = errors
                 return Response(response_data, status=status.HTTP_201_CREATED)
@@ -946,4 +1005,3 @@ class GlobalBulkCreateView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-

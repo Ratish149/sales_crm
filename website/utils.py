@@ -184,6 +184,15 @@ def import_template_to_tenant(template_client, target_client):
         # Copy collections
         collection_map = {}
         for coll in source_collections:
+            # Check if an identical collection already exists in target tenant
+            existing_coll = Collection.objects.filter(
+                name=coll.name, slug=coll.slug, fields=coll.fields
+            ).first()
+
+            if existing_coll:
+                collection_map[coll.id] = existing_coll.id
+                continue
+
             unique_name = coll.name
             unique_slug = coll.slug
 

@@ -98,5 +98,9 @@ urlpatterns = [
     path("publish-all/", views.PublishAllView.as_view(), name="publish-all"),
     path("reset-ui/", views.ResetUIView.as_view(), name="reset-ui"),
     path("import-template/", views.import_template, name="import-template"),
-    path("global-bulk-create/", views.GlobalBulkCreateView.as_view(), name="global-bulk-create"),
+    path(
+        "global-bulk-create/",
+        views.GlobalBulkCreateView.as_view(),
+        name="global-bulk-create",
+    ),
 ]
