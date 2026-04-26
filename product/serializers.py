@@ -274,7 +274,13 @@ class ProductSerializer(serializers.ModelSerializer):
         # Handle compositions JSON string if it's from FormData
         if "compositions" in data and isinstance(data["compositions"], str):
             try:
-                data["compositions"] = json.loads(data["compositions"])
+                decoded_compositions = json.loads(data["compositions"])
+                if hasattr(data, "setlist"):
+                    # For QueryDict, use setlist to ensure many=True serializers
+                    # receive a list of items
+                    data.setlist("compositions", decoded_compositions)
+                else:
+                    data["compositions"] = decoded_compositions
             except (json.JSONDecodeError, TypeError):
                 pass
 
