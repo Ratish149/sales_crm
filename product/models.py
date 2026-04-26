@@ -6,26 +6,29 @@ from sales_crm.utils.file_size_validator import file_size
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
-
 class Category(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     image = models.FileField(
-        upload_to="category_images", storage=PublicMediaStorage(), null=True, blank=True, validators=[file_size],
+        upload_to="category_images",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
+    class Meta:
+        unique_together = ("name", "slug")
 
     def __str__(self):
         return self.name
 
-    class Meta:
-        unique_together = ("name", "slug")
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
 
 class SubCategory(models.Model):
@@ -36,20 +39,45 @@ class SubCategory(models.Model):
     slug = models.SlugField(max_length=100, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     image = models.FileField(
-        upload_to="sub_category_images", storage=PublicMediaStorage(), null=True, blank=True, validators=[file_size],
+        upload_to="sub_category_images",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("name", "slug")
+
+    def __str__(self):
+        return self.name
 
     def save(self, *args, **kwargs):
         self.slug = slugify(self.name)
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return self.name
 
-    class Meta:
-        unique_together = ("name", "slug")
+class PricingMetric(models.Model):
+    name = models.CharField(max_length=100)
+    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    unit = models.CharField(max_length=50)  # e.g., "gram", "carat"
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.price_per_unit}/{self.unit}"
+
+
+class ProductComposition(models.Model):
+    product = models.ForeignKey(
+        "Product", related_name="compositions", on_delete=models.CASCADE
+    )
+    metric = models.ForeignKey(PricingMetric, on_delete=models.CASCADE)
+    quantity = models.DecimalField(max_digits=10, decimal_places=3)
+
+    def __str__(self):
+        return f"{self.product.name} - {self.metric.name} ({self.quantity} {self.metric.unit})"
 
 
 class ProductImage(models.Model):
@@ -109,18 +137,16 @@ class Product(models.Model):
     is_featured = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
 
+    use_dynamic_pricing = models.BooleanField(default=False)
+    base_making_charge = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00
+    )
+
     meta_title = models.CharField(max_length=255, null=True, blank=True)
     meta_description = models.TextField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name
 
     class Meta:
         unique_together = ("name", "slug")
@@ -134,6 +160,23 @@ class Product(models.Model):
             models.Index(fields=["is_featured"]),
             models.Index(fields=["status"]),
         ]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+    @property
+    def final_price(self):
+        if not self.use_dynamic_pricing:
+            return self.price
+
+        composition_price = sum(
+            c.metric.price_per_unit * c.quantity for c in self.compositions.all()
+        )
+        return composition_price + self.base_making_charge
 
 
 class ProductOption(models.Model):
@@ -160,7 +203,9 @@ class ProductVariant(models.Model):
     )
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     stock = models.IntegerField(default=0, null=True, blank=True)
-    image = models.FileField(upload_to="variant_images", storage=PublicMediaStorage(), null=True, blank=True)
+    image = models.FileField(
+        upload_to="variant_images", storage=PublicMediaStorage(), null=True, blank=True
+    )
     option_values = models.ManyToManyField(
         ProductOptionValue, related_name="variants", blank=True
     )

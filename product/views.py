@@ -1,26 +1,27 @@
+import io
 import re
 
 import pandas as pd
-import io
 from django.db.models import Avg
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
 from openpyxl.worksheet.datavalidation import DataValidation
 from rest_framework import filters, generics, permissions, serializers, status
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
-
 from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 from .models import (
     Category,
+    PricingMetric,
     Product,
+    ProductComposition,
     ProductImage,
     ProductOption,
     ProductOptionValue,
@@ -32,6 +33,8 @@ from .models import (
 from .serializers import (
     BulkUploadSerializer,
     CategorySerializer,
+    PricingMetricSerializer,
+    ProductCompositionSerializer,
     ProductImageSerializer,
     ProductReviewDetailSerializer,
     ProductReviewSerializer,
@@ -113,7 +116,7 @@ class ProductImageListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -126,6 +129,7 @@ class ProductImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
     serializer_class = ProductImageSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
 
 class ProductFilterSet(django_filters.FilterSet):
     category = django_filters.CharFilter(
@@ -167,7 +171,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -186,11 +190,13 @@ class ProductListCreateView(generics.ListCreateAPIView):
         if self.request.method == "GET":
             # For list view - optimized with prefetch and only
             return (
-                Product.objects.select_related("category", "sub_category")
+                Product.objects
+                .select_related("category", "sub_category")
                 .prefetch_related(
                     "images",
                     "variants__option_values__option",
                     "productoption_set__productoptionvalue_set",
+                    "compositions__metric",
                 )
                 .annotate(average_rating=Avg("productreview__rating"))
                 .only(
@@ -200,6 +206,8 @@ class ProductListCreateView(generics.ListCreateAPIView):
                     "description",
                     "price",
                     "market_price",
+                    "use_dynamic_pricing",
+                    "base_making_charge",
                     "track_stock",
                     "stock",
                     "weight",
@@ -230,7 +238,7 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     def get_authenticators(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
-        return [] 
+        return []
 
     def get_permissions(self):
         if self.request.method in ["PUT", "PATCH", "DELETE"]:
@@ -244,11 +252,13 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == "GET":
             # For single product GET - prefetch all related data
             return (
-                Product.objects.select_related("category", "sub_category")
+                Product.objects
+                .select_related("category", "sub_category")
                 .prefetch_related(
                     "images",
                     "variants__option_values__option",
                     "productoption_set__productoptionvalue_set",
+                    "compositions__metric",
                 )
                 .only(
                     "id",
@@ -257,6 +267,8 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                     "description",
                     "price",
                     "market_price",
+                    "use_dynamic_pricing",
+                    "base_making_charge",
                     "track_stock",
                     "stock",
                     "weight",
@@ -279,6 +291,36 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             return Product.objects.all()
 
 
+class PricingMetricListCreateView(generics.ListCreateAPIView):
+    queryset = PricingMetric.objects.all()
+    serializer_class = PricingMetricSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
+
+class PricingMetricRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PricingMetric.objects.all()
+    serializer_class = PricingMetricSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
+
+class ProductCompositionListCreateView(generics.ListCreateAPIView):
+    queryset = ProductComposition.objects.all()
+    serializer_class = ProductCompositionSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
+
+class ProductCompositionRetrieveUpdateDestroyView(
+    generics.RetrieveUpdateDestroyAPIView
+):
+    queryset = ProductComposition.objects.all()
+    serializer_class = ProductCompositionSerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
+
 class ProductReviewFilter(django_filters.FilterSet):
     rating = django_filters.NumberFilter(field_name="rating", lookup_expr="exact")
 
@@ -289,9 +331,8 @@ class ProductReviewFilter(django_filters.FilterSet):
 
 class ProductReviewView(generics.ListCreateAPIView):
     queryset = (
-        ProductReview.objects.only(
-            "id", "product", "user", "review", "rating", "created_at"
-        )
+        ProductReview.objects
+        .only("id", "product", "user", "review", "rating", "created_at")
         .select_related("product", "user")
         .order_by("-created_at")
     )
@@ -892,12 +933,10 @@ class BulkProductUploadView(APIView):
                     current_product, row, current_option_names, images_from_zip
                 )
 
-        return Response(
-            {
-                "success": True,
-                "message": f"Successfully processed {len(created_products)} products with variants",
-            }
-        )
+        return Response({
+            "success": True,
+            "message": f"Successfully processed {len(created_products)} products with variants",
+        })
 
     def _create_product_options(self, product, row):
         """Create product options from option columns and return option names"""
@@ -969,9 +1008,10 @@ class BulkProductUploadView(APIView):
         # Handle variant image (from ZIP or URL)
         if variant_image_val:
             # Try ZIP first if it doesn't look like a URL
-            if images_from_zip and not str(variant_image_val).startswith(
-                ("http://", "https://")
-            ):
+            if images_from_zip and not str(variant_image_val).startswith((
+                "http://",
+                "https://",
+            )):
                 variant_file = process_image_field(variant_image_val, images_from_zip)
                 if variant_file:
                     variant.image.save(variant_file.name, variant_file, save=False)

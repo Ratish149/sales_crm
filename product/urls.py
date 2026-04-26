@@ -5,6 +5,10 @@ from .views import (
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
     DownloadProductSampleTemplateView,
+    PricingMetricListCreateView,
+    PricingMetricRetrieveUpdateDestroyView,
+    ProductCompositionListCreateView,
+    ProductCompositionRetrieveUpdateDestroyView,
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
     ProductListCreateView,
@@ -75,5 +79,25 @@ urlpatterns = [
         "bulk-upload/",
         BulkProductUploadView.as_view(),
         name="bulk-product-upload",
+    ),
+    path(
+        "pricing-metric/",
+        PricingMetricListCreateView.as_view(),
+        name="pricing-metric-list-create",
+    ),
+    path(
+        "pricing-metric/<int:pk>/",
+        PricingMetricRetrieveUpdateDestroyView.as_view(),
+        name="pricing-metric-retrieve-update-destroy",
+    ),
+    path(
+        "product-composition/",
+        ProductCompositionListCreateView.as_view(),
+        name="product-composition-list-create",
+    ),
+    path(
+        "product-composition/<int:pk>/",
+        ProductCompositionRetrieveUpdateDestroyView.as_view(),
+        name="product-composition-retrieve-update-destroy",
     ),
 ]

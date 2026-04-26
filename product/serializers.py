@@ -9,7 +9,9 @@ from customer.utils import get_customer_from_request
 
 from .models import (
     Category,
+    PricingMetric,
     Product,
+    ProductComposition,
     ProductImage,
     ProductOption,
     ProductOptionValue,
@@ -18,6 +20,20 @@ from .models import (
     SubCategory,
     Wishlist,
 )
+
+
+class PricingMetricSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PricingMetric
+        fields = "__all__"
+
+
+class ProductCompositionSerializer(serializers.ModelSerializer):
+    metric_detail = PricingMetricSerializer(source="metric", read_only=True)
+
+    class Meta:
+        model = ProductComposition
+        fields = ["id", "metric", "metric_detail", "quantity"]
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -161,6 +177,10 @@ class ProductSerializer(serializers.ModelSerializer):
         source="variants", many=True, read_only=True
     )
     options = serializers.SerializerMethodField(read_only=True)
+    compositions = ProductCompositionSerializer(many=True, required=False)
+    final_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
 
     class Meta:
         model = Product
@@ -193,6 +213,10 @@ class ProductSerializer(serializers.ModelSerializer):
             "options",
             "variants",
             "variants_read",
+            "use_dynamic_pricing",
+            "base_making_charge",
+            "compositions",
+            "final_price",
             "created_at",
             "updated_at",
         ]
@@ -205,13 +229,11 @@ class ProductSerializer(serializers.ModelSerializer):
 
         for option in options:
             values = option.productoptionvalue_set.all()
-            options_data.append(
-                {
-                    "id": option.id,
-                    "name": option.name,
-                    "values": ProductOptionValueSerializer(values, many=True).data,
-                }
-            )
+            options_data.append({
+                "id": option.id,
+                "name": option.name,
+                "values": ProductOptionValueSerializer(values, many=True).data,
+            })
 
         return options_data
 
@@ -282,8 +304,13 @@ class ProductSerializer(serializers.ModelSerializer):
         image_files = validated_data.pop("image_files", [])
         variants_data = validated_data.pop("variants", [])
         variant_images = validated_data.pop("variant_images", {})
+        compositions_data = validated_data.pop("compositions", [])
 
         product = Product.objects.create(**validated_data)
+
+        # Create compositions
+        for comp_data in compositions_data:
+            ProductComposition.objects.create(product=product, **comp_data)
 
         # Create images
         for img in image_files:
@@ -330,6 +357,7 @@ class ProductSerializer(serializers.ModelSerializer):
         image_files = validated_data.pop("image_files", None)
         variants_data = validated_data.pop("variants", None)
         variant_images = validated_data.pop("variant_images", None)
+        compositions_data = validated_data.pop("compositions", None)
 
         # Check if product with same name exists (excluding current instance)
         name = validated_data.get("name")
@@ -341,6 +369,11 @@ class ProductSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Product with this name already exists.")
 
         instance = super().update(instance, validated_data)
+
+        if compositions_data is not None:
+            instance.compositions.all().delete()
+            for comp_data in compositions_data:
+                ProductComposition.objects.create(product=instance, **comp_data)
 
         if image_files is not None:
             instance.images.all().delete()
@@ -444,13 +477,17 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     variants_read = ProductVariantReadSerializer(
         source="variants", many=True, read_only=True
     )
+    final_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
 
     def get_reviews_count(self, obj):
         return ProductReview.objects.only("id").filter(product=obj).count()
 
     def get_average_rating(self, obj):
         return (
-            ProductReview.objects.only("id")
+            ProductReview.objects
+            .only("id")
             .filter(product=obj)
             .aggregate(avg_rating=Avg("rating"))["avg_rating"]
             or 0
@@ -485,10 +522,16 @@ class ProductSmallSerializer(serializers.ModelSerializer):
             "reviews_count",
             "is_wishlist",
             "variants_read",
+            "final_price",
+            "use_dynamic_pricing",
         ]
 
 
 class ProductOnlySerializer(serializers.ModelSerializer):
+    final_price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+
     class Meta:
         model = Product
         fields = [
@@ -497,6 +540,7 @@ class ProductOnlySerializer(serializers.ModelSerializer):
             "slug",
             "price",
             "market_price",
+            "final_price",
             "thumbnail_image",
             "thumbnail_alt_description",
         ]

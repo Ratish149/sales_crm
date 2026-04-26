@@ -1,10 +1,11 @@
 from django.contrib import admin
-from django.db import models
 from tinymce.widgets import TinyMCE
 
 from .models import (
     Category,
+    PricingMetric,
     Product,
+    ProductComposition,
     ProductImage,
     ProductOption,
     ProductOptionValue,
@@ -37,21 +38,25 @@ class ProductImageInline(admin.TabularInline):
     search_fields = ("product",)
     list_per_page = 25
     extra = 0
-    tab = True
+
+
+class ProductCompositionInline(admin.TabularInline):
+    model = ProductComposition
+    extra = 1
+    autocomplete_fields = ["metric"]
 
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "stock")
+    list_display = ("name", "price", "final_price", "stock", "use_dynamic_pricing")
     search_fields = ["name"]
     list_per_page = 25
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline, ProductCompositionInline]
+
     def formfield_for_dbfield(self, db_field, **kwargs):
         if db_field.name == "content":
             return db_field.formfield(widget=TinyMCE())
         return super().formfield_for_dbfield(db_field, **kwargs)
-
-
 
 
 @admin.register(ProductOption)
@@ -86,4 +91,11 @@ class ProductReviewAdmin(admin.ModelAdmin):
 class WishlistAdmin(admin.ModelAdmin):
     list_display = ("product", "user")
     search_fields = ("product", "user")
+    list_per_page = 25
+
+
+@admin.register(PricingMetric)
+class PricingMetricAdmin(admin.ModelAdmin):
+    list_display = ("name", "price_per_unit", "unit", "last_updated")
+    search_fields = ("name",)
     list_per_page = 25
