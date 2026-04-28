@@ -448,7 +448,6 @@ class DownloadProductSampleTemplateView(APIView):
         ws = wb.active
         ws.title = "Product Template"
 
-        # Fetch pricing metrics to build composition columns
         from .models import Category, PricingMetric, SubCategory
 
         metrics = list(PricingMetric.objects.all())
@@ -471,28 +470,19 @@ class DownloadProductSampleTemplateView(APIView):
             "status",  # N
             "use_dynamic_pricing",  # O
             "base_making_charge",  # P
-            # composition columns added dynamically (Q onward)
-        ]
-
-        # Each metric gets its own quantity column: "Gold (500.00/gram)"
-        composition_headers = [
-            f"{m.name} ({m.price_per_unit}/{m.unit})" for m in metrics
-        ]
-        headers += composition_headers
-
-        # Remaining fixed columns after compositions
-        headers += [
-            "option1 name",
-            "option1 values",
-            "option2 name",
-            "option2 values",
-            "option3 name",
-            "option3 values",
-            "variant price",
-            "variant stock",
-            "variant image",
-            "meta title",
-            "meta description",
+            "composition",  # Q  ← dropdown of metrics
+            "quantity",  # R  ← numeric quantity
+            "option1 name",  # S
+            "option1 values",  # T
+            "option2 name",  # U
+            "option2 values",  # V
+            "option3 name",  # W
+            "option3 values",  # X
+            "variant price",  # Y
+            "variant stock",  # Z
+            "variant image",  # AA
+            "meta title",  # AB
+            "meta description",  # AC
         ]
 
         for col, header in enumerate(headers, 1):
@@ -508,68 +498,68 @@ class DownloadProductSampleTemplateView(APIView):
         sample_subcategory = (
             subcategories.first().name if subcategories.exists() else "Mobile"
         )
-
-        # Composition sample quantities (0 for each metric as placeholder)
-        sample_composition_quantities = [0 for _ in metrics]
-
-        sample_data = (
-            [
-                "productname",  # A  name
-                "product description",  # B  description
-                100,  # C  price
-                100,  # D  market_price
-                "TRUE",  # E  track_stock
-                15,  # F  stock
-                "45g",  # G  weight
-                "image url",  # H  thumbnail_image
-                "alt description",  # I  thumbnail_image_aly_description
-                sample_category,  # J  category
-                sample_subcategory,  # K  subcategory
-                "TRUE",  # L  is_popular
-                "FALSE",  # M  is_featured
-                "active",  # N  status
-                "FALSE",  # O  use_dynamic_pricing
-                0.00,  # P  base_making_charge
-            ]
-            + sample_composition_quantities
-            + [
-                "Color",  #    option1 name
-                "Green",  #    option1 values
-                "Size",  #    option2 name
-                "S",  #    option2 values
-                "",  #    option3 name
-                "",  #    option3 values
-                80,  #    variant price
-                10,  #    variant stock
-                "image url",  #    variant image
-                "Meta Title",  #    meta title
-                "Meta Description",  #    meta description
-            ]
+        sample_metric = (
+            f"{metrics[0].name} ({metrics[0].price_per_unit}/{metrics[0].unit})"
+            if metrics
+            else "Gold (13000.00/gram)"
         )
+
+        # Row 2 — main product row with first composition and first variant
+        sample_data = [
+            "productname",  # A  name
+            "product description",  # B  description
+            100,  # C  price
+            100,  # D  market_price
+            "TRUE",  # E  track_stock
+            15,  # F  stock
+            "45g",  # G  weight
+            "image url",  # H  thumbnail_image
+            "alt description",  # I  thumbnail_image_aly_description
+            sample_category,  # J  category
+            sample_subcategory,  # K  subcategory
+            "TRUE",  # L  is_popular
+            "FALSE",  # M  is_featured
+            "active",  # N  status
+            "TRUE",  # O  use_dynamic_pricing
+            0.00,  # P  base_making_charge
+            sample_metric,  # Q  composition (first metric)
+            5,  # R  quantity
+            "Color",  # S  option1 name
+            "Green",  # T  option1 values
+            "Size",  # U  option2 name
+            "S",  # V  option2 values
+            "",  # W  option3 name
+            "",  # X  option3 values
+            80,  # Y  variant price
+            10,  # Z  variant stock
+            "image url",  # AA variant image
+            "Meta Title",  # AB meta title
+            "Meta Description",  # AC meta description
+        ]
 
         for col, value in enumerate(sample_data, 1):
             ws.cell(row=2, column=col, value=value)
 
-        # ── Variant-only rows ─────────────────────────────────────────────────
-        num_fixed_before_compositions = 16  # columns A–P
-        num_compositions = len(metrics)
-        variant_col_offset = num_fixed_before_compositions + num_compositions
+        # Row 3 — second composition row for the same product (only Q & R filled)
+        second_metric = (
+            f"{metrics[1].name} ({metrics[1].price_per_unit}/{metrics[1].unit})"
+            if len(metrics) > 1
+            else "Silver (190000.00/10)"
+        )
+        composition_row_2 = [""] * len(headers)
+        composition_row_2[16] = second_metric  # Q (0-based index 16)
+        composition_row_2[17] = 3  # R quantity
+        for col, value in enumerate(composition_row_2, 1):
+            ws.cell(row=3, column=col, value=value)
 
-        def make_variant_row(option1_val, option2_val, v_price, v_stock, v_image):
-            row = [""] * variant_col_offset
-            row += [
-                "",
-                option1_val,
-                "",
-                option2_val,
-                "",
-                "",
-                v_price,
-                v_stock,
-                v_image,
-                "",
-                "",
-            ]
+        # Rows 4-6 — variant-only rows (product columns blank, composition blank)
+        def make_variant_row(opt1_val, opt2_val, v_price, v_stock, v_image):
+            row = [""] * len(headers)
+            row[19] = opt1_val  # T  option1 values
+            row[21] = opt2_val  # V  option2 values
+            row[24] = v_price  # Y  variant price
+            row[25] = v_stock  # Z  variant stock
+            row[26] = v_image  # AA variant image
             return row
 
         variant_rows = [
@@ -578,15 +568,13 @@ class DownloadProductSampleTemplateView(APIView):
             make_variant_row("Red", "S", 85, 12, "variant_image_url_3"),
         ]
 
-        for row_num, variant_data in enumerate(variant_rows, 3):
+        for row_num, variant_data in enumerate(variant_rows, 4):
             for col, value in enumerate(variant_data, 1):
                 ws.cell(row=row_num, column=col, value=value)
 
         # ── Validations & widths ──────────────────────────────────────────────
-        self._add_data_validations(
-            wb, ws, categories, subcategories, metrics, num_fixed_before_compositions
-        )
-        self._adjust_column_widths(ws, metrics)
+        self._add_data_validations(wb, ws, categories, subcategories, metrics)
+        self._adjust_column_widths(ws)
 
         # ── Stream response ───────────────────────────────────────────────────
         buffer = io.BytesIO()
@@ -600,18 +588,7 @@ class DownloadProductSampleTemplateView(APIView):
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    @staticmethod
-    def _col_letter(n):
-        """Convert 1-based column index to Excel letter(s): 1→A, 27→AA, etc."""
-        result = ""
-        while n:
-            n, rem = divmod(n - 1, 26)
-            result = chr(65 + rem) + result
-        return result
-
-    def _add_data_validations(
-        self, wb, ws, categories, subcategories, metrics, num_fixed_before_compositions
-    ):
+    def _add_data_validations(self, wb, ws, categories, subcategories, metrics):
         """Add data validation for dropdown and numeric fields."""
         if "_dropdown_data" in wb.sheetnames:
             dropdown_ws = wb["_dropdown_data"]
@@ -680,25 +657,42 @@ class DownloadProductSampleTemplateView(APIView):
             ws.add_data_validation(sub_dv)
             sub_dv.add("K2:K1048576")
 
-        # Composition metric columns — numeric validation (>= 0)
-        for i, metric in enumerate(metrics):
-            col_idx = num_fixed_before_compositions + 1 + i
-            col_letter = self._col_letter(col_idx)
-            num_dv = DataValidation(
-                type="decimal",
-                operator="greaterThanOrEqual",
-                formula1="0",
+        # Composition column Q — dropdown of metrics: "Gold (13000.00/gram)"
+        if metrics:
+            metric_display_names = [
+                f"{m.name} ({m.price_per_unit}/{m.unit})" for m in metrics
+            ]
+            for i, name in enumerate(metric_display_names, 1):
+                dropdown_ws.cell(
+                    row=i, column=3, value=name
+                )  # Column C of hidden sheet
+            comp_dv = DataValidation(
+                type="list",
+                formula1=f"'_dropdown_data'!$C$1:$C${len(metric_display_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
-                errorTitle=f"Invalid quantity for {metric.name}",
-                error=f"Enter a numeric quantity (>= 0) for {metric.name}",
+                errorTitle="Invalid composition",
+                error="Please select a valid metric from the dropdown",
             )
-            ws.add_data_validation(num_dv)
-            num_dv.add(f"{col_letter}2:{col_letter}1048576")
+            ws.add_data_validation(comp_dv)
+            comp_dv.add("Q2:Q1048576")  # composition column
 
-    def _adjust_column_widths(self, ws, metrics):
+        # Quantity column R — numeric validation
+        qty_dv = DataValidation(
+            type="decimal",
+            operator="greaterThan",
+            formula1="0",
+            allow_blank=True,
+            showErrorMessage=True,
+            errorTitle="Invalid quantity",
+            error="Enter a numeric quantity greater than 0",
+        )
+        ws.add_data_validation(qty_dv)
+        qty_dv.add("R2:R1048576")  # quantity column
+
+    def _adjust_column_widths(self, ws):
         """Adjust column widths for better readability."""
-        fixed_widths = {
+        column_widths = {
             "A": 15,  # name
             "B": 20,  # description
             "C": 10,  # price
@@ -715,23 +709,22 @@ class DownloadProductSampleTemplateView(APIView):
             "N": 10,  # status
             "O": 20,  # use_dynamic_pricing
             "P": 20,  # base_making_charge
+            "Q": 30,  # composition (wider for metric display name)
+            "R": 12,  # quantity
+            "S": 15,  # option1 name
+            "T": 15,  # option1 values
+            "U": 15,  # option2 name
+            "V": 15,  # option2 values
+            "W": 15,  # option3 name
+            "X": 15,  # option3 values
+            "Y": 15,  # variant price
+            "Z": 15,  # variant stock
+            "AA": 20,  # variant image
+            "AB": 20,  # meta title
+            "AC": 25,  # meta description
         }
-        for col, width in fixed_widths.items():
+        for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
-
-        # Dynamic composition columns (Q onward)
-        num_fixed = 16
-        for i, metric in enumerate(metrics):
-            col_letter = self._col_letter(num_fixed + 1 + i)
-            header_len = len(f"{metric.name} ({metric.price_per_unit}/{metric.unit})")
-            ws.column_dimensions[col_letter].width = max(18, header_len + 2)
-
-        # Trailing option / variant / meta columns
-        trailing_widths = [15, 15, 15, 15, 15, 15, 15, 15, 20, 20, 25]
-        offset = num_fixed + len(metrics)
-        for i, width in enumerate(trailing_widths):
-            col_letter = self._col_letter(offset + 1 + i)
-            ws.column_dimensions[col_letter].width = width
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -773,10 +766,10 @@ class BulkProductUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Pre-load all PricingMetrics and map normalised header → metric instance
-        # Header format: "Gold (500.00/gram)" → normalised: "gold (500.00/gram)"
         from .models import PricingMetric
 
+        # Pre-load all metrics and map normalised display name → metric instance
+        # e.g. "gold (13000.00/gram)" → <PricingMetric: Gold>
         all_metrics = list(PricingMetric.objects.all())
         metric_col_map = {
             f"{m.name} ({m.price_per_unit}/{m.unit})".strip().lower(): m
@@ -787,11 +780,20 @@ class BulkProductUploadView(APIView):
         current_product = None
         current_option_names = {}
         product_options = {}
+        # Accumulate composition rows per product before saving
+        # { product_key: [(metric_instance, quantity), ...] }
+        pending_compositions = {}
 
         for idx, row in df.iterrows():
             product_name = safe_value(row.get("name"))
 
             if product_name:
+                # Flush pending compositions for previous product if any
+                if current_product and current_product.pk in pending_compositions:
+                    self._save_compositions(
+                        current_product, pending_compositions.pop(current_product.pk)
+                    )
+
                 # Skip if product already exists in DB
                 if Product.objects.filter(name=product_name).exists():
                     current_product = None
@@ -816,7 +818,7 @@ class BulkProductUploadView(APIView):
                         else None
                     )
 
-                    # ── use_dynamic_pricing (normalise bool) ──────────────────
+                    # ── use_dynamic_pricing (normalise to bool) ───────────────
                     raw_dynamic = safe_value(row.get("use_dynamic_pricing"), False)
                     if isinstance(raw_dynamic, str):
                         use_dynamic_pricing = raw_dynamic.strip().upper() == "TRUE"
@@ -865,7 +867,6 @@ class BulkProductUploadView(APIView):
                         ),
                     }
 
-                    # Remove None values to use model defaults
                     product_data = {
                         k: v for k, v in product_data.items() if v is not None
                     }
@@ -896,10 +897,6 @@ class BulkProductUploadView(APIView):
                             {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    # ── Compositions: only when use_dynamic_pricing is True ────
-                    if use_dynamic_pricing:
-                        self._create_product_compositions(product, row, metric_col_map)
-
                     # ── Options ───────────────────────────────────────────────
                     option_names = self._create_product_options(product, row)
                     product_options[current_product_key] = option_names
@@ -907,53 +904,74 @@ class BulkProductUploadView(APIView):
                     created_products[current_product_key] = {
                         "product": product,
                         "options_created": True,
+                        "use_dynamic_pricing": use_dynamic_pricing,
                     }
+
+                    # Initialise composition accumulator for this product
+                    pending_compositions[product.pk] = []
 
                 current_product = created_products[current_product_key]["product"]
                 current_option_names = product_options[current_product_key]
 
-            # Create variant for current product
+            # ── Collect composition from this row (product row OR continuation row) ──
             if current_product:
+                product_meta = next(
+                    (
+                        v
+                        for v in created_products.values()
+                        if v["product"].pk == current_product.pk
+                    ),
+                    None,
+                )
+                use_dynamic = (
+                    product_meta["use_dynamic_pricing"] if product_meta else False
+                )
+
+                if use_dynamic:
+                    composition_val = safe_value(row.get("composition"))
+                    quantity_val = safe_value(row.get("quantity"))
+
+                    if composition_val and quantity_val is not None:
+                        normalised_comp = str(composition_val).strip().lower()
+                        metric = metric_col_map.get(normalised_comp)
+                        try:
+                            quantity = float(quantity_val)
+                        except (ValueError, TypeError):
+                            quantity = None
+
+                        if metric and quantity and quantity > 0:
+                            pending_compositions.setdefault(
+                                current_product.pk, []
+                            ).append((metric, quantity))
+
+                # Create variant for current product
                 self._create_product_variant(
                     current_product, row, current_option_names, images_from_zip
                 )
+
+        # Flush compositions for the very last product in the file
+        if current_product and current_product.pk in pending_compositions:
+            self._save_compositions(
+                current_product, pending_compositions.pop(current_product.pk)
+            )
 
         return Response({
             "success": True,
             "message": f"Successfully processed {len(created_products)} products with variants",
         })
 
-    # ── Composition helper ────────────────────────────────────────────────────
-    def _create_product_compositions(self, product, row, metric_col_map):
+    # ── Composition save helper ───────────────────────────────────────────────
+    def _save_compositions(self, product, composition_list):
         """
-        Scan every column in the row; if the normalised column name matches a
-        known metric header ("gold (500.00/gram)") and the cell has a value > 0,
-        create a ProductComposition record.
+        Persist accumulated (metric, quantity) pairs as ProductComposition rows.
+        Clears existing compositions first to allow clean re-imports.
         Only called when use_dynamic_pricing is True.
         """
         from .models import ProductComposition
 
-        # Clear existing compositions to allow clean re-imports
         ProductComposition.objects.filter(product=product).delete()
 
-        for col_name in row.index:
-            normalised = str(col_name).strip().lower()
-            metric = metric_col_map.get(normalised)
-            if metric is None:
-                continue
-
-            quantity = safe_value(row.get(col_name))
-            if quantity is None:
-                continue
-
-            try:
-                quantity = float(quantity)
-            except (ValueError, TypeError):
-                continue
-
-            if quantity <= 0:
-                continue
-
+        for metric, quantity in composition_list:
             ProductComposition.objects.create(
                 product=product,
                 metric=metric,
