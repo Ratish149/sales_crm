@@ -128,7 +128,16 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return []
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
