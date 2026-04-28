@@ -377,7 +377,24 @@ class ProductSerializer(serializers.ModelSerializer):
         if compositions_data is not None:
             instance.compositions.all().delete()
             for comp_data in compositions_data:
-                ProductComposition.objects.create(product=instance, **comp_data)
+                # Handle both cases: raw dict (from FormData JSON string)
+                # or already-validated dict (from JSON body)
+                metric = comp_data.get("metric")
+                quantity = comp_data.get("quantity")
+                if metric and quantity is not None:
+                    # metric could be a PricingMetric instance or an integer ID
+                    if isinstance(metric, PricingMetric):
+                        ProductComposition.objects.create(
+                            product=instance,
+                            metric=metric,
+                            quantity=quantity,
+                        )
+                    else:
+                        ProductComposition.objects.create(
+                            product=instance,
+                            metric_id=metric,  # integer ID
+                            quantity=quantity,
+                        )
 
         if image_files is not None:
             instance.images.all().delete()

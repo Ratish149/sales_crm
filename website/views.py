@@ -827,6 +827,9 @@ def import_template(request):
 # ------------------------------
 # 📦 GLOBAL BULK CREATE VIEW
 # ------------------------------
+# ------------------------------
+# 📦 GLOBAL BULK CREATE VIEW
+# ------------------------------
 class GlobalBulkCreateView(APIView):
     """
     Accepts a 'model_name' and 'data' (list of dicts).
@@ -849,6 +852,7 @@ class GlobalBulkCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ── CollectionData handler ──────────────────────────────────────────
         if (
             model_name.lower() == "collectiondata"
             or model_name.lower() == "collection_data"
@@ -856,7 +860,6 @@ class GlobalBulkCreateView(APIView):
             created_instances = []
             errors = []
 
-            # Check for root-level collection identifier
             root_collection_identifier = (
                 request.data.get("collection_name")
                 or request.data.get("collection_slug")
@@ -898,11 +901,9 @@ class GlobalBulkCreateView(APIView):
                     continue
 
                 if root_collection:
-                    # User passed collection at root; raw_item IS the dynamic fields payload
                     target_collection = root_collection
                     payload = {"data": raw_item}
                 else:
-                    # Backward compatible: User is passing collection_name and nested "data" per item
                     item = raw_item.copy()
                     item_identifier = (
                         item.pop("collection_name", None)
@@ -917,7 +918,6 @@ class GlobalBulkCreateView(APIView):
                         })
                         continue
 
-                    # Resolve the collection
                     if isinstance(item_identifier, int) or (
                         isinstance(item_identifier, str)
                         and str(item_identifier).isdigit()
@@ -942,13 +942,11 @@ class GlobalBulkCreateView(APIView):
                         })
                         continue
 
-                    # Wrap remaining fields into "data" unless explicitly nested
                     if "data" in item and isinstance(item["data"], dict):
                         payload = item
                     else:
                         payload = {"data": item}
 
-                # Create using the custom serializer
                 serializer = CollectionDataSerializer(
                     data=payload, context={"collection": target_collection}
                 )
@@ -969,12 +967,51 @@ class GlobalBulkCreateView(APIView):
             else:
                 return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
 
+        # ── Product handler ─────────────────────────────────────────────────
+        if model_name.lower() == "product":
+            from .serializers import BulkProductCreateSerializer
+
+            created_instances = []
+            errors = []
+
+            for index, item in enumerate(data):
+                if not isinstance(item, dict):
+                    errors.append({
+                        "index": index,
+                        "error": "Item must be a JSON object.",
+                    })
+                    continue
+
+                serializer = BulkProductCreateSerializer(data=item)
+                if serializer.is_valid():
+                    try:
+                        instance = serializer.save()
+                        created_instances.append({
+                            "id": instance.id,
+                            "name": instance.name,
+                            "slug": instance.slug,
+                        })
+                    except Exception as e:
+                        errors.append({"index": index, "error": str(e)})
+                else:
+                    errors.append({"index": index, "errors": serializer.errors})
+
+            if created_instances:
+                response_data = {
+                    "message": f"Successfully created {len(created_instances)} Product(s).",
+                    "data": created_instances,
+                }
+                if errors:
+                    response_data["errors"] = errors
+                return Response(response_data, status=status.HTTP_201_CREATED)
+
+            return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Generic model handler ───────────────────────────────────────────
         target_model = None
-        # Iterate over TENANT_APPS to find the specified model
         for app_path in settings.TENANT_APPS:
             app_label = app_path.split(".")[-1]
             try:
-                # Case-insensitive model lookup via Django apps
                 model = apps.get_model(app_label, model_name.lower())
                 target_model = model
                 break
@@ -987,13 +1024,11 @@ class GlobalBulkCreateView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Create a dynamic ModelSerializer for the target model
         class DynamicModelSerializer(serializers.ModelSerializer):
             class Meta:
                 model = target_model
                 fields = "__all__"
 
-        # Validate and save data using DRF generic capabilities
         serializer = DynamicModelSerializer(data=data, many=True)
         if serializer.is_valid():
             serializer.save()

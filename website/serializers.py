@@ -1,6 +1,14 @@
 # serializers.py
 from rest_framework import serializers
 
+from product.models import (
+    Category,
+    PricingMetric,
+    Product,
+    ProductComposition,
+    SubCategory,
+)
+
 from .models import Page, PageComponent, SiteConfig, Theme
 
 
@@ -50,3 +58,64 @@ class PageListSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at", "published_version")
+
+
+class BulkProductCompositionSerializer(serializers.Serializer):
+    metric = serializers.PrimaryKeyRelatedField(queryset=PricingMetric.objects.all())
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=3)
+
+
+class BulkProductCreateSerializer(serializers.ModelSerializer):
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        source="category",
+        allow_null=True,
+        required=False,
+    )
+    sub_category_id = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategory.objects.all(),
+        source="sub_category",
+        allow_null=True,
+        required=False,
+    )
+    compositions = BulkProductCompositionSerializer(many=True, required=False)
+
+    class Meta:
+        model = Product
+        fields = [
+            "name",
+            "description",
+            "price",
+            "market_price",
+            "stock",
+            "track_stock",
+            "weight",
+            "category_id",
+            "sub_category_id",
+            "is_popular",
+            "is_featured",
+            "fast_shipping",
+            "warranty",
+            "status",
+            "meta_title",
+            "meta_description",
+            "use_dynamic_pricing",
+            "base_making_charge",
+            "compositions",
+        ]
+
+    def create(self, validated_data):
+        compositions_data = validated_data.pop("compositions", [])
+
+        product = Product.objects.create(**validated_data)
+
+        for comp in compositions_data:
+            ProductComposition.objects.create(
+                product=product,
+                metric=comp[
+                    "metric"
+                ],  # PricingMetric instance, resolved by PrimaryKeyRelatedField
+                quantity=comp["quantity"],
+            )
+
+        return product

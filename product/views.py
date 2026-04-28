@@ -444,27 +444,44 @@ class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 class DownloadProductSampleTemplateView(APIView):
     def get(self, request):
-        # Create a workbook and select the active worksheet
         wb = Workbook()
         ws = wb.active
         ws.title = "Product Template"
 
-        # Define headers based on your model and serializer
+        # Fetch pricing metrics to build composition columns
+        from .models import Category, PricingMetric, SubCategory
+
+        metrics = list(PricingMetric.objects.all())
+
+        # ── Headers ──────────────────────────────────────────────────────────
         headers = [
-            "name",
-            "description",
-            "price",
-            "market_price",
-            "track_stock",
-            "stock",
-            "weight",
-            "thumbnail_image",
-            "thumbnail_image_aly_description",
-            "category",
-            "subcategory",
-            "is_popular",
-            "is_featured",
-            "status",
+            "name",  # A
+            "description",  # B
+            "price",  # C
+            "market_price",  # D
+            "track_stock",  # E
+            "stock",  # F
+            "weight",  # G
+            "thumbnail_image",  # H
+            "thumbnail_image_aly_description",  # I
+            "category",  # J
+            "subcategory",  # K
+            "is_popular",  # L
+            "is_featured",  # M
+            "status",  # N
+            "use_dynamic_pricing",  # O
+            "base_making_charge",  # P
+            # composition columns added dynamically (Q onward)
+        ]
+
+        # Each metric gets its own quantity column: "Gold (500.00/gram)"
+        composition_headers = [
+            f"{m.name} ({m.price_per_unit}/{m.unit})" for m in metrics
+        ]
+        headers += composition_headers
+
+        # Remaining fixed columns after compositions
+        headers += [
             "option1 name",
             "option1 values",
             "option2 name",
@@ -478,17 +495,13 @@ class DownloadProductSampleTemplateView(APIView):
             "meta description",
         ]
 
-        # Write headers
         for col, header in enumerate(headers, 1):
             ws.cell(row=1, column=col, value=header)
 
-        # Get actual data from database for dropdowns
-        from .models import Category, SubCategory
-
+        # ── Sample data ───────────────────────────────────────────────────────
         categories = Category.objects.all()
         subcategories = SubCategory.objects.select_related("category").all()
 
-        # Sample category and subcategory names for the template
         sample_category = (
             categories.first().name if categories.exists() else "Electronics"
         )
@@ -496,202 +509,135 @@ class DownloadProductSampleTemplateView(APIView):
             subcategories.first().name if subcategories.exists() else "Mobile"
         )
 
-        # Add sample data row (main product row)
-        sample_data = [
-            "productname",
-            "product description",
-            100,
-            100,
-            "TRUE",
-            15,
-            "45g",
-            "image url",
-            "alt description",
-            sample_category,
-            sample_subcategory,
-            "TRUE",
-            "FALSE",
-            "active",
-            "Color",
-            "Green",
-            "Size",
-            "S",
-            "",
-            "",
-            80,
-            10,
-            "image url",
-            "Meta Title",
-            "Meta Description",
-        ]
+        # Composition sample quantities (0 for each metric as placeholder)
+        sample_composition_quantities = [0 for _ in metrics]
+
+        sample_data = (
+            [
+                "productname",  # A  name
+                "product description",  # B  description
+                100,  # C  price
+                100,  # D  market_price
+                "TRUE",  # E  track_stock
+                15,  # F  stock
+                "45g",  # G  weight
+                "image url",  # H  thumbnail_image
+                "alt description",  # I  thumbnail_image_aly_description
+                sample_category,  # J  category
+                sample_subcategory,  # K  subcategory
+                "TRUE",  # L  is_popular
+                "FALSE",  # M  is_featured
+                "active",  # N  status
+                "FALSE",  # O  use_dynamic_pricing
+                0.00,  # P  base_making_charge
+            ]
+            + sample_composition_quantities
+            + [
+                "Color",  #    option1 name
+                "Green",  #    option1 values
+                "Size",  #    option2 name
+                "S",  #    option2 values
+                "",  #    option3 name
+                "",  #    option3 values
+                80,  #    variant price
+                10,  #    variant stock
+                "image url",  #    variant image
+                "Meta Title",  #    meta title
+                "Meta Description",  #    meta description
+            ]
+        )
 
         for col, value in enumerate(sample_data, 1):
             ws.cell(row=2, column=col, value=value)
 
-        # Add additional variant row (empty except for variant columns)
-        variant_only_data = [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            "Blue",
-            "",
-            "M",
-            "",
-            "",
-            85,
-            15,
-            "variant_image_url",
-            "",
-            "",
+        # ── Variant-only rows ─────────────────────────────────────────────────
+        num_fixed_before_compositions = 16  # columns A–P
+        num_compositions = len(metrics)
+        variant_col_offset = num_fixed_before_compositions + num_compositions
+
+        def make_variant_row(option1_val, option2_val, v_price, v_stock, v_image):
+            row = [""] * variant_col_offset
+            row += [
+                "",
+                option1_val,
+                "",
+                option2_val,
+                "",
+                "",
+                v_price,
+                v_stock,
+                v_image,
+                "",
+                "",
+            ]
+            return row
+
+        variant_rows = [
+            make_variant_row("Blue", "M", 85, 15, "variant_image_url"),
+            make_variant_row("Blue", "L", 90, 20, "variant_image_url_2"),
+            make_variant_row("Red", "S", 85, 12, "variant_image_url_3"),
         ]
 
-        for col, value in enumerate(variant_only_data, 1):
-            ws.cell(row=3, column=col, value=value)
-
-        # Add more variant examples
-        additional_variants = [
-            # Color: Blue, Size: L
-            [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "Blue",
-                "",
-                "L",
-                "",
-                "",
-                90,
-                20,
-                "variant_image_url_2",
-                "",
-                "",
-            ],
-            # Color: Red, Size: S
-            [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "Red",
-                "",
-                "S",
-                "",
-                "",
-                85,
-                12,
-                "variant_image_url_3",
-                "",
-                "",
-            ],
-        ]
-
-        for row_num, variant_data in enumerate(additional_variants, 4):
+        for row_num, variant_data in enumerate(variant_rows, 3):
             for col, value in enumerate(variant_data, 1):
                 ws.cell(row=row_num, column=col, value=value)
 
-        # Add data validation for dropdown fields
-        self._add_data_validations(wb, ws, categories, subcategories)
+        # ── Validations & widths ──────────────────────────────────────────────
+        self._add_data_validations(
+            wb, ws, categories, subcategories, metrics, num_fixed_before_compositions
+        )
+        self._adjust_column_widths(ws, metrics)
 
-        # Auto-adjust column widths for better readability
-        self._adjust_column_widths(ws)
-
-        # Create a buffer to save the workbook
+        # ── Stream response ───────────────────────────────────────────────────
         buffer = io.BytesIO()
         wb.save(buffer)
         buffer.seek(0)
 
-        # Create FileResponse
-        response = FileResponse(
+        return FileResponse(
             buffer,
             as_attachment=True,
             filename="product_bulk_upload_template.xlsx",
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
-        return response
 
-    def _add_data_validations(self, wb, ws, categories, subcategories):
-        """Add data validation for dropdown fields with dynamic data from database"""
+    @staticmethod
+    def _col_letter(n):
+        """Convert 1-based column index to Excel letter(s): 1→A, 27→AA, etc."""
+        result = ""
+        while n:
+            n, rem = divmod(n - 1, 26)
+            result = chr(65 + rem) + result
+        return result
 
-        # Create a hidden sheet for dropdown data to avoid 255-character limit
+    def _add_data_validations(
+        self, wb, ws, categories, subcategories, metrics, num_fixed_before_compositions
+    ):
+        """Add data validation for dropdown and numeric fields."""
         if "_dropdown_data" in wb.sheetnames:
             dropdown_ws = wb["_dropdown_data"]
         else:
             dropdown_ws = wb.create_sheet("_dropdown_data")
         dropdown_ws.sheet_state = "hidden"
 
-        # Boolean fields validation - track_stock
-        bool_validation_track = DataValidation(
-            type="list",
-            formula1='"TRUE,FALSE"',
-            allow_blank=True,
-            showErrorMessage=True,
-            errorTitle="Invalid boolean value",
-            error="Please select either TRUE or FALSE",
-        )
-        ws.add_data_validation(bool_validation_track)
-        bool_validation_track.add("E2:E1048576")  # track_stock
+        def add_bool_validation(cell_range):
+            dv = DataValidation(
+                type="list",
+                formula1='"TRUE,FALSE"',
+                allow_blank=True,
+                showErrorMessage=True,
+                errorTitle="Invalid value",
+                error="Please select TRUE or FALSE",
+            )
+            ws.add_data_validation(dv)
+            dv.add(cell_range)
 
-        # Boolean fields validation - is_popular
-        bool_validation_popular = DataValidation(
-            type="list",
-            formula1='"TRUE,FALSE"',
-            allow_blank=True,
-            showErrorMessage=True,
-            errorTitle="Invalid boolean value",
-            error="Please select either TRUE or FALSE",
-        )
-        ws.add_data_validation(bool_validation_popular)
-        bool_validation_popular.add("L2:L1048576")  # is_popular
+        add_bool_validation("E2:E1048576")  # track_stock
+        add_bool_validation("L2:L1048576")  # is_popular
+        add_bool_validation("M2:M1048576")  # is_featured
+        add_bool_validation("O2:O1048576")  # use_dynamic_pricing
 
-        # Boolean fields validation - is_featured
-        bool_validation_featured = DataValidation(
-            type="list",
-            formula1='"TRUE,FALSE"',
-            allow_blank=True,
-            showErrorMessage=True,
-            errorTitle="Invalid boolean value",
-            error="Please select either TRUE or FALSE",
-        )
-        ws.add_data_validation(bool_validation_featured)
-        bool_validation_featured.add("M2:M1048576")  # is_featured
-
-        # Status validation
-        status_validation = DataValidation(
+        # Status
+        status_dv = DataValidation(
             type="list",
             formula1='"active,draft,archived"',
             allow_blank=True,
@@ -699,55 +645,60 @@ class DownloadProductSampleTemplateView(APIView):
             errorTitle="Invalid status",
             error="Please select from: active, draft, archived",
         )
-        ws.add_data_validation(status_validation)
-        status_validation.add("N2:N1048576")  # status
+        ws.add_data_validation(status_dv)
+        status_dv.add("N2:N1048576")
 
-        # Category validation (dynamic from database)
+        # Category (dynamic from DB)
         if categories.exists():
-            # Write categories to hidden sheet (Column A)
-            category_names = [cat.name for cat in categories]
-            for i, name in enumerate(category_names, 1):
+            cat_names = [c.name for c in categories]
+            for i, name in enumerate(cat_names, 1):
                 dropdown_ws.cell(row=i, column=1, value=name)
-
-            # Use formula pointing to the hidden sheet
-            cat_validation = DataValidation(
+            cat_dv = DataValidation(
                 type="list",
-                formula1=f"'_dropdown_data'!$A$1:$A${len(category_names)}",
+                formula1=f"'_dropdown_data'!$A$1:$A${len(cat_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
                 errorTitle="Invalid category",
                 error="Please select from available categories",
             )
-            ws.add_data_validation(cat_validation)
-            cat_validation.add("J2:J1048576")  # category
+            ws.add_data_validation(cat_dv)
+            cat_dv.add("J2:J1048576")
 
-        # Subcategory validation (dynamic from database) with category name
+        # Subcategory (dynamic from DB)
         if subcategories.exists():
-            # Create formatted subcategory names: "Subcategory Name (Category Name)"
-            # Write subcategories to hidden sheet (Column B)
-            subcategory_display_names = []
-            for sub in subcategories:
-                display_name = f"{sub.name} ({sub.category.name})"
-                subcategory_display_names.append(display_name)
-
-            for i, name in enumerate(subcategory_display_names, 1):
+            sub_names = [f"{s.name} ({s.category.name})" for s in subcategories]
+            for i, name in enumerate(sub_names, 1):
                 dropdown_ws.cell(row=i, column=2, value=name)
-
-            # Use formula pointing to the hidden sheet
-            subcat_validation = DataValidation(
+            sub_dv = DataValidation(
                 type="list",
-                formula1=f"'_dropdown_data'!$B$1:$B${len(subcategory_display_names)}",
+                formula1=f"'_dropdown_data'!$B$1:$B${len(sub_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
                 errorTitle="Invalid subcategory",
                 error="Please select from available subcategories",
             )
-            ws.add_data_validation(subcat_validation)
-            subcat_validation.add("K2:K1048576")  # subcategory
+            ws.add_data_validation(sub_dv)
+            sub_dv.add("K2:K1048576")
 
-    def _adjust_column_widths(self, ws):
-        """Adjust column widths for better readability"""
-        column_widths = {
+        # Composition metric columns — numeric validation (>= 0)
+        for i, metric in enumerate(metrics):
+            col_idx = num_fixed_before_compositions + 1 + i
+            col_letter = self._col_letter(col_idx)
+            num_dv = DataValidation(
+                type="decimal",
+                operator="greaterThanOrEqual",
+                formula1="0",
+                allow_blank=True,
+                showErrorMessage=True,
+                errorTitle=f"Invalid quantity for {metric.name}",
+                error=f"Enter a numeric quantity (>= 0) for {metric.name}",
+            )
+            ws.add_data_validation(num_dv)
+            num_dv.add(f"{col_letter}2:{col_letter}1048576")
+
+    def _adjust_column_widths(self, ws, metrics):
+        """Adjust column widths for better readability."""
+        fixed_widths = {
             "A": 15,  # name
             "B": 20,  # description
             "C": 10,  # price
@@ -758,32 +709,39 @@ class DownloadProductSampleTemplateView(APIView):
             "H": 20,  # thumbnail_image
             "I": 20,  # thumbnail_image_aly_description
             "J": 15,  # category
-            "K": 25,  # subcategory (wider to accommodate category name)
+            "K": 25,  # subcategory
             "L": 12,  # is_popular
             "M": 12,  # is_featured
             "N": 10,  # status
-            "O": 15,  # option1 name
-            "P": 15,  # option1 values
-            "Q": 15,  # option2 name
-            "R": 15,  # option2 values
-            "S": 15,  # option3 name
-            "T": 15,  # option3 values
-            "U": 15,  # variant price
-            "V": 15,  # variant stock
-            "W": 20,  # variant image
-            "X": 20,  # meta title
-            "Y": 25,  # meta description
+            "O": 20,  # use_dynamic_pricing
+            "P": 20,  # base_making_charge
         }
-
-        for col, width in column_widths.items():
+        for col, width in fixed_widths.items():
             ws.column_dimensions[col].width = width
+
+        # Dynamic composition columns (Q onward)
+        num_fixed = 16
+        for i, metric in enumerate(metrics):
+            col_letter = self._col_letter(num_fixed + 1 + i)
+            header_len = len(f"{metric.name} ({metric.price_per_unit}/{metric.unit})")
+            ws.column_dimensions[col_letter].width = max(18, header_len + 2)
+
+        # Trailing option / variant / meta columns
+        trailing_widths = [15, 15, 15, 15, 15, 15, 15, 15, 20, 20, 25]
+        offset = num_fixed + len(metrics)
+        for i, width in enumerate(trailing_widths):
+            col_letter = self._col_letter(offset + 1 + i)
+            ws.column_dimensions[col_letter].width = width
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class BulkProductUploadView(APIView):
     serializer_class = BulkUploadSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-    """Upload Excel/CSV and create products"""
+    """Upload Excel/CSV and create products."""
 
     def post(self, request):
         serializer = BulkUploadSerializer(data=request.data)
@@ -794,12 +752,10 @@ class BulkProductUploadView(APIView):
         zip_file = serializer.validated_data.get("zip_file")
 
         try:
-            # Extract images from ZIP if provided
             images_from_zip = {}
             if zip_file:
                 images_from_zip = extract_images_from_zip(zip_file)
 
-            # Detect file type and read accordingly
             if file.name.endswith(".csv"):
                 df = pd.read_csv(file)
             elif file.name.endswith((".xls", ".xlsx")):
@@ -810,7 +766,6 @@ class BulkProductUploadView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Clean column names - remove extra spaces and make lowercase for consistency
             df.columns = [col.strip().lower() for col in df.columns]
         except Exception as e:
             return Response(
@@ -818,24 +773,35 @@ class BulkProductUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Pre-load all PricingMetrics and map normalised header → metric instance
+        # Header format: "Gold (500.00/gram)" → normalised: "gold (500.00/gram)"
+        from .models import PricingMetric
+
+        all_metrics = list(PricingMetric.objects.all())
+        metric_col_map = {
+            f"{m.name} ({m.price_per_unit}/{m.unit})".strip().lower(): m
+            for m in all_metrics
+        }
+
         created_products = {}
         current_product = None
         current_option_names = {}
-        product_options = {}  # Store option names for each product
+        product_options = {}
 
         for idx, row in df.iterrows():
             product_name = safe_value(row.get("name"))
 
-            # If we have a product name, it's either a new product or the main product row
             if product_name:
-                # Check if product already exists in database
+                # Skip if product already exists in DB
                 if Product.objects.filter(name=product_name).exists():
+                    current_product = None
+                    current_option_names = {}
                     continue
 
                 current_product_key = product_name
 
-                # Check if product already created in this upload
                 if current_product_key not in created_products:
+                    # ── Resolve FK fields ─────────────────────────────────────
                     category_name = safe_value(row.get("category"))
                     sub_category_name = safe_value(row.get("subcategory"))
 
@@ -850,17 +816,33 @@ class BulkProductUploadView(APIView):
                         else None
                     )
 
-                    # Create product with default values for all fields
+                    # ── use_dynamic_pricing (normalise bool) ──────────────────
+                    raw_dynamic = safe_value(row.get("use_dynamic_pricing"), False)
+                    if isinstance(raw_dynamic, str):
+                        use_dynamic_pricing = raw_dynamic.strip().upper() == "TRUE"
+                    else:
+                        use_dynamic_pricing = bool(raw_dynamic)
+
+                    # ── base_making_charge ────────────────────────────────────
+                    base_making_charge = safe_value(row.get("base_making_charge"), 0.00)
+                    try:
+                        base_making_charge = (
+                            float(base_making_charge)
+                            if base_making_charge is not None
+                            else 0.00
+                        )
+                    except (ValueError, TypeError):
+                        base_making_charge = 0.00
+
+                    # ── Build product dict ────────────────────────────────────
                     product_data = {
                         "name": current_product_key,
                         "description": safe_value(row.get("description"), ""),
                         "price": safe_value(row.get("price"), 0),
-                        "market_price": safe_value(
-                            row.get("market_price")
-                        ),  # Can be None
+                        "market_price": safe_value(row.get("market_price")),
                         "track_stock": safe_value(row.get("track_stock"), True),
                         "stock": safe_value(row.get("stock"), 0),
-                        "weight": safe_value(row.get("weight")),  # Can be None
+                        "weight": safe_value(row.get("weight")),
                         "thumbnail_alt_description": safe_value(
                             row.get(
                                 "thumbnail_image_alt_description",
@@ -868,11 +850,13 @@ class BulkProductUploadView(APIView):
                             ),
                             "",
                         ),
-                        "category": category,  # Can be None
-                        "sub_category": sub_category,  # Can be None
+                        "category": category,
+                        "sub_category": sub_category,
                         "is_popular": safe_value(row.get("is_popular"), False),
                         "is_featured": safe_value(row.get("is_featured"), False),
                         "status": safe_value(row.get("status"), "active"),
+                        "use_dynamic_pricing": use_dynamic_pricing,
+                        "base_making_charge": base_making_charge,
                         "meta_title": safe_value(
                             row.get("meta_title", row.get("meta title")), ""
                         ),
@@ -885,13 +869,11 @@ class BulkProductUploadView(APIView):
                     product_data = {
                         k: v for k, v in product_data.items() if v is not None
                     }
-
                     product = Product(**product_data)
 
-                    # Handle thumbnail image (from ZIP or URL)
+                    # ── Thumbnail image ───────────────────────────────────────
                     thumb_val = safe_value(row.get("thumbnail_image"))
                     if thumb_val:
-                        # Try ZIP first if it doesn't look like a URL
                         if not str(thumb_val).startswith(("http://", "https://")):
                             thumb_file = process_image_field(thumb_val, images_from_zip)
                             if thumb_file:
@@ -899,7 +881,6 @@ class BulkProductUploadView(APIView):
                                     thumb_file.name, thumb_file, save=False
                                 )
                         else:
-                            # Fallback to URL download
                             thumb_file, thumb_filename = download_image_from_url(
                                 thumb_val, upload_to="product_images"
                             )
@@ -915,7 +896,11 @@ class BulkProductUploadView(APIView):
                             {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    # Create product options based on the main row and store option names
+                    # ── Compositions: only when use_dynamic_pricing is True ────
+                    if use_dynamic_pricing:
+                        self._create_product_compositions(product, row, metric_col_map)
+
+                    # ── Options ───────────────────────────────────────────────
                     option_names = self._create_product_options(product, row)
                     product_options[current_product_key] = option_names
 
@@ -927,7 +912,7 @@ class BulkProductUploadView(APIView):
                 current_product = created_products[current_product_key]["product"]
                 current_option_names = product_options[current_product_key]
 
-            # Create variant for current product (even for empty name rows that continue variants)
+            # Create variant for current product
             if current_product:
                 self._create_product_variant(
                     current_product, row, current_option_names, images_from_zip
@@ -938,44 +923,67 @@ class BulkProductUploadView(APIView):
             "message": f"Successfully processed {len(created_products)} products with variants",
         })
 
+    # ── Composition helper ────────────────────────────────────────────────────
+    def _create_product_compositions(self, product, row, metric_col_map):
+        """
+        Scan every column in the row; if the normalised column name matches a
+        known metric header ("gold (500.00/gram)") and the cell has a value > 0,
+        create a ProductComposition record.
+        Only called when use_dynamic_pricing is True.
+        """
+        from .models import ProductComposition
+
+        # Clear existing compositions to allow clean re-imports
+        ProductComposition.objects.filter(product=product).delete()
+
+        for col_name in row.index:
+            normalised = str(col_name).strip().lower()
+            metric = metric_col_map.get(normalised)
+            if metric is None:
+                continue
+
+            quantity = safe_value(row.get(col_name))
+            if quantity is None:
+                continue
+
+            try:
+                quantity = float(quantity)
+            except (ValueError, TypeError):
+                continue
+
+            if quantity <= 0:
+                continue
+
+            ProductComposition.objects.create(
+                product=product,
+                metric=metric,
+                quantity=quantity,
+            )
+
+    # ── Options helper ────────────────────────────────────────────────────────
     def _create_product_options(self, product, row):
-        """Create product options from option columns and return option names"""
-        # Clear existing options to avoid duplicates
+        """Create product options from option columns and return option names."""
         ProductOption.objects.filter(product=product).delete()
 
         option_names = {}
-
-        # Dynamically find all option columns
         option_columns = {}
-        for col_name in row.index:
-            if "option" in str(col_name).lower() and "name" in str(col_name).lower():
-                # Extract option number from column name
-                # Handles: "option1 name", "option2 name", "option3 name", "option4 name", etc.
-                col_str = str(col_name).lower()
-                if "option" in col_str and "name" in col_str:
-                    # Try to extract the number
-                    match = re.search(r"option(\d+)\s*name", col_str)
-                    if match:
-                        option_num = int(match.group(1))
-                        option_columns[option_num] = col_name
 
-        # Process all found option columns
+        for col_name in row.index:
+            col_str = str(col_name).lower()
+            match = re.search(r"option(\d+)\s*name", col_str)
+            if match:
+                option_columns[int(match.group(1))] = col_name
+
         for option_num, col_name in sorted(option_columns.items()):
             option_name = safe_value(row.get(col_name))
-            # Find the corresponding values column
             values_col_name = f"option{option_num} values"
             option_values_str = safe_value(row.get(values_col_name))
 
             if option_name:
-                # Store the option name
                 option_names[option_num] = option_name
-
-                # Create the option
-                option, created = ProductOption.objects.get_or_create(
+                option, _ = ProductOption.objects.get_or_create(
                     product=product, name=option_name
                 )
-
-                # For the main product row, create the first option value if present
                 if option_values_str:
                     ProductOptionValue.objects.get_or_create(
                         option=option, value=option_values_str
@@ -983,31 +991,23 @@ class BulkProductUploadView(APIView):
 
         return option_names
 
+    # ── Variant helper ────────────────────────────────────────────────────────
     def _create_product_variant(self, product, row, option_names, images_from_zip=None):
-        """Create product variant with option values using stored option names"""
+        """Create product variant with option values."""
         variant_price = safe_value(row.get("variant price"))
         variant_stock = safe_value(row.get("variant stock"))
         variant_image_val = safe_value(row.get("variant image"))
 
-        # Skip if no variant data or if this is the main product row without variant-specific data
         if variant_price is None and variant_stock is None:
             return None
 
-        # Use product price/stock as fallback
-        if variant_price is None:
-            variant_price = product.price
-        if variant_stock is None:
-            variant_stock = product.stock or 0
-
         variant = ProductVariant(
             product=product,
-            price=variant_price,
-            stock=variant_stock,
+            price=variant_price if variant_price is not None else product.price,
+            stock=variant_stock if variant_stock is not None else (product.stock or 0),
         )
 
-        # Handle variant image (from ZIP or URL)
         if variant_image_val:
-            # Try ZIP first if it doesn't look like a URL
             if images_from_zip and not str(variant_image_val).startswith((
                 "http://",
                 "https://",
@@ -1016,7 +1016,6 @@ class BulkProductUploadView(APIView):
                 if variant_file:
                     variant.image.save(variant_file.name, variant_file, save=False)
             else:
-                # Fallback to URL download
                 variant_file, variant_filename = download_image_from_url(
                     variant_image_val, upload_to="variant_images"
                 )
@@ -1025,27 +1024,20 @@ class BulkProductUploadView(APIView):
 
         variant.save()
 
-        # Add option values to variant using the stored option names
-        option_values_added = []
         for option_num, option_name in option_names.items():
-            # For variant rows, use the stored option names
             values_col_name = f"option{option_num} values"
             option_value_str = safe_value(row.get(values_col_name))
+            if not option_value_str:
+                continue
 
-            if option_value_str:
-                # Find the option (should already exist from main row)
-                option = ProductOption.objects.filter(
-                    product=product, name=option_name
-                ).first()
+            option = ProductOption.objects.filter(
+                product=product, name=option_name
+            ).first()
 
-                if option:
-                    # Find or create the option value
-                    option_value, created = ProductOptionValue.objects.get_or_create(
-                        option=option, value=option_value_str
-                    )
-
-                    # Add to variant
-                    variant.option_values.add(option_value)
-                    option_values_added.append(f"{option_name}: {option_value_str}")
+            if option:
+                option_value, _ = ProductOptionValue.objects.get_or_create(
+                    option=option, value=option_value_str
+                )
+                variant.option_values.add(option_value)
 
         return variant
