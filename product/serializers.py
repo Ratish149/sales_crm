@@ -238,58 +238,43 @@ class ProductSerializer(serializers.ModelSerializer):
         return options_data
 
     def to_internal_value(self, data):
-        """
-        Custom method to handle FormData with variant_image_* fields
-        and JSON string for variants
-        """
-        # Store variant images before validation
         self._variant_images_temp = {}
+        self._compositions_temp = None  # ADD THIS
 
-        # Create a mutable copy if needed
         if hasattr(data, "_mutable"):
             data._mutable = True
-
-        # Make a copy to avoid modifying original
         if hasattr(data, "copy"):
             data = data.copy()
         else:
             data = dict(data)
 
-        # Collect variant images from individual form fields
         keys_to_remove = []
-
-        # First pass: collect all variant_image_* fields
         for key in list(data.keys()):
             if key.startswith("variant_image_"):
-                # Extract the index: variant_image_0 -> variant_0
                 index = key.replace("variant_image_", "")
-                variant_key = f"variant_image_{index}"  # Keep the full key name
+                variant_key = f"variant_image_{index}"
                 self._variant_images_temp[variant_key] = data[key]
                 keys_to_remove.append(key)
-
-        # Remove the individual variant_image_* fields from data
         for key in keys_to_remove:
             data.pop(key, None)
 
-        # Handle compositions JSON string if it's from FormData
+        # Parse compositions and stash them, then REMOVE from data
+        # so DRF doesn't try to validate them through the field
         if "compositions" in data and isinstance(data["compositions"], str):
             try:
-                decoded_compositions = json.loads(data["compositions"])
-                if hasattr(data, "setlist"):
-                    # For QueryDict, use setlist to ensure many=True serializers
-                    # receive a list of items
-                    data.setlist("compositions", decoded_compositions)
-                else:
-                    data["compositions"] = decoded_compositions
+                self._compositions_temp = json.loads(data["compositions"])
             except (json.JSONDecodeError, TypeError):
                 pass
+            data.pop("compositions", None)  # Remove so DRF skips it
 
-        # Call parent to do normal validation
         validated = super().to_internal_value(data)
 
-        # Add our collected variant images to validated data
         if self._variant_images_temp:
             validated["variant_images"] = self._variant_images_temp
+
+        # Inject parsed compositions back into validated data
+        if self._compositions_temp is not None:
+            validated["compositions"] = self._compositions_temp
 
         return validated
 
@@ -320,7 +305,16 @@ class ProductSerializer(serializers.ModelSerializer):
 
         # Create compositions
         for comp_data in compositions_data:
-            ProductComposition.objects.create(product=product, **comp_data)
+            # comp_data is a raw dict like {"metric": 2, "quantity": 12}
+            # so we need to resolve the metric FK manually
+            metric_id = comp_data.get("metric")
+            quantity = comp_data.get("quantity")
+            if metric_id and quantity is not None:
+                ProductComposition.objects.create(
+                    product=product,
+                    metric_id=metric_id,  # use _id suffix to avoid extra query
+                    quantity=quantity,
+                )
 
         # Create images
         for img in image_files:
