@@ -15,6 +15,12 @@ class ClientSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class ClientUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Client
+        fields = "__all__"
+
+
 class DomainSerializer(serializers.ModelSerializer):
     tenant = ClientSerializer(read_only=True)
 

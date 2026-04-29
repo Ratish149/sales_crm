@@ -35,9 +35,9 @@ from tenants.models import (
     TemplateCategory,
     TemplateSubCategory,
 )
+from tenants.serializers import ClientUpdateSerializer
 
 from .serializers import (
-    ClientSerializer,
     DomainSerializer,
     TemplateCategorySerializer,
     TemplateSubCategorySerializer,
@@ -525,4 +525,4 @@ class ClientRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     """
 
     queryset = Client.objects.all()
-    serializer_class = ClientSerializer
+    serializer_class = ClientUpdateSerializer
