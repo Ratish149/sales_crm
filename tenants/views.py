@@ -37,6 +37,7 @@ from tenants.models import (
 )
 
 from .serializers import (
+    ClientSerializer,
     DomainSerializer,
     TemplateCategorySerializer,
     TemplateSubCategorySerializer,
@@ -516,3 +517,12 @@ class TenantDomainView(generics.ListCreateAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return response
+
+
+class ClientRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
+    """
+    Retrieve or update a Client (tenant) instance.
+    """
+
+    queryset = Client.objects.all()
+    serializer_class = ClientSerializer

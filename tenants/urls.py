@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ClientRetrieveUpdateAPIView,
     ClientTokenByIdAPIView,
     DomainDetailView,
     DomainView,
@@ -60,5 +61,10 @@ urlpatterns = [
         "internal/repo-url/<str:schema_name>/",
         TenantInternalRepoView.as_view(),
         name="internal-tenant-repo",
+    ),
+    path(
+        "client/<int:pk>/",
+        ClientRetrieveUpdateAPIView.as_view(),
+        name="client-update",
     ),
 ]
