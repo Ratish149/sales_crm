@@ -99,6 +99,11 @@ urlpatterns = [
     path("reset-ui/", views.ResetUIView.as_view(), name="reset-ui"),
     path("import-template/", views.import_template, name="import-template"),
     path(
+        "import-template-published/",
+        views.import_template_published,
+        name="import-template-published",
+    ),
+    path(
         "global-bulk-create/",
         views.GlobalBulkCreateView.as_view(),
         name="global-bulk-create",

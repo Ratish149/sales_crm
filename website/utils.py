@@ -285,3 +285,30 @@ def import_template_to_tenant(template_client, target_client):
             )
 
     return True
+
+
+def import_template_to_tenant_published(template_client, target_client):
+    """
+    Imports a template to a tenant and automatically publishes all the imported drafts,
+    replacing the entire published site with the new template.
+    """
+    # First, import the template (this creates drafts and deletes old drafts)
+    import_template_to_tenant(template_client, target_client)
+
+    with schema_context(target_client.schema_name):
+        # Delete existing published items to fully replace the site
+        PageComponent.objects.filter(status="published").delete()
+        Page.objects.filter(status="published").delete()
+        Theme.objects.filter(status="published").delete()
+
+        # Publish the newly imported drafts
+        for theme in Theme.objects.filter(status="draft"):
+            publish_instance(theme)
+
+        for page in Page.objects.filter(status="draft"):
+            publish_instance(page)
+
+        for comp in PageComponent.objects.filter(status="draft"):
+            publish_instance(comp)
+
+    return True

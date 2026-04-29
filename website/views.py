@@ -28,7 +28,11 @@ from .serializers import (
     SiteConfigSerializer,
     ThemeSerializer,
 )
-from .utils import import_template_to_tenant, publish_instance
+from .utils import (
+    import_template_to_tenant,
+    import_template_to_tenant_published,
+    publish_instance,
+)
 
 
 class SiteConfigListCreateView(generics.ListCreateAPIView):
@@ -822,6 +826,23 @@ def import_template(request):
     import_template_to_tenant(template_client, target_client)
 
     return Response({"status": "Template imported successfully!"})
+
+
+@api_view(["POST"])
+@authentication_classes([TenantJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def import_template_published(request):
+    template_id = request.data.get("template_id")
+    template_client = Client.objects.get(id=template_id)
+
+    if not template_client.is_template_account:
+        return Response({"error": "Not a template account"}, status=400)
+
+    target_client = request.tenant  # the user's tenant
+
+    import_template_to_tenant_published(template_client, target_client)
+
+    return Response({"status": "Template imported and published successfully!"})
 
 
 # ------------------------------
