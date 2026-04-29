@@ -35,6 +35,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.utils import generate_fresh_tokens
 from blog.views import CustomPagination
 from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
@@ -163,7 +164,7 @@ class CustomSignupView(APIView):
                         pricing_plan=free_plan,
                         paid_until=paid_until,
                     )
-                    
+
                     EmailAddress.objects.create(
                         email=user.email,
                         user=user,
@@ -179,6 +180,7 @@ class CustomSignupView(APIView):
 
                     # Initialise the SMSSetting singleton for the new tenant schema
                     from sms.models import SMSSetting  # noqa: PLC0415
+
                     with schema_context(storeName):
                         SMSSetting.objects.get_or_create(pk=1)
 
@@ -974,3 +976,25 @@ class UserDataAPIView(APIView):
 
         serializer = UserDataSerializer(user_data)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RefreshFreshAccessTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        # Example: update website_type first if sent
+        website_type = request.data.get("website_type")
+        if website_type is not None:
+            user.website_type = website_type
+            user.save()
+
+        # Generate fresh access + refresh tokens
+        tokens = generate_fresh_tokens(user)
+
+        return Response({
+            "message": "Fresh tokens generated successfully",
+            "access": tokens["access"],
+            "refresh": tokens["refresh"],
+        })

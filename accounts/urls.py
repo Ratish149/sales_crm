@@ -9,6 +9,7 @@ from .views import (
     CustomVerifyEmailView,
     InvitationCreateView,
     PasswordChangeView,
+    RefreshFreshAccessTokenView,
     RequestPasswordResetAPIView,
     ResendEmailVerificationView,
     ResendInvitationView,
@@ -86,4 +87,9 @@ urlpatterns = [
     ),
     path("templates/use/", UseTemplateView.as_view(), name="use-template"),
     path("user-data/", UserDataAPIView.as_view(), name="user-data"),
+    path(
+        "refresh-access/",
+        RefreshFreshAccessTokenView.as_view(),
+        name="refresh_fresh_access",
+    ),
 ]

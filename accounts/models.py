@@ -15,6 +15,7 @@ class CustomUser(AbstractUser):
     WEBSITE_TYPE = (
         ("ecommerce", "ecommerce"),
         ("service", "service"),
+        ("portfolio", "portfolio"),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="viewer")
     phone_number = models.CharField(max_length=255, null=True, blank=True)
