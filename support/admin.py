@@ -6,6 +6,7 @@ from .models import (
     Contact,
     FAQCategory,
     NepdoraTestimonial,
+    Newsletter,
     Showcase,
     VideoTestimonial,
 )
@@ -51,3 +52,8 @@ class VideoTestimonialAdmin(admin.ModelAdmin):
         if db_field.name == "description":
             return db_field.formfield(widget=TinyMCE())
         return super().formfield_for_dbfield(db_field, **kwargs)
+
+
+@admin.register(Newsletter)
+class NewsletterAdmin(admin.ModelAdmin):
+    list_display = ("email", "created_at", "updated_at")
