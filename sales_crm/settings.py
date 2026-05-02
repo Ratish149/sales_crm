@@ -228,6 +228,7 @@ DATABASES = {
         "HOST": "localhost",
         "PORT": "",
         "OPTIONS": {"options": "-c search_path=public"},
+        "CONN_MAX_AGE": 0,
     }
 }
 
