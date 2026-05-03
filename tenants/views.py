@@ -6,7 +6,7 @@ import os
 from django.core.exceptions import ValidationError
 
 # import requests
-from django.db import connection, transaction
+from django.db import close_old_connections, connection, transaction
 from django.db.utils import IntegrityError
 
 # from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
@@ -119,10 +119,13 @@ class DomainFilter(django_filters.FilterSet):
         clients = Client.objects.exclude(schema_name="public")
 
         for client in clients:
-            with schema_context(client.schema_name):
-                # Check if any payment gateway is enabled for this tenant
-                if Payment.objects.filter(is_enabled=True).exists():
-                    enabled_tenant_ids.append(client.id)
+            try:
+                with schema_context(client.schema_name):
+                    # Check if any payment gateway is enabled for this tenant
+                    if Payment.objects.filter(is_enabled=True).exists():
+                        enabled_tenant_ids.append(client.id)
+            finally:
+                close_old_connections()
 
         if value.lower() == "enabled":
             return queryset.filter(tenant_id__in=enabled_tenant_ids)
@@ -325,6 +328,8 @@ class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        finally:
+            close_old_connections()
 
 
 class ClientTokenByIdAPIView(APIView):

@@ -191,7 +191,8 @@ CHANNEL_LAYERS = {
 } """
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
     }
 }
 
@@ -216,6 +217,7 @@ CACHES = {
         "OPTIONS": {
             "options": "-c search_path=public"  # important for first migration
         },
+        "CONN_MAX_AGE": 60,
     }
 } """
 
@@ -225,8 +227,8 @@ DATABASES = {
         "NAME": os.getenv("DB_NAME"),
         "USER": os.getenv("DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": "localhost",
-        "PORT": "",
+        "HOST": "127.0.0.1",
+        "PORT": "6432",
         "OPTIONS": {"options": "-c search_path=public"},
         "CONN_MAX_AGE": 0,
     }

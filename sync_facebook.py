@@ -12,6 +12,7 @@ django.setup()
 # ---------------------------
 # Imports
 # ---------------------------
+from django.db import close_old_connections
 from django_tenants.utils import schema_context
 
 from facebook.models import Facebook
@@ -44,7 +45,8 @@ def sync_all_tenants():
                     sync_messages_for_conversation(conv)
             except Facebook.DoesNotExist:
                 print(f"⚠️ Facebook page not found in tenant {tenant.schema_name}")
-                continue
+            finally:
+                close_old_connections()
 
     print("✅ All tenants synced.")
 

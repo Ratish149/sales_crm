@@ -216,13 +216,20 @@ class SubscriptionMiddleware(MiddlewareMixin):
         Determine if tenant's subscription is active.
         Lifetime plans or paid_until in future are considered active.
         """
-        if not tenant.pricing_plan:
-            return False  # No plan => inactive
+        cache_key = f"tenant_{tenant.schema_name}_sub_active"
+        is_active = cache.get(cache_key)
+        if is_active is not None:
+            return is_active
 
-        if tenant.paid_until is None:
-            return True  # Lifetime plan => active
+        if not getattr(tenant, "pricing_plan_id", tenant.pricing_plan):
+            is_active = False  # No plan => inactive
+        elif tenant.paid_until is None:
+            is_active = True  # Lifetime plan => active
+        else:
+            is_active = tenant.paid_until >= date.today()
 
-        return tenant.paid_until >= date.today()
+        cache.set(cache_key, is_active, timeout=300)
+        return is_active
 
 
 class CustomDomainTenantMiddleware:
@@ -252,11 +259,16 @@ class CustomDomainTenantMiddleware:
 
         try:
             # 4. Lookup Tenant
-            DomainModel = get_tenant_domain_model()
-            domain_obj = DomainModel.objects.select_related("tenant").get(
-                domain=hostname
-            )
-            tenant = domain_obj.tenant
+            cache_key = f"domain_tenant_{hostname}"
+            tenant = cache.get(cache_key)
+
+            if not tenant:
+                DomainModel = get_tenant_domain_model()
+                domain_obj = DomainModel.objects.select_related("tenant").get(
+                    domain=hostname
+                )
+                tenant = domain_obj.tenant
+                cache.set(cache_key, tenant, timeout=300)
 
             # 5. Set the Schema
             connection.set_tenant(tenant)

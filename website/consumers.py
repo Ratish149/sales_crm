@@ -42,86 +42,96 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
         action = data.get("action")
 
-        # Switch context to the tenant schema
-        await self.set_tenant_context()
+        try:
+            # Switch context to the tenant schema
+            await self.set_tenant_context()
 
-        if action == "get_site_config":
-            await self.get_site_config()
-        elif action == "update_site_config":
-            await self.update_site_config(data)
-        elif action == "list_themes":
-            await self.list_themes(data)
-        elif action == "update_theme":
-            await self.update_theme(data)
-        elif action == "publish_theme":
-            await self.publish_theme(data)
-        elif action == "create_theme":
-            await self.create_theme(data)
-        elif action == "delete_theme":
-            await self.delete_theme(data)
-        elif action == "list_pages":
-            await self.list_pages(data)
-        elif action == "create_page":
-            await self.create_page(data)
-        elif action == "update_page":
-            await self.update_page(data)
-        elif action == "publish_page":
-            await self.publish_page(data)
-        elif action == "delete_page":
-            await self.delete_page(data)
-        elif action == "list_components":
-            await self.list_components(data)
-        elif action == "create_component":
-            await self.create_component(data)
-        elif action == "update_component":
-            await self.update_component(data)
-        elif action == "update_component_order":
-            await self.update_component_order(data)
-        elif action == "publish_component":
-            await self.publish_component(data)
-        elif action == "replace_component":
-            await self.replace_component(data)
-        elif action == "delete_component":
-            await self.delete_component(data)
-        elif action == "get_navbar":
-            await self.get_navbar(data)
-        elif action == "create_navbar":
-            await self.create_navbar(data)
-        elif action == "update_navbar":
-            await self.update_navbar(data)
-        elif action == "publish_navbar":
-            await self.publish_navbar(data)
-        elif action == "replace_navbar":
-            await self.replace_navbar(data)
-        elif action == "delete_navbar":
-            await self.delete_navbar(data)
-        elif action == "get_footer":
-            await self.get_footer(data)
-        elif action == "create_footer":
-            await self.create_footer(data)
-        elif action == "update_footer":
-            await self.update_footer(data)
-        elif action == "publish_footer":
-            await self.publish_footer(data)
-        elif action == "replace_footer":
-            await self.replace_footer(data)
-        elif action == "delete_footer":
-            await self.delete_footer(data)
-        elif action == "publish_all":
-            await self.publish_all()
-        elif action == "reset_ui":
-            await self.reset_ui()
-        elif action == "import_template":
-            await self.import_template(data)
-        else:
-            await self.send(
-                text_data=json.dumps({"error": f"Unknown action: {action}"})
-            )
+            if action == "get_site_config":
+                await self.get_site_config()
+            elif action == "update_site_config":
+                await self.update_site_config(data)
+            elif action == "list_themes":
+                await self.list_themes(data)
+            elif action == "update_theme":
+                await self.update_theme(data)
+            elif action == "publish_theme":
+                await self.publish_theme(data)
+            elif action == "create_theme":
+                await self.create_theme(data)
+            elif action == "delete_theme":
+                await self.delete_theme(data)
+            elif action == "list_pages":
+                await self.list_pages(data)
+            elif action == "create_page":
+                await self.create_page(data)
+            elif action == "update_page":
+                await self.update_page(data)
+            elif action == "publish_page":
+                await self.publish_page(data)
+            elif action == "delete_page":
+                await self.delete_page(data)
+            elif action == "list_components":
+                await self.list_components(data)
+            elif action == "create_component":
+                await self.create_component(data)
+            elif action == "update_component":
+                await self.update_component(data)
+            elif action == "update_component_order":
+                await self.update_component_order(data)
+            elif action == "publish_component":
+                await self.publish_component(data)
+            elif action == "replace_component":
+                await self.replace_component(data)
+            elif action == "delete_component":
+                await self.delete_component(data)
+            elif action == "get_navbar":
+                await self.get_navbar(data)
+            elif action == "create_navbar":
+                await self.create_navbar(data)
+            elif action == "update_navbar":
+                await self.update_navbar(data)
+            elif action == "publish_navbar":
+                await self.publish_navbar(data)
+            elif action == "replace_navbar":
+                await self.replace_navbar(data)
+            elif action == "delete_navbar":
+                await self.delete_navbar(data)
+            elif action == "get_footer":
+                await self.get_footer(data)
+            elif action == "create_footer":
+                await self.create_footer(data)
+            elif action == "update_footer":
+                await self.update_footer(data)
+            elif action == "publish_footer":
+                await self.publish_footer(data)
+            elif action == "replace_footer":
+                await self.replace_footer(data)
+            elif action == "delete_footer":
+                await self.delete_footer(data)
+            elif action == "publish_all":
+                await self.publish_all()
+            elif action == "reset_ui":
+                await self.reset_ui()
+            elif action == "import_template":
+                await self.import_template(data)
+            else:
+                await self.send(
+                    text_data=json.dumps({"error": f"Unknown action: {action}"})
+                )
+        finally:
+            await self.cleanup_connections()
+
+    @sync_to_async
+    def cleanup_connections(self):
+        from django.db import close_old_connections
+
+        close_old_connections()
 
     @sync_to_async
     def set_tenant_context(self):
-        from django.db import connection
+        from django.db import close_old_connections, connection
 
+        close_old_connections()
         connection.set_schema(self.schema_name)
 
     # --- Site Config ---

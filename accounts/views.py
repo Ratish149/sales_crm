@@ -17,7 +17,7 @@ from allauth.account.utils import (
 )
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.db import connection, transaction
+from django.db import close_old_connections, connection, transaction
 from django.db.models import Q
 from django.http import Http404
 from django.template.loader import render_to_string
@@ -638,6 +638,8 @@ class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
                 {"error": f"Failed to delete user and drop tenant schema: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        finally:
+            close_old_connections()
 
 
 class UserSoftDeleteAPIView(APIView):
