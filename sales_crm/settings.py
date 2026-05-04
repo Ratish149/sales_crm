@@ -21,6 +21,7 @@ load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
+OLLAMA_KEY = os.getenv("OLLAMA_KEY")
 
 USE_SPACES = False
 
@@ -245,7 +246,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://arrangements-advertising-ability-flow.trycloudflare.com",
+    "https://capital-due-holmes-modelling.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -254,7 +255,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://arrangements-advertising-ability-flow.trycloudflare.com",
+    "https://capital-due-holmes-modelling.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

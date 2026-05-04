@@ -2,16 +2,28 @@ from rest_framework import serializers
 
 
 class BlogPromptSerializer(serializers.Serializer):
-    """Serializer for the incoming generation request."""
+    """Serializer for the incoming blog generation request."""
 
     prompt = serializers.CharField(
         required=True,
         help_text="The topic or detailed instructions for the blog generation.",
     )
+    multiple = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If true, generate multiple blog posts instead of one.",
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=3,
+        min_value=1,
+        max_value=10,
+        help_text="Number of blog posts to generate when multiple=true (1-10).",
+    )
 
 
-class BlogResponseSerializer(serializers.Serializer):
-    """Serializer for the structured blog response from AI."""
+class BlogItemSerializer(serializers.Serializer):
+    """A single blog item inside a multiple-blog response."""
 
     title = serializers.CharField()
     content = serializers.CharField()
@@ -21,14 +33,43 @@ class BlogResponseSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField())
 
 
+class BlogResponseSerializer(serializers.Serializer):
+    """Serializer for a single blog response from AI."""
+
+    title = serializers.CharField()
+    content = serializers.CharField()
+    time_to_read = serializers.CharField()
+    meta_title = serializers.CharField()
+    meta_description = serializers.CharField()
+    tags = serializers.ListField(child=serializers.CharField())
+
+
+class MultipleBlogResponseSerializer(serializers.Serializer):
+    """Serializer for a batch of blog responses from AI."""
+
+    blogs = BlogItemSerializer(many=True)
+
+
 class ServicePromptSerializer(serializers.Serializer):
     """Serializer for the incoming service generation request."""
 
     prompt = serializers.CharField(required=True)
+    multiple = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If true, generate multiple services instead of one.",
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=3,
+        min_value=1,
+        max_value=10,
+        help_text="Number of services to generate when multiple=true (1-10).",
+    )
 
 
-class ServiceResponseSerializer(serializers.Serializer):
-    """Serializer for the structured service response from AI."""
+class ServiceItemSerializer(serializers.Serializer):
+    """A single service inside a multiple-service response."""
 
     title = serializers.CharField()
     description = serializers.CharField()
@@ -36,14 +77,41 @@ class ServiceResponseSerializer(serializers.Serializer):
     meta_description = serializers.CharField()
 
 
+class ServiceResponseSerializer(serializers.Serializer):
+    """Serializer for a single service response from AI."""
+
+    title = serializers.CharField()
+    description = serializers.CharField()
+    meta_title = serializers.CharField()
+    meta_description = serializers.CharField()
+
+
+class MultipleServiceResponseSerializer(serializers.Serializer):
+    """Serializer for a batch of service responses from AI."""
+
+    services = ServiceItemSerializer(many=True)
+
+
 class PortfolioPromptSerializer(serializers.Serializer):
     """Serializer for the incoming portfolio generation request."""
 
     prompt = serializers.CharField(required=True)
+    multiple = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If true, generate multiple portfolio items instead of one.",
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=3,
+        min_value=1,
+        max_value=10,
+        help_text="Number of portfolio items to generate when multiple=true (1-10).",
+    )
 
 
-class PortfolioResponseSerializer(serializers.Serializer):
-    """Serializer for the structured portfolio response from AI."""
+class PortfolioItemSerializer(serializers.Serializer):
+    """A single portfolio item inside a multiple-portfolio response."""
 
     title = serializers.CharField()
     content = serializers.CharField()
@@ -52,10 +120,26 @@ class PortfolioResponseSerializer(serializers.Serializer):
     tags = serializers.ListField(child=serializers.CharField())
 
 
+class PortfolioResponseSerializer(serializers.Serializer):
+    """Serializer for a single portfolio response from AI."""
+
+    title = serializers.CharField()
+    content = serializers.CharField()
+    meta_title = serializers.CharField()
+    meta_description = serializers.CharField()
+    tags = serializers.ListField(child=serializers.CharField())
+
+
+class MultiplePortfolioResponseSerializer(serializers.Serializer):
+    """Serializer for a batch of portfolio responses from AI."""
+
+    portfolios = PortfolioItemSerializer(many=True)
+
+
 class ProductImagePromptSerializer(serializers.Serializer):
     """Serializer for the incoming product generation request from image."""
 
-    image = serializers.ImageField(
+    image = serializers.FileField(
         required=True, help_text="The product image to generate details from."
     )
 
@@ -86,34 +170,81 @@ class TestimonialPromptSerializer(serializers.Serializer):
     """Serializer for the incoming testimonial generation request."""
 
     prompt = serializers.CharField(required=True)
-    generate_image = serializers.BooleanField(
+    multiple = serializers.BooleanField(
         required=False,
-        default=True,
-        help_text="Whether to also generate a profile image.",
+        default=False,
+        help_text="If true, generate multiple testimonials instead of one.",
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=3,
+        min_value=1,
+        max_value=20,
+        help_text="Number of testimonials to generate when multiple=true (1-20).",
     )
 
 
-class TestimonialResponseSerializer(serializers.Serializer):
-    """Serializer for the structured testimonial response from AI."""
+class TestimonialItemSerializer(serializers.Serializer):
+    """A single testimonial inside a multiple-testimonial response."""
 
     name = serializers.CharField()
     designation = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
     )
     comment = serializers.CharField()
-    image_base64 = serializers.CharField(
+    image = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
+
+class TestimonialResponseSerializer(serializers.Serializer):
+    """Serializer for a single testimonial response from AI."""
+
+    name = serializers.CharField()
+    designation = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
     )
+    comment = serializers.CharField()
+    image = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+
+
+class MultipleTestimonialResponseSerializer(serializers.Serializer):
+    """Serializer for a batch of testimonials from AI."""
+
+    testimonials = TestimonialItemSerializer(many=True)
 
 
 class FAQPromptSerializer(serializers.Serializer):
     """Serializer for the incoming FAQ generation request."""
 
     prompt = serializers.CharField(required=True)
+    multiple = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="If true, generate multiple FAQs instead of one.",
+    )
+    count = serializers.IntegerField(
+        required=False,
+        default=5,
+        min_value=1,
+        max_value=20,
+        help_text="Number of FAQs to generate when multiple=true (1-20).",
+    )
 
 
-class FAQResponseSerializer(serializers.Serializer):
-    """Serializer for the structured FAQ response from AI."""
+class FAQItemSerializer(serializers.Serializer):
+    """A single FAQ item inside a multiple-FAQ response."""
 
     question = serializers.CharField()
     answer = serializers.CharField()
+
+
+class FAQResponseSerializer(serializers.Serializer):
+    """Serializer for a single FAQ response from AI."""
+
+    question = serializers.CharField()
+    answer = serializers.CharField()
+
+
+class MultipleFAQResponseSerializer(serializers.Serializer):
+    """Serializer for a batch of FAQ responses from AI."""
+
+    faqs = FAQItemSerializer(many=True)

@@ -25,8 +25,8 @@ class FAQ(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return self.question
-
     class Meta:
         unique_together = ("question", "answer")
+
+    def __str__(self):
+        return self.question

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    BulkCreateFAQView,
     FAQCategoryListCreateView,
     FAQCategoryRetrieveUpdateDestroyView,
     FAQListCreateView,
@@ -18,6 +19,7 @@ urlpatterns = [
         FAQCategoryRetrieveUpdateDestroyView.as_view(),
         name="faq-category-retrieve-update-destroy",
     ),
+    path("faq-bulk-create/", BulkCreateFAQView.as_view(), name="faq-bulk-create"),
     path("faq/", FAQListCreateView.as_view(), name="faq-list-create"),
     path(
         "faq/<int:pk>/",

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ServiceBulkCreateView,
     ServiceCategoryListCreateView,
     ServiceCategoryRetrieveUpdateDestroyView,
     ServiceListCreateView,
@@ -9,6 +10,11 @@ from .views import (
 
 urlpatterns = [
     path("service/", ServiceListCreateView.as_view(), name="service_list_create"),
+    path(
+        "service-bulk-create/",
+        ServiceBulkCreateView.as_view(),
+        name="service_bulk_create",
+    ),
     path(
         "service/<slug:slug>/",
         ServiceRetrieveUpdateDestroyView.as_view(),

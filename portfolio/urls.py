@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    PortfolioBulkCreateView,
     PortfolioCategoryListCreateAPIView,
     PortfolioCategoryRetrieveUpdateDestroyAPIView,
     PortfolioImageListCreateAPIView,
@@ -12,6 +13,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "portfolio-bulk-create/",
+        PortfolioBulkCreateView.as_view(),
+        name="portfolio_bulk_create",
+    ),
     path(
         "portfolio/category/",
         PortfolioCategoryListCreateAPIView.as_view(),

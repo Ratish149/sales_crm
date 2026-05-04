@@ -45,3 +45,21 @@ class ServiceListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class BulkCreateServiceItemSerializer(serializers.Serializer):
+    """Serializer for a single service item inside the bulk create request."""
+
+    title = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+    meta_title = serializers.CharField(required=False, allow_blank=True, default="")
+    meta_description = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+    service_category_name = serializers.CharField(required=False, allow_blank=True)
+
+
+class BulkCreateServiceSerializer(serializers.Serializer):
+    """Serializer for the bulk service creation request body."""
+
+    services = BulkCreateServiceItemSerializer(many=True, min_length=1)

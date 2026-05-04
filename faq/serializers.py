@@ -22,3 +22,16 @@ class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ["id", "question", "answer", "category", "category_id"]
+
+
+class BulkCreateFAQItemSerializer(serializers.Serializer):
+    """Serializer for a single FAQ item inside the bulk create request."""
+
+    question = serializers.CharField(max_length=500)
+    answer = serializers.CharField(max_length=1000)
+
+
+class BulkCreateFAQSerializer(serializers.Serializer):
+    """Serializer for the bulk FAQ creation request body."""
+
+    faqs = BulkCreateFAQItemSerializer(many=True, min_length=1)

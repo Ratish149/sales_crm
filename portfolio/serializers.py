@@ -132,3 +132,31 @@ class PortfolioDetailSerializer(PortfolioSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class BulkCreatePortfolioItemSerializer(serializers.Serializer):
+    """Serializer for a single portfolio item inside the bulk create request."""
+
+    title = serializers.CharField(max_length=255)
+    content = serializers.CharField()
+    thumbnail_image_alt_description = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=""
+    )
+    category_name = serializers.CharField(required=False, allow_blank=True)
+    tag_names = serializers.ListField(
+        child=serializers.CharField(allow_blank=False),
+        required=False,
+        default=list,
+    )
+    project_url = serializers.URLField(required=False, allow_blank=True, default="")
+    github_url = serializers.URLField(required=False, allow_blank=True, default="")
+    meta_title = serializers.CharField(required=False, allow_blank=True, default="")
+    meta_description = serializers.CharField(
+        required=False, allow_blank=True, default=""
+    )
+
+
+class BulkCreatePortfolioSerializer(serializers.Serializer):
+    """Serializer for the bulk portfolio creation request body."""
+
+    portfolios = BulkCreatePortfolioItemSerializer(many=True, min_length=1)
