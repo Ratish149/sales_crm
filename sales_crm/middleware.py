@@ -51,7 +51,7 @@ TENANT_REQUIRED_PATTERNS = [
 ]
 
 RATE_LIMIT = (
-    3000  # requests per minute (50 req/sec) - suitable for active website building
+    200000  # requests per minute (50 req/sec) - suitable for active website building
 )
 
 RATE_LIMIT_BLOCK_SECONDS = (
