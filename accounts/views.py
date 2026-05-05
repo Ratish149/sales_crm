@@ -106,6 +106,18 @@ class CustomSignupView(APIView):
             )
 
         # Validate unique store_name schema
+        if store_name:
+            store_slug = slugify(store_name)
+            if Client.objects.filter(schema_name=store_slug).exists():
+                return duplicate_entry(
+                    message=f"Store name '{store_name}' is already taken. Please choose a different one.",
+                    params={"store_name": store_name},
+                )
+            if store_slug in ["public", "default", "postgres"]:
+                return bad_request(
+                    message=f"Store name '{store_name}' is reserved and cannot be used.",
+                    params={"store_name": store_name},
+                )
 
         try:
             with transaction.atomic():
@@ -127,20 +139,6 @@ class CustomSignupView(APIView):
                 # Save user
                 user.save()
                 storeName = slugify(store_name)
-                if store_name:
-                    if Client.objects.filter(schema_name=store_name).exists():
-                        # Manually rollback by raising exception if not automatic?
-                        # Return response here will NOT rollback unless I raise Exception.
-                        # But this is a return, so it exits the function.
-                        # Wait, if I return here, the transaction block exits normally?
-                        # No, I should check existing clients BEFORE starting transaction or raise error.
-                        pass  # Check below
-
-                if store_name:
-                    if Client.objects.filter(schema_name=store_name).exists():
-                        raise Exception(f"Store name '{store_name}' is already taken.")
-                    if store_name in ["public", "default", "postgres"]:
-                        raise Exception(f"Store name '{store_name}' is reserved.")
 
                 # Create StoreProfile & Tenant
                 if storeName:
