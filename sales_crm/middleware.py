@@ -104,31 +104,55 @@ RATE_LIMIT_BLOCK_SECONDS = (
 
 #         return None
 
+WHITELISTED_IPS = {
+    "127.0.0.1",
+    "::1",
+    "172.188.98.151 ",
+}
+
 
 class RateLimitMiddleware(MiddlewareMixin):
     """
     Rate limit requests based on IP address.
+    Skips trusted internal/build/server traffic.
     """
 
     def process_request(self, request):
         ip = self.get_client_ip(request)
+
         if not ip:
             return None
 
-        # Check if IP is blocked
-        if cache.get(f"blocked:{ip}"):
+        # Skip internal server requests
+        if ip in WHITELISTED_IPS:
+            return None
+
+        # Optional: skip health checks/internal calls
+        user_agent = request.META.get("HTTP_USER_AGENT", "").lower()
+        if "node" in user_agent or "next" in user_agent:
+            return None
+
+        # Check if blocked
+        blocked_key = f"blocked:{ip}"
+        if cache.get(blocked_key):
             return JsonResponse(
                 {"detail": "Too Many Requests - IP Blocked"},
                 status=429,
             )
 
-        # Increment request count
-        key = f"ratelimit:{ip}"
-        cache.get_or_set(key, 0, timeout=60)
-        count = cache.incr(key)
+        # Rate limit counter
+        rate_key = f"ratelimit:{ip}"
+
+        try:
+            cache.add(rate_key, 0, timeout=60)
+            count = cache.incr(rate_key)
+        except ValueError:
+            # fallback if cache key disappears
+            cache.set(rate_key, 1, timeout=60)
+            count = 1
 
         if count > RATE_LIMIT:
-            cache.set(f"blocked:{ip}", True, timeout=RATE_LIMIT_BLOCK_SECONDS)
+            cache.set(blocked_key, True, timeout=RATE_LIMIT_BLOCK_SECONDS)
             return JsonResponse(
                 {"detail": "Too Many Requests - IP Blocked"},
                 status=429,
@@ -138,11 +162,11 @@ class RateLimitMiddleware(MiddlewareMixin):
 
     def get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+
         if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
-        else:
-            ip = request.META.get("REMOTE_ADDR")
-        return ip
+            return x_forwarded_for.split(",")[0].strip()
+
+        return request.META.get("REMOTE_ADDR")
 
 
 class CSRFExemptForAllauthHeadless:
