@@ -76,3 +76,11 @@ def generate_fresh_tokens(user):
         "access": str(refresh.access_token),
         "refresh": str(refresh),
     }
+
+
+def log_user_activity(user, action, description, metadata=None):
+    from .models import UserActivity
+
+    UserActivity.objects.create(
+        user=user, action=action, description=description, metadata=metadata or {}
+    )

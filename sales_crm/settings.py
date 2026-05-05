@@ -82,6 +82,7 @@ SHARED_APPS = [
     "project_runner",
     "nepdora_blog",
     "nepdora_payment",
+    "dashboard",
 ]
 
 

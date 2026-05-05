@@ -5,7 +5,7 @@ import cloudinary.uploader
 from dotenv import load_dotenv
 from rest_framework import serializers
 
-from .models import CustomUser, Invitation, StoreProfile
+from .models import CustomUser, Invitation, StoreProfile, UserActivity
 
 load_dotenv()
 
@@ -71,6 +71,16 @@ class AcceptInvitationSerializer(serializers.Serializer):
 
         # Accept the invitation (this will add user to store and handle roles)
         invitation.accept(user)
+
+        # Log activity: Signup via Invitation
+        from .utils import log_user_activity
+
+        log_user_activity(
+            user=user,
+            action="signup",
+            description=f"User signed up via invitation for email {user.email}",
+            metadata={"email": user.email, "invitation_id": invitation.id},
+        )
 
         return user
 
@@ -231,3 +241,20 @@ class UserDataSerializer(serializers.Serializer):
     email = serializers.EmailField()
     role = serializers.CharField()
     client = ClientDataSerializer(allow_null=True)
+
+
+class UserActivitySerializer(serializers.ModelSerializer):
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = UserActivity
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "action",
+            "description",
+            "timestamp",
+            "metadata",
+        ]
+        read_only_fields = ["timestamp"]

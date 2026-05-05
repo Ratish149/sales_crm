@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.utils import log_user_activity
 from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
 
@@ -72,6 +73,21 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        # Log activity: Subscription Purchase
+        log_user_activity(
+            user=self.request.user,
+            action="purchase_subscription",
+            description=f"User purchased subscription. Amount: {instance.pay_amount}, Type: {instance.payment_type}",
+            metadata={
+                "pay_amount": str(instance.pay_amount),
+                "payment_type": instance.payment_type,
+                "transaction_id": instance.transaction_id,
+                "tenant_name": instance.tenant.name,
+            },
+        )
 
 
 class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(

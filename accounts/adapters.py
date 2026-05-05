@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import StoreProfile
+from accounts.utils import log_user_activity
 from pricing.models import Pricing
 from tenants.models import Client, Domain
 from website.models import Page
@@ -166,6 +167,18 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
 
             with schema_context(schema_name):
                 SMSSetting.objects.get_or_create(pk=1)
+
+            # Log activity: Social Signup
+            log_user_activity(
+                user=user,
+                action="signup",
+                description=f"User signed up via social login ({sociallogin.account.provider}) with email {user.email} and store {store_name}",
+                metadata={
+                    "store_name": store_name,
+                    "email": user.email,
+                    "provider": sociallogin.account.provider,
+                },
+            )
 
         return user
 
@@ -336,6 +349,14 @@ class CustomAccountAdapter(DefaultAccountAdapter):
 
                 with schema_context(schema_name):
                     SMSSetting.objects.get_or_create(pk=1)
+
+                # Log activity: Signup
+                log_user_activity(
+                    user=user,
+                    action="signup",
+                    description=f"User signed up with email {user.email} and store {store_name}",
+                    metadata={"store_name": store_name, "email": user.email},
+                )
 
         return user
 

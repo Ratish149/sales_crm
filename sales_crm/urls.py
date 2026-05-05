@@ -66,6 +66,7 @@ urlpatterns = [
     path("api/", include("skills.urls")),
     path("api/", include("ai_generation.urls")),
     path("api/stats/", include("stats.urls")),
+    path("api/", include("dashboard.urls")),
     path("api/s3/", include("s3bucket.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

@@ -35,7 +35,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.utils import generate_fresh_tokens
+from accounts.utils import generate_fresh_tokens, log_user_activity
 from blog.views import CustomPagination
 from pricing.models import Pricing
 from sales_crm.utils.error_handler import (
@@ -54,6 +54,7 @@ from .serializers import (
     CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
+    UserActivitySerializer,
     UserDataSerializer,
     UserWithStoresSerializer,
 )
@@ -240,6 +241,14 @@ class CustomSignupView(APIView):
                 # Use strict requirement: "if any fail, do not create user"
                 # But email sending is external.
                 pass
+
+            # Log activity: Signup
+            log_user_activity(
+                user=user,
+                action="signup",
+                description=f"User signed up with email {email} and store {store_name}",
+                metadata={"store_name": store_name, "email": email},
+            )
 
             # Return success response
             return Response(
@@ -922,6 +931,18 @@ class UseTemplateView(APIView):
         )
 
         if success:
+            # Log activity: Use Template
+            log_user_activity(
+                user=request.user,
+                action="use_template",
+                description=f"User used template {template_id if template_id else 'default'} for store {store.store_name}",
+                metadata={
+                    "template_id": template_id,
+                    "repo_url": new_repo_url,
+                    "store_name": store.store_name,
+                },
+            )
+
             return Response(
                 {
                     "message": "Template used successfully",
@@ -998,3 +1019,24 @@ class RefreshFreshAccessTokenView(APIView):
             "access": tokens["access"],
             "refresh": tokens["refresh"],
         })
+
+
+class UserActivityListView(generics.ListAPIView):
+    """
+    API view to list user activities.
+    Only accessible by superadmins (staff users).
+    """
+
+    queryset = CustomUser.objects.none()  # Placeholder
+    serializer_class = UserActivitySerializer
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["user__email", "action", "description"]
+    ordering_fields = ["timestamp"]
+    ordering = ["-timestamp"]
+
+    def get_queryset(self):
+        from .models import UserActivity
+
+        return UserActivity.objects.all().select_related("user")

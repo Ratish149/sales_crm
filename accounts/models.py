@@ -127,3 +127,24 @@ class Invitation(models.Model):
             user.save()
 
         return True
+
+
+class UserActivity(models.Model):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="activities",
+    )
+    action = models.CharField(max_length=100)  # e.g., 'signup', 'use_template'
+    description = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        verbose_name_plural = "User Activities"
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.user.email if self.user else 'Anonymous'} - {self.action} - {self.timestamp}"

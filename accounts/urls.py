@@ -16,6 +16,7 @@ from .views import (
     ResetPasswordConfirmAPIView,
     StoreProfileDetailView,
     StoreProfileView,
+    UserActivityListView,
     UserDataAPIView,
     UserDeleteAPIView,
     UserListDestroyAPIView,
@@ -92,4 +93,5 @@ urlpatterns = [
         RefreshFreshAccessTokenView.as_view(),
         name="refresh_fresh_access",
     ),
+    path("activities/", UserActivityListView.as_view(), name="user-activities"),
 ]

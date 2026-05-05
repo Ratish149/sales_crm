@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CustomUser, Invitation, StoreProfile
+from .models import CustomUser, Invitation, StoreProfile, UserActivity
 
 # from unfold.admin import ModelAdmin
 # Register your models here.
@@ -26,3 +26,15 @@ class StoreProfileAdmin(admin.ModelAdmin):
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin):
     list_display = ("email", "store", "role", "accepted", "created_at")
+
+
+@admin.register(UserActivity)
+class UserActivityAdmin(admin.ModelAdmin):
+    list_display = ("user_email", "action", "timestamp")
+    list_filter = ("action", "timestamp")
+    search_fields = ("user__email", "description")
+
+    def user_email(self, obj):
+        return obj.user.email if obj.user else "Anonymous"
+
+    user_email.short_description = "User Email"
