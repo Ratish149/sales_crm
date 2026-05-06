@@ -104,6 +104,16 @@ urlpatterns = [
         name="import-template-published",
     ),
     path(
+        "import-template-data/",
+        views.import_template_data,
+        name="import-template-data",
+    ),
+    path(
+        "import-template-with-data/",
+        views.import_template_with_data,
+        name="import-template-with-data",
+    ),
+    path(
         "global-bulk-create/",
         views.GlobalBulkCreateView.as_view(),
         name="global-bulk-create",
