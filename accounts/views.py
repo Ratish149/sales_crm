@@ -588,7 +588,7 @@ class UserListDestroyAPIView(generics.ListAPIView):
     For deletion, use the UserDeleteAPIView below.
     """
 
-    queryset = CustomUser.objects.filter(is_deleted=False).order_by("-id")
+    queryset = CustomUser.objects.filter(is_deleted=False).exclude(client__is_template_account=True).order_by("-id")
     serializer_class = UserWithStoresSerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
