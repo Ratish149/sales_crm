@@ -120,7 +120,7 @@ TENANT_APPS = [
     "ai_generation",
 ]
 SILENCED_SYSTEM_CHECKS = ["auth.W004"]
-
+AUTH_CREATE_PERMISSIONS = True
 
 INSTALLED_APPS = list(SHARED_APPS) + [
     app for app in TENANT_APPS if app not in SHARED_APPS
