@@ -208,7 +208,7 @@ CACHES = {
 #     }
 # }
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -221,9 +221,9 @@ DATABASES = {
         },
         "CONN_MAX_AGE": 60,
     }
-}
+} """
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -234,7 +234,7 @@ DATABASES = {
         "OPTIONS": {},
         "CONN_MAX_AGE": 0,
     }
-} """
+}
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
