@@ -1,7 +1,7 @@
 import logging
 import os
 
-from django.db.models import Sum
+from django.db.models import Prefetch, Sum
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
@@ -16,9 +16,24 @@ from customer.utils import get_customer_from_request
 from logistics.models import Logistics
 from sales_crm.authentication import TenantJWTAuthentication
 
-from .models import Order
+from .models import Order, OrderItem
 from .serializers import AdminOrderSerializer, OrderListSerializer, OrderSerializer
 from .utils import send_order_to_dash
+
+# Optimized queryset for order listings and retrieval
+ORDER_OPTIMIZED_QS = (
+    Order.objects
+    .select_related("customer", "promo_code")
+    .prefetch_related(
+        Prefetch(
+            "items",
+            queryset=OrderItem.objects.select_related(
+                "product", "variant", "variant__product"
+            ).prefetch_related("variant__option_values__option"),
+        )
+    )
+    .order_by("-created_at")
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +74,7 @@ class OrderFilter(django_filters.FilterSet):
 
 
 class OrderListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Order.objects.all().order_by("-created_at")
+    queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderSerializer
     pagination_class = CustomPagination
     authentication_classes = [CustomerJWTAuthentication]
@@ -79,7 +94,7 @@ class OrderListCreateAPIView(generics.ListCreateAPIView):
 
 
 class AdminOrderListAPIView(generics.ListCreateAPIView):
-    queryset = Order.objects.all().order_by("-created_at")
+    queryset = ORDER_OPTIMIZED_QS
     serializer_class = AdminOrderSerializer
     pagination_class = CustomPagination
     filter_backends = [
@@ -100,7 +115,7 @@ class AdminOrderListAPIView(generics.ListCreateAPIView):
 
 
 class MyOrderListAPIView(generics.ListAPIView):
-    queryset = Order.objects.all().order_by("-created_at")
+    queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderListSerializer
     pagination_class = CustomPagination
     authentication_classes = [CustomerJWTAuthentication]
@@ -117,7 +132,7 @@ class MyOrderListAPIView(generics.ListAPIView):
     def get_queryset(self):
         customer = get_customer_from_request(self.request)
         if customer:
-            return Order.objects.filter(customer=customer)
+            return ORDER_OPTIMIZED_QS.filter(customer=customer)
         return Order.objects.none()
 
 
@@ -125,7 +140,7 @@ class MyOrderListAPIView(generics.ListAPIView):
 
 
 class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Order.objects.all()
+    queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderSerializer
     authentication_classes = [TenantJWTAuthentication]
 
@@ -172,7 +187,7 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class OrderGetAPIView(generics.RetrieveAPIView):
-    queryset = Order.objects.all()
+    queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderSerializer
     lookup_field = "order_number"
 
