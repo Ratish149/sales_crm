@@ -20,7 +20,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             source ../myprojectenv/bin/activate
-            python manage.py migrate_schemas
+            python manage.py migrate
             sudo systemctl daemon-reload
             sudo systemctl restart daphne
             sudo nginx -t
