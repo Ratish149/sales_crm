@@ -228,9 +228,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
             .select_related("product", "product__category", "product__sub_category")
             .prefetch_related("option_values__option")
         )
-        variant_filter = ProductVariantFilterSet(
-            request.GET, queryset=variant_qs, request=request
-        )
+        variant_filter = ProductVariantFilterSet(request.GET, queryset=variant_qs)
         variant_qs = variant_filter.qs
 
         # Apply search and ordering to variants
@@ -252,9 +250,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
             .prefetch_related("images")
             .annotate(average_rating=Avg("productreview__rating"))
         )
-        product_filter = ProductFilterSet(
-            request.GET, queryset=product_qs, request=request
-        )
+        product_filter = ProductFilterSet(request.GET, queryset=product_qs)
         product_qs = product_filter.qs
 
         # Apply search and ordering to products
