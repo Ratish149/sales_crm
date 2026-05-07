@@ -281,6 +281,7 @@ class CustomDomainTenantMiddleware:
         # 3. Clean hostname
         hostname = hostname.replace("www.", "").split(":")[0]
 
+        print(f"DEBUG: Hostname extracted: {hostname}")
         try:
             # 4. Lookup Tenant
             cache_key = f"domain_tenant_{hostname}"
@@ -288,16 +289,20 @@ class CustomDomainTenantMiddleware:
 
             if not tenant:
                 DomainModel = get_tenant_domain_model()
+                print(f"DEBUG: Looking up domain in {DomainModel}")
                 domain_obj = DomainModel.objects.select_related("tenant").get(
                     domain=hostname
                 )
                 tenant = domain_obj.tenant
+                print(f"DEBUG: Found tenant: {tenant.schema_name}")
                 cache.set(cache_key, tenant, timeout=300)
 
             # 5. Set the Schema
+            print(f"DEBUG: Setting tenant to: {tenant.schema_name}")
             connection.set_tenant(tenant)
             request.tenant = tenant
-        except (ObjectDoesNotExist, DomainModel.DoesNotExist):
+        except Exception as e:
+            print(f"DEBUG: Tenant lookup failed: {str(e)}")
             # Fallback to public if domain not found
             connection.set_schema_to_public()
             try:
