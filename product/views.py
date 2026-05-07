@@ -40,6 +40,7 @@ from .serializers import (
     ProductReviewSerializer,
     ProductSerializer,
     ProductSmallSerializer,
+    ProductVariantAsProductSerializer,
     SubCategoryDetailSerializer,
     SubCategorySerializer,
     WishlistSerializer,
@@ -1059,3 +1060,51 @@ class BulkProductUploadView(APIView):
                 variant.option_values.add(option_value)
 
         return variant
+
+class ProductVariantFilterSet(django_filters.FilterSet):
+    product = django_filters.NumberFilter(field_name="product__id")
+    category = django_filters.CharFilter(field_name="product__category__slug", lookup_expr="iexact")
+    sub_category = django_filters.CharFilter(field_name="product__sub_category__slug", lookup_expr="iexact")
+
+    class Meta:
+        model = ProductVariant
+        fields = ["product", "category", "sub_category"]
+
+
+class ProductVariantListCreateView(generics.ListCreateAPIView):
+    queryset = ProductVariant.objects.all().select_related("product", "product__category", "product__sub_category").prefetch_related("option_values__option")
+    serializer_class = ProductVariantAsProductSerializer
+    pagination_class = CustomPagination
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductVariantFilterSet
+    search_fields = ["product__name", "option_values__value"]
+    ordering_fields = ["created_at", "price"]
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class ProductVariantRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ProductVariant.objects.all().select_related("product", "product__category", "product__sub_category").prefetch_related("option_values__option")
+    serializer_class = ProductVariantAsProductSerializer
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()

@@ -631,3 +631,80 @@ class WishlistSerializer(serializers.ModelSerializer):
 class BulkUploadSerializer(serializers.Serializer):
     file = serializers.FileField()
     zip_file = serializers.FileField(required=False, allow_null=True)
+
+
+class ProductVariantAsProductSerializer(serializers.ModelSerializer):
+    """
+    Serializer to display a ProductVariant locally as if it were a Product.
+    Used for listing distinct variants in the main product list.
+    """
+
+    id = serializers.IntegerField(read_only=True)
+    thumbnail_image = serializers.SerializerMethodField()
+    options = serializers.SerializerMethodField()
+
+    product_id = serializers.IntegerField(source="product.id", read_only=True)
+    name = serializers.CharField(source="product.name", read_only=True)
+    slug = serializers.CharField(source="product.slug", read_only=True)
+    description = serializers.CharField(source="product.description", read_only=True)
+
+    category_name = serializers.CharField(source="product.category.name", read_only=True, allow_null=True)
+    category_slug = serializers.CharField(source="product.category.slug", read_only=True, allow_null=True)
+
+    sub_category_name = serializers.CharField(source="product.sub_category.name", read_only=True, allow_null=True)
+    sub_category_slug = serializers.CharField(source="product.sub_category.slug", read_only=True, allow_null=True)
+
+    market_price = serializers.DecimalField(
+        source="product.market_price", max_digits=10, decimal_places=2, read_only=True
+    )
+    final_price = serializers.DecimalField(
+        source="product.final_price", max_digits=10, decimal_places=2, read_only=True
+    )
+    product_price = serializers.DecimalField(
+        source="product.price", max_digits=10, decimal_places=2, read_only=True
+    )
+
+    price = serializers.SerializerMethodField()
+
+    is_popular = serializers.BooleanField(source="product.is_popular", read_only=True)
+    is_featured = serializers.BooleanField(source="product.is_featured", read_only=True)
+    status = serializers.CharField(source="product.status", read_only=True)
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "id",
+            "product_id",
+            "name",
+            "slug",
+            "description",
+            "thumbnail_image",
+            "options",
+            "category_name",
+            "category_slug",
+            "sub_category_name",
+            "sub_category_slug",
+            "market_price",
+            "final_price",
+            "product_price",
+            "price",
+            "stock",
+            "is_popular",
+            "is_featured",
+            "status",
+        ]
+
+    def get_thumbnail_image(self, obj):
+        request = self.context.get('request')
+        image = obj.image if obj.image else obj.product.thumbnail_image
+        if image and hasattr(image, 'url'):
+            return request.build_absolute_uri(image.url) if request else image.url
+        return None
+
+    def get_options(self, obj):
+        return {v.option.name: v.value for v in obj.option_values.all()}
+
+    def get_price(self, obj):
+        if obj.price is not None:
+            return obj.price
+        return obj.product.final_price

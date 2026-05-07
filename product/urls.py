@@ -15,6 +15,8 @@ from .views import (
     ProductRetrieveUpdateDestroyView,
     ProductReviewRetrieveUpdateDestroyView,
     ProductReviewView,
+    ProductVariantListCreateView,
+    ProductVariantRetrieveUpdateDestroyView,
     SubCategoryListCreateView,
     SubCategoryRetrieveUpdateDestroyView,
     WishlistListCreateView,
@@ -63,6 +65,16 @@ urlpatterns = [
         "product-review/<int:id>/",
         ProductReviewRetrieveUpdateDestroyView.as_view(),
         name="product-review-retrieve-update-destroy",
+    ),
+    path(
+        "product-variant/",
+        ProductVariantListCreateView.as_view(),
+        name="product-variant-list-create",
+    ),
+    path(
+        "product-variant/<int:pk>/",
+        ProductVariantRetrieveUpdateDestroyView.as_view(),
+        name="product-variant-retrieve-update-destroy",
     ),
     path("wishlist/", WishlistListCreateView.as_view(), name="wishlist-list-create"),
     path(
