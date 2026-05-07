@@ -24,6 +24,7 @@ class SiteConfig(SingletonModel):
     linkedin_url = models.URLField(null=True, blank=True)
     youtube_url = models.URLField(null=True, blank=True)
     tiktok_url = models.URLField(null=True, blank=True)
+    use_product_variant = models.BooleanField(default=False)
 
 
 class Theme(models.Model):

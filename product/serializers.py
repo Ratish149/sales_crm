@@ -747,3 +747,21 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
             return False
         return Wishlist.objects.filter(user=user, product=obj.product).exists()
 
+
+class UnifiedProductListingSerializer(serializers.Serializer):
+    """
+    Serializer that delegates to either ProductVariantAsProductSerializer
+    or ProductSmallSerializer based on the instance type.
+    """
+
+    def to_representation(self, instance):
+        from .models import Product, ProductVariant
+
+        if isinstance(instance, ProductVariant):
+            return ProductVariantAsProductSerializer(
+                instance, context=self.context
+            ).data
+        elif isinstance(instance, Product):
+            return ProductSmallSerializer(instance, context=self.context).data
+        return super().to_representation(instance)
+

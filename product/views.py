@@ -1,5 +1,6 @@
 import io
 import re
+from itertools import chain
 
 import pandas as pd
 from django.db.models import Avg
@@ -16,6 +17,7 @@ from rest_framework.views import APIView
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 from sales_crm.authentication import TenantJWTAuthentication
+from website.models import SiteConfig
 
 from .models import (
     Category,
@@ -43,6 +45,7 @@ from .serializers import (
     ProductVariantAsProductSerializer,
     SubCategoryDetailSerializer,
     SubCategorySerializer,
+    UnifiedProductListingSerializer,
     WishlistSerializer,
 )
 from .utils import (
@@ -156,7 +159,171 @@ class ProductFilterSet(django_filters.FilterSet):
         ]
 
 
+class ProductVariantFilterSet(django_filters.FilterSet):
+    min_price = django_filters.NumberFilter(field_name="price", lookup_expr="gte")
+    max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
+    category = django_filters.CharFilter(field_name="product__category__slug")
+    sub_category = django_filters.CharFilter(field_name="product__sub_category__slug")
+    status = django_filters.ChoiceFilter(
+        field_name="product__status", choices=Product.STATUS_CHOICES
+    )
+    is_popular = django_filters.BooleanFilter(field_name="product__is_popular")
+    is_featured = django_filters.BooleanFilter(field_name="product__is_featured")
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "category",
+            "sub_category",
+            "min_price",
+            "max_price",
+            "status",
+            "is_popular",
+            "is_featured",
+        ]
+
+
 class ProductListCreateView(generics.ListCreateAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    pagination_class = CustomPagination
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductFilterSet
+    ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
+    search_fields = ["name"]
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        site_config = SiteConfig.get_solo()
+        if self.request.method == "POST":
+            return ProductSerializer
+        if site_config.use_product_variant:
+            return UnifiedProductListingSerializer
+        return ProductSmallSerializer
+
+    def list(self, request, *args, **kwargs):
+        site_config = SiteConfig.get_solo()
+        if not site_config.use_product_variant:
+            return super().list(request, *args, **kwargs)
+
+        # Unified listing logic: Show ProductVariants AND Products without variants
+
+        # 1. Get filtered variants
+        variant_qs = (
+            ProductVariant.objects
+            .all()
+            .select_related("product", "product__category", "product__sub_category")
+            .prefetch_related("option_values__option")
+        )
+        variant_filter = ProductVariantFilterSet(
+            request.GET, queryset=variant_qs, request=request
+        )
+        variant_qs = variant_filter.qs
+
+        # Apply search and ordering to variants
+        search_filter = filters.SearchFilter()
+        ordering_filter = filters.OrderingFilter()
+
+        # Temporarily adjust search_fields for variants
+        orig_search_fields = self.search_fields
+        self.search_fields = ["product__name", "option_values__value"]
+        variant_qs = search_filter.filter_queryset(request, variant_qs, self)
+        variant_qs = ordering_filter.filter_queryset(request, variant_qs, self)
+        self.search_fields = orig_search_fields
+
+        # 2. Get filtered products without variants
+        product_qs = (
+            Product.objects
+            .filter(variants__isnull=True)
+            .select_related("category", "sub_category")
+            .prefetch_related("images")
+            .annotate(average_rating=Avg("productreview__rating"))
+        )
+        product_filter = ProductFilterSet(
+            request.GET, queryset=product_qs, request=request
+        )
+        product_qs = product_filter.qs
+
+        # Apply search and ordering to products
+        product_qs = search_filter.filter_queryset(request, product_qs, self)
+        product_qs = ordering_filter.filter_queryset(request, product_qs, self)
+
+        # 3. Combine into a list and sort by created_at (since we can't sort across models easily in DB)
+        # We use a list because they are different models.
+        combined = sorted(
+            chain(variant_qs, product_qs), key=lambda x: x.created_at, reverse=True
+        )
+
+        # 4. Paginate the list
+        page = self.paginate_queryset(combined)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(combined, many=True)
+        return Response(serializer.data)
+
+    def get_queryset(self):
+        """
+        Optimized queryset for the non-variant (standard) listing.
+        """
+        if self.request.method == "GET":
+            # For list view - optimized with prefetch and only
+            return (
+                Product.objects
+                .select_related("category", "sub_category")
+                .prefetch_related(
+                    "images",
+                    "variants__option_values__option",
+                    "productoption_set__productoptionvalue_set",
+                    "compositions__metric",
+                )
+                .annotate(average_rating=Avg("productreview__rating"))
+                .only(
+                    "id",
+                    "name",
+                    "slug",
+                    "description",
+                    "price",
+                    "market_price",
+                    "use_dynamic_pricing",
+                    "base_making_charge",
+                    "track_stock",
+                    "stock",
+                    "weight",
+                    "thumbnail_image",
+                    "thumbnail_alt_description",
+                    "category_id",
+                    "sub_category_id",
+                    "is_popular",
+                    "is_featured",
+                    "status",
+                    "meta_title",
+                    "meta_description",
+                    "created_at",
+                    "updated_at",
+                )
+                .order_by("-created_at")
+            )
+        else:
+            # For POST requests, return basic queryset
+            return Product.objects.all()
+
+
+class AdminProductListCreateView(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
@@ -1060,20 +1227,6 @@ class BulkProductUploadView(APIView):
                 variant.option_values.add(option_value)
 
         return variant
-
-
-class ProductVariantFilterSet(django_filters.FilterSet):
-    product = django_filters.NumberFilter(field_name="product__id")
-    category = django_filters.CharFilter(
-        field_name="product__category__slug", lookup_expr="iexact"
-    )
-    sub_category = django_filters.CharFilter(
-        field_name="product__sub_category__slug", lookup_expr="iexact"
-    )
-
-    class Meta:
-        model = ProductVariant
-        fields = ["product", "category", "sub_category"]
 
 
 class ProductVariantListCreateView(generics.ListCreateAPIView):
