@@ -216,33 +216,47 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         site_config = SiteConfig.get_solo()
+
+        # 🔥 prevent DRF filter backend crash
+        self.filter_backends = []
+
         if not site_config.use_product_variant:
             return super().list(request, *args, **kwargs)
 
-        # Unified listing logic: Show ProductVariants AND Products without variants
+        params = request.GET.copy()
 
-        # 1. Get filtered variants
+        # normalize boolean
+        from distutils.util import strtobool
+
+        if "is_popular" in params:
+            try:
+                params["is_popular"] = strtobool(str(params["is_popular"]))
+            except ValueError:
+                params.pop("is_popular")
+
+        # 1. VARIANTS
         variant_qs = (
             ProductVariant.objects
             .all()
             .select_related("product", "product__category", "product__sub_category")
             .prefetch_related("option_values__option")
         )
-        variant_filter = ProductVariantFilterSet(request.GET, queryset=variant_qs)
+
+        variant_filter = ProductVariantFilterSet(params, queryset=variant_qs)
         variant_qs = variant_filter.qs
 
-        # Apply search and ordering to variants
         search_filter = filters.SearchFilter()
         ordering_filter = filters.OrderingFilter()
 
-        # Temporarily adjust search_fields for variants
         orig_search_fields = self.search_fields
         self.search_fields = ["product__name", "option_values__value"]
+
         variant_qs = search_filter.filter_queryset(request, variant_qs, self)
         variant_qs = ordering_filter.filter_queryset(request, variant_qs, self)
+
         self.search_fields = orig_search_fields
 
-        # 2. Get filtered products without variants
+        # 2. PRODUCTS (no variants)
         product_qs = (
             Product.objects
             .filter(variants__isnull=True)
@@ -250,20 +264,19 @@ class ProductListCreateView(generics.ListCreateAPIView):
             .prefetch_related("images")
             .annotate(average_rating=Avg("productreview__rating"))
         )
-        product_filter = ProductFilterSet(request.GET, queryset=product_qs)
+
+        product_filter = ProductFilterSet(params, queryset=product_qs)
         product_qs = product_filter.qs
 
-        # Apply search and ordering to products
         product_qs = search_filter.filter_queryset(request, product_qs, self)
         product_qs = ordering_filter.filter_queryset(request, product_qs, self)
 
-        # 3. Combine into a list and sort by created_at (since we can't sort across models easily in DB)
-        # We use a list because they are different models.
+        # 3. MERGE
         combined = sorted(
             chain(variant_qs, product_qs), key=lambda x: x.created_at, reverse=True
         )
 
-        # 4. Paginate the list
+        # 4. PAGINATION
         page = self.paginate_queryset(combined)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
