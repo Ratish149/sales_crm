@@ -87,8 +87,6 @@ SHARED_APPS = [
 
 
 TENANT_APPS = [
-    "django.contrib.contenttypes",
-    "django.contrib.auth",
     "website",
     "product",
     "order",
@@ -121,6 +119,8 @@ TENANT_APPS = [
     "sms",
     "ai_generation",
 ]
+SILENCED_SYSTEM_CHECKS = ["auth.W004"]
+
 
 INSTALLED_APPS = list(SHARED_APPS) + [
     app for app in TENANT_APPS if app not in SHARED_APPS
