@@ -1061,10 +1061,15 @@ class BulkProductUploadView(APIView):
 
         return variant
 
+
 class ProductVariantFilterSet(django_filters.FilterSet):
     product = django_filters.NumberFilter(field_name="product__id")
-    category = django_filters.CharFilter(field_name="product__category__slug", lookup_expr="iexact")
-    sub_category = django_filters.CharFilter(field_name="product__sub_category__slug", lookup_expr="iexact")
+    category = django_filters.CharFilter(
+        field_name="product__category__slug", lookup_expr="iexact"
+    )
+    sub_category = django_filters.CharFilter(
+        field_name="product__sub_category__slug", lookup_expr="iexact"
+    )
 
     class Meta:
         model = ProductVariant
@@ -1072,7 +1077,12 @@ class ProductVariantFilterSet(django_filters.FilterSet):
 
 
 class ProductVariantListCreateView(generics.ListCreateAPIView):
-    queryset = ProductVariant.objects.all().select_related("product", "product__category", "product__sub_category").prefetch_related("option_values__option")
+    queryset = (
+        ProductVariant.objects
+        .all()
+        .select_related("product", "product__category", "product__sub_category")
+        .prefetch_related("option_values__option")
+    )
     serializer_class = ProductVariantAsProductSerializer
     pagination_class = CustomPagination
     filter_backends = [
@@ -1096,7 +1106,12 @@ class ProductVariantListCreateView(generics.ListCreateAPIView):
 
 
 class ProductVariantRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ProductVariant.objects.all().select_related("product", "product__category", "product__sub_category").prefetch_related("option_values__option")
+    queryset = (
+        ProductVariant.objects
+        .all()
+        .select_related("product", "product__category", "product__sub_category")
+        .prefetch_related("option_values__option")
+    )
     serializer_class = ProductVariantAsProductSerializer
 
     def get_authenticators(self):

@@ -640,71 +640,110 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     """
 
     id = serializers.IntegerField(read_only=True)
-    thumbnail_image = serializers.SerializerMethodField()
-    options = serializers.SerializerMethodField()
-
-    product_id = serializers.IntegerField(source="product.id", read_only=True)
-    name = serializers.CharField(source="product.name", read_only=True)
+    name = serializers.SerializerMethodField()
     slug = serializers.CharField(source="product.slug", read_only=True)
-    description = serializers.CharField(source="product.description", read_only=True)
-
-    category_name = serializers.CharField(source="product.category.name", read_only=True, allow_null=True)
-    category_slug = serializers.CharField(source="product.category.slug", read_only=True, allow_null=True)
-
-    sub_category_name = serializers.CharField(source="product.sub_category.name", read_only=True, allow_null=True)
-    sub_category_slug = serializers.CharField(source="product.sub_category.slug", read_only=True, allow_null=True)
-
-    market_price = serializers.DecimalField(
-        source="product.market_price", max_digits=10, decimal_places=2, read_only=True
-    )
-    final_price = serializers.DecimalField(
-        source="product.final_price", max_digits=10, decimal_places=2, read_only=True
-    )
-    product_price = serializers.DecimalField(
-        source="product.price", max_digits=10, decimal_places=2, read_only=True
-    )
-
     price = serializers.SerializerMethodField()
-
+    market_price = serializers.SerializerMethodField()
+    final_price = serializers.SerializerMethodField()
+    thumbnail_image = serializers.SerializerMethodField()
+    thumbnail_alt_description = serializers.CharField(
+        source="product.thumbnail_alt_description", read_only=True
+    )
+    category = CategorySmallSerializer(source="product.category", read_only=True)
+    sub_category = SubCategorySmallSerializer(
+        source="product.sub_category", read_only=True
+    )
     is_popular = serializers.BooleanField(source="product.is_popular", read_only=True)
     is_featured = serializers.BooleanField(source="product.is_featured", read_only=True)
-    status = serializers.CharField(source="product.status", read_only=True)
+    created_at = serializers.DateTimeField(source="product.created_at", read_only=True)
+    updated_at = serializers.DateTimeField(source="product.updated_at", read_only=True)
+    fast_shipping = serializers.BooleanField(
+        source="product.fast_shipping", read_only=True
+    )
+    warranty = serializers.BooleanField(source="product.warranty", read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    reviews_count = serializers.SerializerMethodField()
+    is_wishlist = serializers.SerializerMethodField()
+    variants_read = ProductVariantReadSerializer(
+        source="product.variants", many=True, read_only=True
+    )
+    use_dynamic_pricing = serializers.BooleanField(
+        source="product.use_dynamic_pricing", read_only=True
+    )
 
     class Meta:
         model = ProductVariant
         fields = [
             "id",
-            "product_id",
             "name",
             "slug",
-            "description",
-            "thumbnail_image",
-            "options",
-            "category_name",
-            "category_slug",
-            "sub_category_name",
-            "sub_category_slug",
-            "market_price",
-            "final_price",
-            "product_price",
             "price",
+            "market_price",
             "stock",
+            "thumbnail_image",
+            "thumbnail_alt_description",
+            "category",
+            "sub_category",
             "is_popular",
             "is_featured",
-            "status",
+            "created_at",
+            "updated_at",
+            "fast_shipping",
+            "warranty",
+            "average_rating",
+            "reviews_count",
+            "is_wishlist",
+            "variants_read",
+            "final_price",
+            "use_dynamic_pricing",
         ]
 
-    def get_thumbnail_image(self, obj):
-        request = self.context.get('request')
-        image = obj.image if obj.image else obj.product.thumbnail_image
-        if image and hasattr(image, 'url'):
-            return request.build_absolute_uri(image.url) if request else image.url
-        return None
-
-    def get_options(self, obj):
-        return {v.option.name: v.value for v in obj.option_values.all()}
+    def get_name(self, obj):
+        options = [v.value for v in obj.option_values.all()]
+        options_str = " ".join(options)
+        if options_str:
+            return f"{obj.product.name} ({options_str})"
+        return obj.product.name
 
     def get_price(self, obj):
         if obj.price is not None:
             return obj.price
+        return obj.product.price
+
+    def get_market_price(self, obj):
+        if obj.price is not None:
+            return obj.price
+        return obj.product.market_price
+
+    def get_final_price(self, obj):
+        if obj.price is not None:
+            return obj.price
         return obj.product.final_price
+
+    def get_thumbnail_image(self, obj):
+        request = self.context.get("request")
+        image = obj.image if obj.image else obj.product.thumbnail_image
+        if image and hasattr(image, "url"):
+            return request.build_absolute_uri(image.url) if request else image.url
+        return None
+
+    def get_reviews_count(self, obj):
+        return ProductReview.objects.only("id").filter(product=obj.product).count()
+
+    def get_average_rating(self, obj):
+        return (
+            ProductReview.objects.only("id")
+            .filter(product=obj.product)
+            .aggregate(avg_rating=Avg("rating"))["avg_rating"]
+            or 0
+        )
+
+    def get_is_wishlist(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return False
+        user = get_customer_from_request(request)
+        if not user:
+            return False
+        return Wishlist.objects.filter(user=user, product=obj.product).exists()
+
