@@ -3,6 +3,7 @@ import os
 import resend
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils.functional import cached_property
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
@@ -67,14 +68,20 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
     serializer_class = CollectionDataSerializer
     pagination_class = CustomPagination
 
+    @cached_property
+    def collection(self):
+        """Cache the collection object to avoid multiple lookups in one request"""
+        slug = self.kwargs.get("slug")
+        return get_object_or_404(Collection, slug=slug)
+
     def get_queryset(self):
         """Filter data by the collection slug from URL and apply dynamic filters"""
-        slug = self.kwargs.get("slug")
-        collection = get_object_or_404(Collection, slug=slug)
-        queryset = CollectionData.objects.filter(collection=collection)
+        queryset = CollectionData.objects.filter(
+            collection=self.collection
+        ).select_related("collection")
 
         # Apply dynamic filtering based on filterable fields (default + custom)
-        all_fields = collection.get_all_fields()
+        all_fields = self.collection.get_all_fields()
         filterable_fields = [
             field for field in all_fields if field.get("filterable", False)
         ]
@@ -115,8 +122,7 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         """Automatically set the collection from URL slug"""
-        slug = self.kwargs.get("slug")
-        collection = get_object_or_404(Collection, slug=slug)
+        collection = self.collection
         instance = serializer.save(collection=collection)
 
         # Send email if enabled
@@ -171,10 +177,9 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
     def get_serializer_context(self):
         """Pass collection to serializer context for validation"""
         context = super().get_serializer_context()
-        slug = self.kwargs.get("slug")
         # Only try to get collection if slug is present (to avoid issues with schema generation etc)
-        if slug:
-            context["collection"] = get_object_or_404(Collection, slug=slug)
+        if self.kwargs.get("slug"):
+            context["collection"] = self.collection
         return context
 
 
@@ -199,14 +204,18 @@ class CollectionDataRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
             return [IsAuthenticated()]
         return super().get_permissions()
 
+    @cached_property
+    def collection(self):
+        """Cache the collection object to avoid multiple lookups in one request"""
+        slug = self.kwargs.get("slug")
+        return get_object_or_404(Collection, slug=slug)
+
     def get_queryset(self):
         """Filter data by collection slug and ensure data belongs to the collection"""
-        slug = self.kwargs.get("slug")
-        collection = get_object_or_404(Collection, slug=slug)
-        return CollectionData.objects.filter(collection=collection)
+        return CollectionData.objects.filter(collection=self.collection).select_related(
+            "collection"
+        )
 
     def perform_update(self, serializer):
         """Ensure collection is set correctly on update"""
-        slug = self.kwargs.get("slug")
-        collection = get_object_or_404(Collection, slug=slug)
-        serializer.save(collection=collection)
+        serializer.save(collection=self.collection)

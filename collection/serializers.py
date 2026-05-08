@@ -105,7 +105,12 @@ class CollectionSerializer(serializers.ModelSerializer):
             # Check if referenced model exists
             model_ref = field.get("model")
             if model_ref:
-                if not Collection.objects.filter(id=model_ref).exists():
+                # Cache existing collection IDs in context if not already there
+                if "existing_collection_ids" not in self.context:
+                    self.context["existing_collection_ids"] = set(
+                        Collection.objects.values_list("id", flat=True)
+                    )
+                if model_ref not in self.context["existing_collection_ids"]:
                     raise serializers.ValidationError(
                         f"Referenced collection with ID '{model_ref}' does not exist."
                     )

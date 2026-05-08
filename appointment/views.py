@@ -26,12 +26,12 @@ class CustomPagination(PageNumberPagination):
 
 
 class AppointmentReasonListCreateView(generics.ListCreateAPIView):
-    queryset = AppointmentReason.objects.all()
+    queryset = AppointmentReason.objects.only("id", "name", "created_at", "updated_at")
     serializer_class = AppointmentReasonSerializer
 
 
 class AppointmentReasonRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = AppointmentReason.objects.all()
+    queryset = AppointmentReason.objects.only("id", "name", "created_at", "updated_at")
     serializer_class = AppointmentReasonSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -62,12 +62,31 @@ class AppointmentFilterSet(django_filters.FilterSet):
 
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
-    queryset = Appointment.objects.all().order_by("-created_at")
+    queryset = (
+        Appointment.objects.select_related("reason")
+        .only(
+            "id",
+            "full_name",
+            "phone",
+            "email",
+            "message",
+            "reason__id",
+            "reason__name",
+            "reason__created_at",
+            "reason__updated_at",
+            "date",
+            "time",
+            "status",
+            "created_at",
+            "updated_at",
+        )
+        .order_by("-created_at")
+    )
     pagination_class = CustomPagination
     serializer_class = AppointmentSerializer
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = AppointmentFilterSet
-    search_fields = ["full_name", "phone_number"]
+    search_fields = ["full_name", "phone"]
 
     def get_authenticators(self):
         if self.request.method == "GET":
@@ -98,7 +117,7 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
             logo_url = None
             store_name = tenant_name
             try:
-                site_config = SiteConfig.objects.first()
+                site_config = SiteConfig.objects.only("logo").first()
                 if site_config and site_config.logo:
                     logo_url = site_config.logo.url
             except Exception:
@@ -157,7 +176,22 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
 
 
 class AppointmentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Appointment.objects.all()
+    queryset = Appointment.objects.select_related("reason").only(
+        "id",
+        "full_name",
+        "phone",
+        "email",
+        "message",
+        "reason__id",
+        "reason__name",
+        "reason__created_at",
+        "reason__updated_at",
+        "date",
+        "time",
+        "status",
+        "created_at",
+        "updated_at",
+    )
     serializer_class = AppointmentSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]

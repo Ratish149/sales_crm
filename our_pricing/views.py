@@ -1,10 +1,10 @@
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import OurPricing
 from .serializers import OurPricingSerializer
-
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
 
 
 class OurPricingListCreateAPIView(generics.ListCreateAPIView):
@@ -26,7 +26,6 @@ class OurPricingListCreateAPIView(generics.ListCreateAPIView):
         if self.request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
-
 
     def get_queryset(self):
         """Optimize query by prefetching related features"""

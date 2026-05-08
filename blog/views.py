@@ -1,5 +1,6 @@
 # Create your views here.
 from django.db import transaction
+from django.db.models import Prefetch
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics, status
 from rest_framework.pagination import PageNumberPagination
@@ -28,7 +29,25 @@ class BlogFilterSet(django_filters.FilterSet):
 
 
 class BlogListCreateView(generics.ListCreateAPIView):
-    queryset = Blog.objects.all().order_by("-created_at")
+    queryset = (
+        Blog.objects.prefetch_related(
+            Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
+        )
+        .only(
+            "id",
+            "title",
+            "slug",
+            "content",
+            "thumbnail_image",
+            "thumbnail_image_alt_description",
+            "time_to_read",
+            "meta_title",
+            "meta_description",
+            "created_at",
+            "updated_at",
+        )
+        .order_by("-created_at")
+    )
     serializer_class = BlogSerializer
     pagination_class = CustomPagination
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
@@ -47,7 +66,21 @@ class BlogListCreateView(generics.ListCreateAPIView):
 
 
 class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Blog.objects.all()
+    queryset = Blog.objects.prefetch_related(
+        Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
+    ).only(
+        "id",
+        "title",
+        "slug",
+        "content",
+        "thumbnail_image",
+        "thumbnail_image_alt_description",
+        "time_to_read",
+        "meta_title",
+        "meta_description",
+        "created_at",
+        "updated_at",
+    )
     serializer_class = BlogSerializer
     lookup_field = "slug"
 
@@ -63,13 +96,13 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class TagsListCreateView(generics.ListCreateAPIView):
-    queryset = Tags.objects.all()
+    queryset = Tags.objects.only("id", "name", "slug", "created_at", "updated_at")
     serializer_class = TagsSerializer
     pagination_class = CustomPagination
 
 
 class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Tags.objects.all()
+    queryset = Tags.objects.only("id", "name", "slug", "created_at", "updated_at")
     serializer_class = TagsSerializer
     lookup_field = "slug"
 
@@ -86,7 +119,25 @@ class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
 # Get recent blogs api
 class RecentBlogsView(generics.ListAPIView):
-    queryset = Blog.objects.all().order_by("-created_at")[:5]
+    queryset = (
+        Blog.objects.prefetch_related(
+            Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
+        )
+        .only(
+            "id",
+            "title",
+            "slug",
+            "content",
+            "thumbnail_image",
+            "thumbnail_image_alt_description",
+            "time_to_read",
+            "meta_title",
+            "meta_description",
+            "created_at",
+            "updated_at",
+        )
+        .order_by("-created_at")[:5]
+    )
     serializer_class = BlogSerializer
 
 
@@ -158,7 +209,27 @@ class BlogBulkCreateView(APIView):
 
             created_blogs.append(blog)
 
-        response_data = BlogSerializer(created_blogs, many=True).data
+        # Optimize response serialization by prefetching tags for the created blogs
+        response_blogs = (
+            Blog.objects.filter(id__in=[b.id for b in created_blogs])
+            .prefetch_related(
+                Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
+            )
+            .only(
+                "id",
+                "title",
+                "slug",
+                "content",
+                "thumbnail_image",
+                "thumbnail_image_alt_description",
+                "time_to_read",
+                "meta_title",
+                "meta_description",
+                "created_at",
+                "updated_at",
+            )
+        )
+        response_data = BlogSerializer(response_blogs, many=True).data
         return Response(
             {"created": len(created_blogs), "blogs": response_data},
             status=status.HTTP_201_CREATED,

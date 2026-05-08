@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from rest_framework import generics
 
 # Create your views here.
@@ -22,7 +23,16 @@ class CustomPagination(PageNumberPagination):
 
 
 class PopUpCreateView(generics.ListCreateAPIView):
-    queryset = PopUp.objects.all().order_by("-created_at")
+    queryset = PopUp.objects.only(
+        "id",
+        "title",
+        "image",
+        "disclaimer",
+        "enabled_fields",
+        "is_active",
+        "created_at",
+        "updated_at",
+    ).order_by("-created_at")
     serializer_class = PopUpSerializer
 
     def get_authenticators(self):
@@ -37,14 +47,39 @@ class PopUpCreateView(generics.ListCreateAPIView):
 
 
 class PopUpRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PopUp.objects.all()
+    queryset = PopUp.objects.only(
+        "id",
+        "title",
+        "image",
+        "disclaimer",
+        "enabled_fields",
+        "is_active",
+        "created_at",
+        "updated_at",
+    )
     serializer_class = PopUpSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
 
 class PopUpFormCreateView(generics.ListCreateAPIView):
-    queryset = PopUpForm.objects.all().order_by("-created_at")
+    queryset = (
+        PopUpForm.objects
+        .select_related("popup")
+        .only(
+            "id",
+            "popup__id",
+            "popup__title",
+            "name",
+            "phone_number",
+            "email",
+            "address",
+            "is_read",
+            "created_at",
+            "updated_at",
+        )
+        .order_by("-created_at")
+    )
     serializer_class = PopUpFormSerializer
     pagination_class = CustomPagination
 
@@ -60,14 +95,27 @@ class PopUpFormCreateView(generics.ListCreateAPIView):
 
 
 class PopUpFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PopUpForm.objects.all()
+    queryset = PopUpForm.objects.select_related("popup").only(
+        "id",
+        "popup__id",
+        "popup__title",
+        "name",
+        "phone_number",
+        "email",
+        "address",
+        "is_read",
+        "created_at",
+        "updated_at",
+    )
     serializer_class = PopUpFormSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
 
 class BannerImageListCreateView(generics.ListCreateAPIView):
-    queryset = BannerImage.objects.all().order_by("-created_at")
+    queryset = BannerImage.objects.only(
+        "id", "image", "image_alt_description", "link", "is_active", "created_at"
+    ).order_by("-created_at")
     serializer_class = BannerImageSerializer
 
     def get_authenticators(self):
@@ -82,14 +130,33 @@ class BannerImageListCreateView(generics.ListCreateAPIView):
 
 
 class BannerImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = BannerImage.objects.all()
+    queryset = BannerImage.objects.only(
+        "id", "image", "image_alt_description", "link", "is_active"
+    )
     serializer_class = BannerImageSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
 
 class BannerListCreateView(generics.ListCreateAPIView):
-    queryset = Banner.objects.all().order_by("-created_at")
+    queryset = (
+        Banner.objects
+        .prefetch_related(
+            Prefetch(
+                "images",
+                queryset=BannerImage.objects.only(
+                    "id",
+                    "banner_id",
+                    "image",
+                    "image_alt_description",
+                    "link",
+                    "is_active",
+                ),
+            )
+        )
+        .only("id", "banner_type", "is_active", "created_at", "updated_at")
+        .order_by("-created_at")
+    )
     serializer_class = BannerSerializer
 
     def get_authenticators(self):
@@ -104,7 +171,14 @@ class BannerListCreateView(generics.ListCreateAPIView):
 
 
 class BannerRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Banner.objects.all()
+    queryset = Banner.objects.prefetch_related(
+        Prefetch(
+            "images",
+            queryset=BannerImage.objects.only(
+                "id", "banner_id", "image", "image_alt_description", "link", "is_active"
+            ),
+        )
+    ).only("id", "banner_type", "is_active", "created_at", "updated_at")
     serializer_class = BannerSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
