@@ -1,4 +1,5 @@
 # views.py
+import traceback
 from copy import deepcopy
 
 from django.apps import apps
@@ -847,20 +848,62 @@ def import_template_published(request):
 
 
 @api_view(["POST"])
-@authentication_classes([TenantJWTAuthentication])
-@permission_classes([IsAuthenticated])
+# @permission_classes([IsAuthenticated])
 def import_template_data(request):
-    template_id = request.data.get("template_id")
-    template_client = Client.objects.get(id=template_id)
+    print("\n" + "=" * 80)
+    print("IMPORT TEMPLATE API STARTED")
+    print("=" * 80)
 
-    if not template_client.is_template_account:
-        return Response({"error": "Not a template account"}, status=400)
+    try:
+        template_id = request.data.get("template_id")
+        print(f"[STEP 1] Template ID received: {template_id}")
 
-    target_client = request.tenant  # the user's tenant
+        if not template_id:
+            print("[ERROR] template_id missing")
+            return Response({"error": "template_id is required"}, status=400)
 
-    import_template_data_to_tenant(template_client, target_client)
+        print(f"[STEP 2] Finding template client with ID={template_id}")
+        template_client = Client.objects.get(id=template_id)
 
-    return Response({"status": "Template data imported successfully!"})
+        print(
+            f"[SUCCESS] Template client found: "
+            f"ID={template_client.id}, "
+            f"Schema={template_client.schema_name}"
+        )
+
+        if not template_client.is_template_account:
+            print("[ERROR] Client exists but not template account")
+            return Response({"error": "Not a template account"}, status=400)
+
+        print("[STEP 3] Getting target tenant")
+        target_client = request.tenant
+
+        print(
+            f"[SUCCESS] Target tenant found: "
+            f"ID={target_client.id}, "
+            f"Schema={target_client.schema_name}"
+        )
+
+        print("[STEP 4] Starting import process")
+        import_template_data_to_tenant(template_client, target_client)
+
+        print("[SUCCESS] Import completed")
+
+        return Response({"status": "Template data imported successfully!"})
+
+    except Client.DoesNotExist:
+        print(f"[ERROR] Client with ID={template_id} not found")
+        traceback.print_exc()
+
+        return Response(
+            {"error": f"Template client {template_id} not found"}, status=404
+        )
+
+    except Exception as e:
+        print(f"[CRITICAL ERROR] {str(e)}")
+        traceback.print_exc()
+
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["POST"])

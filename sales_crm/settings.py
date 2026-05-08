@@ -247,7 +247,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://composite-interstate-alex-noted.trycloudflare.com",
+    "https://setting-oecd-exists-independence.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -256,7 +256,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://composite-interstate-alex-noted.trycloudflare.com",
+    "https://setting-oecd-exists-independence.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

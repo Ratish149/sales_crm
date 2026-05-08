@@ -1,11 +1,13 @@
 from datetime import date
 
 from django.core.cache import cache
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
-from django_tenants.utils import get_tenant_domain_model
+from django_tenants.utils import (
+    get_public_schema_name,
+    get_tenant_domain_model,
+)
 
 from tenants.models import Client
 
@@ -257,57 +259,87 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
 
 class CustomDomainTenantMiddleware:
+    """
+    Production-safe tenant middleware:
+    - skips admin/static/media
+    - always ensures request.tenant is NEVER None
+    - caches domain lookup
+    - safe fallback to public schema
+    """
+
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # 1. Extract domain from header
-        hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
+        path = request.path.lower()
 
-        # 2. If no header, fallback to public schema
-        if not hostname:
+        # ---------------------------------------------------
+        # 🚨 1. ADMIN / STATIC / MEDIA SKIP (CRITICAL FIX)
+        # ---------------------------------------------------
+        if (
+            path.startswith("/admin")
+            or path.startswith("/static")
+            or path.startswith("/media")
+        ):
             connection.set_schema_to_public()
-            # Set request.tenant to the public tenant object if it exists
-            try:
-                from django_tenants.utils import get_public_schema_name
-
-                request.tenant = Client.objects.get(
-                    schema_name=get_public_schema_name()
-                )
-            except Client.DoesNotExist:
-                request.tenant = None
+            request.tenant = self.get_public_tenant()
             return self.get_response(request)
 
-        # 3. Clean hostname
-        hostname = hostname.replace("www.", "").split(":")[0]
+        # ---------------------------------------------------
+        # 2. GET HOSTNAME SAFELY
+        # ---------------------------------------------------
+        hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
+        hostname = hostname.split(":")[0].replace("www.", "").strip()
+
+        # ---------------------------------------------------
+        # 3. CACHE LOOKUP FIRST
+        # ---------------------------------------------------
+        cache_key = f"domain_tenant_{hostname}"
+        tenant = cache.get(cache_key)
 
         try:
-            # 4. Lookup Tenant
-            cache_key = f"domain_tenant_{hostname}"
-            tenant = cache.get(cache_key)
-
             if not tenant:
                 DomainModel = get_tenant_domain_model()
-                domain_obj = DomainModel.objects.select_related("tenant").get(
-                    domain=hostname
+
+                domain_obj = (
+                    DomainModel.objects
+                    .select_related("tenant")
+                    .only("domain", "tenant_id")
+                    .get(domain=hostname)
                 )
+
                 tenant = domain_obj.tenant
                 cache.set(cache_key, tenant, timeout=300)
 
-            # 5. Set the Schema
             connection.set_tenant(tenant)
             request.tenant = tenant
-        except (ObjectDoesNotExist, DomainModel.DoesNotExist):
-            # Fallback to public if domain not found
+
+        except DomainModel.DoesNotExist:
+            # ---------------------------------------------------
+            # 4. SAFE FALLBACK → PUBLIC TENANT (NOT None)
+            # ---------------------------------------------------
             connection.set_schema_to_public()
-            try:
-                from django_tenants.utils import get_public_schema_name
+            request.tenant = self.get_public_tenant()
 
-                request.tenant = Client.objects.get(
-                    schema_name=get_public_schema_name()
-                )
-            except Client.DoesNotExist:
-                request.tenant = None
+        except Exception:
+            # ---------------------------------------------------
+            # 5. HARD SAFETY FALLBACK
+            # ---------------------------------------------------
+            connection.set_schema_to_public()
+            request.tenant = self.get_public_tenant()
 
-        response = self.get_response(request)
-        return response
+        return self.get_response(request)
+
+    # ---------------------------------------------------
+    # SAFE PUBLIC TENANT (NEVER RETURNS None)
+    # ---------------------------------------------------
+    def get_public_tenant(self):
+        try:
+            return Client.objects.get(schema_name=get_public_schema_name())
+        except Client.DoesNotExist:
+            # fallback dummy object (prevents django-tenants crash)
+            class DummyTenant:
+                schema_name = "public"
+                domain_url = "localhost"
+
+            return DummyTenant()

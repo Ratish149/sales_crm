@@ -315,13 +315,10 @@ def import_template_to_tenant_published(template_client, target_client):
 
 
 def import_template_data_to_tenant(template_client, target_client):
-    """
-    Imports all dynamic/user data from the template tenant to the target tenant.
-    This includes products, blog posts, testimonials, FAQs, team members, services,
-    portfolio items, our clients, videos, and collection data.
-    """
+    import traceback
+
     from django.core.files.base import ContentFile
-    from django.utils.crypto import get_random_string
+    from django.db import models
 
     from blog.models import Blog, Tags
     from collection.models import Collection, CollectionData
@@ -349,64 +346,270 @@ def import_template_data_to_tenant(template_client, target_client):
     from testimonial.models import Testimonial
     from videos.models import Video
 
+    def get_unique_fields(model):
+        """
+        Get all unique constraints from model
+        """
+        unique_groups = []
+
+        # unique=True fields
+        for field in model._meta.fields:
+            if field.unique:
+                unique_groups.append([field.name])
+
+        # unique_together
+        if hasattr(model._meta, "unique_together"):
+            for group in model._meta.unique_together:
+                unique_groups.append(list(group))
+
+        # UniqueConstraint
+        for constraint in model._meta.constraints:
+            if isinstance(constraint, models.UniqueConstraint):
+                unique_groups.append(list(constraint.fields))
+
+        return unique_groups
+
+    def find_existing_instance(model, data):
+        """
+        Dynamically find duplicates using model unique constraints
+        """
+
+        # slug priority
+        if "slug" in data and data["slug"]:
+            obj = model.objects.filter(slug=data["slug"]).first()
+            if obj:
+                return obj
+
+        # name priority
+        if "name" in data and data["name"]:
+            filters = {"name": data["name"]}
+
+            if "product_id" in data:
+                filters["product_id"] = data["product_id"]
+
+            if "category_id" in data:
+                filters["category_id"] = data["category_id"]
+
+            if "option_id" in data:
+                filters["option_id"] = data["option_id"]
+
+            if "metric_id" in data:
+                filters["metric_id"] = data["metric_id"]
+
+            obj = model.objects.filter(**filters).first()
+            if obj:
+                return obj
+
+        # Dynamic unique constraints
+        unique_groups = get_unique_fields(model)
+
+        for fields in unique_groups:
+            filters = {}
+
+            for field_name in fields:
+                if field_name.endswith("_id"):
+                    value = data.get(field_name)
+
+                elif f"{field_name}_id" in data:
+                    value = data.get(f"{field_name}_id")
+
+                else:
+                    value = data.get(field_name)
+
+                if value is None:
+                    filters = None
+                    break
+
+                if field_name.endswith("_id"):
+                    filters[field_name] = value
+
+                elif f"{field_name}_id" in data:
+                    filters[f"{field_name}_id"] = value
+
+                else:
+                    filters[field_name] = value
+
+            if filters:
+                obj = model.objects.filter(**filters).first()
+                if obj:
+                    return obj
+
+        return None
+
     def copy_instances(
-        model, source_instances, fk_maps=None, file_fields=None, m2m_data=None
+        model,
+        source_instances,
+        fk_maps=None,
+        file_fields=None,
+        m2m_data=None,
     ):
+        print("\n" + "=" * 80)
+        print(f"START COPYING: {model.__name__}")
+        print("=" * 80)
+
         id_map = {}
         m2m_updates = []
 
-        for src in source_instances:
-            old_id = src.id
-            data = {}
-            for f in model._meta.fields:
-                if f.name in ["id", "pk", "created_at", "updated_at"]:
+        for index, src in enumerate(source_instances, start=1):
+            try:
+                print(
+                    f"[{model.__name__}] Processing "
+                    f"{index}/{len(source_instances)} "
+                    f"(Source ID={src.id})"
+                )
+
+                data = {}
+
+                # -----------------------------------
+                # Extract fields
+                # -----------------------------------
+                for field in model._meta.fields:
+                    if field.name in [
+                        "id",
+                        "pk",
+                        "created_at",
+                        "updated_at",
+                    ]:
+                        continue
+
+                    # File fields
+                    if file_fields and field.name in file_fields:
+                        file_obj = getattr(src, field.name)
+
+                        if file_obj and file_obj.name:
+                            try:
+                                file_obj.open("rb")
+
+                                data[field.name] = ContentFile(
+                                    file_obj.read(),
+                                    name=file_obj.name.split("/")[-1],
+                                )
+
+                            except Exception as e:
+                                print(
+                                    f"[FILE ERROR] {model.__name__}.{field.name}: {e}"
+                                )
+
+                        continue
+
+                    # FK fields
+                    if field.is_relation:
+                        data[field.attname] = getattr(
+                            src,
+                            field.attname,
+                        )
+
+                    else:
+                        data[field.name] = getattr(
+                            src,
+                            field.name,
+                        )
+
+                # -----------------------------------
+                # Apply FK mapping
+                # -----------------------------------
+                skip_record = False
+
+                if fk_maps:
+                    for fk_field, mapping in fk_maps.items():
+                        key = f"{fk_field}_id"
+
+                        old_fk_id = data.get(key)
+
+                        if old_fk_id:
+                            if old_fk_id in mapping:
+                                data[key] = mapping[old_fk_id]
+
+                            else:
+                                print(
+                                    f"[FK NOT FOUND] "
+                                    f"{model.__name__}.{fk_field}: "
+                                    f"{old_fk_id}"
+                                )
+
+                                skip_record = True
+                                break
+
+                if skip_record:
                     continue
 
-                if file_fields and f.name in file_fields:
-                    file_field = getattr(src, f.name)
-                    if file_field and file_field.name:
-                        try:
-                            file_content = file_field.read()
-                            data[f.name] = ContentFile(
-                                file_content, name=file_field.name.split("/")[-1]
-                            )
-                        except Exception:
-                            data[f.name] = file_field
+                # -----------------------------------
+                # Duplicate detection
+                # -----------------------------------
+                existing = find_existing_instance(
+                    model,
+                    data,
+                )
+
+                if existing:
+                    print(
+                        f"[SKIPPED] {model.__name__} already exists (ID={existing.id})"
+                    )
+
+                    id_map[src.id] = existing.id
                     continue
 
-                data[f.name] = getattr(src, f.name)
+                # -----------------------------------
+                # Create
+                # -----------------------------------
+                print(f"[CREATE] Creating {model.__name__}")
 
-            if fk_maps:
-                for fk_field, mapping in fk_maps.items():
-                    old_fk_id = data.get(f"{fk_field}_id")
-                    if old_fk_id and old_fk_id in mapping:
-                        data[f"{fk_field}_id"] = mapping[old_fk_id]
+                new_obj = model.objects.create(**data)
 
-            if model.__name__ == "OurClient":
-                base_name = data.get("name", "")
-                while model.objects.filter(name=data.get("name")).exists():
-                    data["name"] = f"{base_name} {get_random_string(4)}"
+                print(f"[SUCCESS] Created {model.__name__} (ID={new_obj.id})")
 
-            new_obj = model.objects.create(**data)
-            id_map[old_id] = new_obj.id
+                id_map[src.id] = new_obj.id
 
-            if m2m_data:
-                for m2m_field, m2m_dict in m2m_data.items():
-                    old_m2m_ids = m2m_dict["links"].get(old_id, [])
-                    mapping = m2m_dict["mapping"]
-                    if old_m2m_ids:
-                        m2m_updates.append((
-                            new_obj,
-                            m2m_field,
-                            [mapping[mid] for mid in old_m2m_ids if mid in mapping],
-                        ))
+                # -----------------------------------
+                # Store m2m
+                # -----------------------------------
+                if m2m_data:
+                    for field_name, m2m_info in m2m_data.items():
+                        old_ids = m2m_info["links"].get(
+                            src.id,
+                            [],
+                        )
 
-        for new_obj, m2m_field, new_m2m_ids in m2m_updates:
-            getattr(new_obj, m2m_field).set(new_m2m_ids)
+                        mapping = m2m_info["mapping"]
+
+                        new_ids = [mapping[x] for x in old_ids if x in mapping]
+
+                        if new_ids:
+                            m2m_updates.append((
+                                new_obj,
+                                field_name,
+                                new_ids,
+                            ))
+
+            except Exception as e:
+                print(f"[ERROR] {model.__name__} (Source ID={src.id})")
+
+                print(f"Reason: {str(e)}")
+
+                traceback.print_exc()
+
+        # -----------------------------------
+        # Apply m2m
+        # -----------------------------------
+        for obj, field_name, ids in m2m_updates:
+            try:
+                getattr(
+                    obj,
+                    field_name,
+                ).set(ids)
+
+                print(f"[M2M SUCCESS] {obj.__class__.__name__}.{field_name}")
+
+            except Exception as e:
+                print(f"[M2M ERROR] {obj.__class__.__name__}.{field_name}: {e}")
+
+        print(f"[DONE] {model.__name__}")
 
         return id_map
 
-    # 1) Fetch from template
+    # =====================================
+    # FETCH FROM TEMPLATE
+    # =====================================
     with schema_context(template_client.schema_name):
         src_categories = list(Category.objects.all())
         src_subcats = list(SubCategory.objects.all())
@@ -419,13 +622,27 @@ def import_template_data_to_tenant(template_client, target_client):
         src_pvariants = list(ProductVariant.objects.all())
 
         variant_m2m = {
-            v.id: list(v.option_values.values_list("id", flat=True))
-            for v in src_pvariants
+            x.id: list(
+                x.option_values.values_list(
+                    "id",
+                    flat=True,
+                )
+            )
+            for x in src_pvariants
         }
 
         src_tags = list(Tags.objects.all())
         src_blogs = list(Blog.objects.all())
-        blog_m2m = {b.id: list(b.tags.values_list("id", flat=True)) for b in src_blogs}
+
+        blog_m2m = {
+            x.id: list(
+                x.tags.values_list(
+                    "id",
+                    flat=True,
+                )
+            )
+            for x in src_blogs
+        }
 
         src_testimonials = list(Testimonial.objects.all())
 
@@ -441,7 +658,16 @@ def import_template_data_to_tenant(template_client, target_client):
         src_porttags = list(PortfolioTags.objects.all())
         src_ports = list(Portfolio.objects.all())
         src_portimgs = list(PortfolioImage.objects.all())
-        port_m2m = {p.id: list(p.tags.values_list("id", flat=True)) for p in src_ports}
+
+        port_m2m = {
+            x.id: list(
+                x.tags.values_list(
+                    "id",
+                    flat=True,
+                )
+            )
+            for x in src_ports
+        }
 
         src_clients = list(OurClient.objects.all())
         src_videos = list(Video.objects.all())
@@ -449,99 +675,203 @@ def import_template_data_to_tenant(template_client, target_client):
         src_coldata = list(CollectionData.objects.all())
         src_cols = list(Collection.objects.all())
 
-    # 2) Save to target
+    # =====================================
+    # SAVE TO TARGET
+    # =====================================
     with schema_context(target_client.schema_name):
-        cat_map = copy_instances(Category, src_categories, file_fields=["image"])
+        cat_map = copy_instances(
+            Category,
+            src_categories,
+            file_fields=["image"],
+        )
+
         subcat_map = copy_instances(
             SubCategory,
             src_subcats,
             fk_maps={"category": cat_map},
             file_fields=["image"],
         )
-        metric_map = copy_instances(PricingMetric, src_metrics)
+
+        metric_map = copy_instances(
+            PricingMetric,
+            src_metrics,
+        )
 
         product_map = copy_instances(
             Product,
             src_products,
-            fk_maps={"category": cat_map, "sub_category": subcat_map},
+            fk_maps={
+                "category": cat_map,
+                "sub_category": subcat_map,
+            },
             file_fields=["thumbnail_image"],
         )
 
         copy_instances(
             ProductComposition,
             src_pcomps,
-            fk_maps={"product": product_map, "metric": metric_map},
+            fk_maps={
+                "product": product_map,
+                "metric": metric_map,
+            },
         )
+
         copy_instances(
             ProductImage,
             src_pimgs,
-            fk_maps={"product": product_map},
+            fk_maps={
+                "product": product_map,
+            },
             file_fields=["image"],
         )
+
         popt_map = copy_instances(
-            ProductOption, src_popts, fk_maps={"product": product_map}
+            ProductOption,
+            src_popts,
+            fk_maps={
+                "product": product_map,
+            },
         )
+
         poptval_map = copy_instances(
-            ProductOptionValue, src_poptvals, fk_maps={"option": popt_map}
+            ProductOptionValue,
+            src_poptvals,
+            fk_maps={
+                "option": popt_map,
+            },
         )
+
         copy_instances(
             ProductVariant,
             src_pvariants,
-            fk_maps={"product": product_map},
+            fk_maps={
+                "product": product_map,
+            },
             file_fields=["image"],
-            m2m_data={"option_values": {"links": variant_m2m, "mapping": poptval_map}},
+            m2m_data={
+                "option_values": {
+                    "links": variant_m2m,
+                    "mapping": poptval_map,
+                }
+            },
         )
 
-        tag_map = copy_instances(Tags, src_tags)
+        tag_map = copy_instances(
+            Tags,
+            src_tags,
+        )
+
         copy_instances(
             Blog,
             src_blogs,
             file_fields=["thumbnail_image"],
-            m2m_data={"tags": {"links": blog_m2m, "mapping": tag_map}},
+            m2m_data={
+                "tags": {
+                    "links": blog_m2m,
+                    "mapping": tag_map,
+                }
+            },
         )
 
-        copy_instances(Testimonial, src_testimonials, file_fields=["image"])
-
-        faqcat_map = copy_instances(FAQCategory, src_faqcats)
-        copy_instances(FAQ, src_faqs, fk_maps={"category": faqcat_map})
-
-        copy_instances(TeamMember, src_team, file_fields=["photo"])
-
-        svccat_map = copy_instances(
-            ServiceCategory, src_svccats, file_fields=["thumbnail_image"]
-        )
         copy_instances(
-            Service,
-            src_svcs,
-            fk_maps={"service_category": svccat_map},
-            file_fields=["thumbnail_image"],
-        )
-
-        portcat_map = copy_instances(PortfolioCategory, src_portcats)
-        porttag_map = copy_instances(PortfolioTags, src_porttags)
-        port_map = copy_instances(
-            Portfolio,
-            src_ports,
-            fk_maps={"category": portcat_map},
-            file_fields=["thumbnail_image"],
-            m2m_data={"tags": {"links": port_m2m, "mapping": porttag_map}},
-        )
-        copy_instances(
-            PortfolioImage,
-            src_portimgs,
-            fk_maps={"portfolio": port_map},
+            Testimonial,
+            src_testimonials,
             file_fields=["image"],
         )
 
-        copy_instances(OurClient, src_clients, file_fields=["logo"])
-        copy_instances(Video, src_videos)
+        faqcat_map = copy_instances(
+            FAQCategory,
+            src_faqcats,
+        )
+
+        copy_instances(
+            FAQ,
+            src_faqs,
+            fk_maps={
+                "category": faqcat_map,
+            },
+        )
+
+        copy_instances(
+            TeamMember,
+            src_team,
+            file_fields=["photo"],
+        )
+
+        svccat_map = copy_instances(
+            ServiceCategory,
+            src_svccats,
+            file_fields=["thumbnail_image"],
+        )
+
+        copy_instances(
+            Service,
+            src_svcs,
+            fk_maps={
+                "service_category": svccat_map,
+            },
+            file_fields=["thumbnail_image"],
+        )
+
+        portcat_map = copy_instances(
+            PortfolioCategory,
+            src_portcats,
+        )
+
+        porttag_map = copy_instances(
+            PortfolioTags,
+            src_porttags,
+        )
+
+        port_map = copy_instances(
+            Portfolio,
+            src_ports,
+            fk_maps={
+                "category": portcat_map,
+            },
+            file_fields=["thumbnail_image"],
+            m2m_data={
+                "tags": {
+                    "links": port_m2m,
+                    "mapping": porttag_map,
+                }
+            },
+        )
+
+        copy_instances(
+            PortfolioImage,
+            src_portimgs,
+            fk_maps={
+                "portfolio": port_map,
+            },
+            file_fields=["image"],
+        )
+
+        copy_instances(
+            OurClient,
+            src_clients,
+            file_fields=["logo"],
+        )
+
+        copy_instances(
+            Video,
+            src_videos,
+        )
+
+        target_cols = {x.slug: x.id for x in Collection.objects.all()}
 
         col_map = {}
-        target_cols = {c.slug: c.id for c in Collection.objects.all()}
+
         for c in src_cols:
             if c.slug in target_cols:
                 col_map[c.id] = target_cols[c.slug]
 
-        copy_instances(CollectionData, src_coldata, fk_maps={"collection": col_map})
+        copy_instances(
+            CollectionData,
+            src_coldata,
+            fk_maps={
+                "collection": col_map,
+            },
+        )
 
     return True
