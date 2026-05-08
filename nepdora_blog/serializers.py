@@ -6,7 +6,7 @@ from .models import Blog, BlogCategory, Tags
 class BlogCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogCategory
-        fields = "__all__"
+        fields = ["id", "name", "slug"]
 
 
 class BlogCategorySmallSerializer(serializers.ModelSerializer):
@@ -18,7 +18,7 @@ class BlogCategorySmallSerializer(serializers.ModelSerializer):
 class TagsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tags
-        fields = "__all__"
+        fields = ["id", "name", "slug"]
 
 
 class TagsSmallSerializer(serializers.ModelSerializer):
@@ -34,14 +34,14 @@ class BlogSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
         source="tags",
-        queryset=Tags.objects.all(),
+        queryset=Tags.objects.only("id"),
     )
     category = BlogCategorySmallSerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         write_only=True,
         required=False,
         source="category",
-        queryset=BlogCategory.objects.all(),
+        queryset=BlogCategory.objects.only("id"),
     )
 
     class Meta:

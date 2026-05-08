@@ -1,31 +1,47 @@
-from rest_framework import generics, status
-from rest_framework.response import Response
+from rest_framework import generics
 
 from .models import Issue, IssueCategory
 from .serializers import IssueCategorySerializer, IssueSerializer, IssueSerializer2
 
 # Create your views here.
 
+# Columns used by IssueCategorySerializer
+_CATEGORY_FIELDS = ("id", "name")
+
+# Columns used by IssueSerializer / IssueSerializer2 (FK column + related cols)
+_ISSUE_FIELDS = (
+    "id",
+    "issue_category_id",  # the FK column on Issue
+    "title",
+    "description",
+    "priority",
+    "status",
+    "created_at",
+    "updated_at",
+    "issue_category__id",  # pulled in by select_related
+    "issue_category__name",
+)
+
 
 class IssueCategoryListCreateAPIView(generics.ListCreateAPIView):
-    queryset = IssueCategory.objects.all()
+    queryset = IssueCategory.objects.only(*_CATEGORY_FIELDS)
     serializer_class = IssueCategorySerializer
 
 
 class IssueCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = IssueCategory.objects.all()
+    queryset = IssueCategory.objects.only(*_CATEGORY_FIELDS)
     serializer_class = IssueCategorySerializer
 
 
 class IssueListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Issue.objects.all().order_by("-created_at")
-    serializer_class = IssueSerializer
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)  # instantiate
-        serializer.is_valid(raise_exception=True)  # validate
-        serializer.save()  # save with user
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    # select_related covers the nested category on GET (IssueSerializer2);
+    # only() limits columns fetched for both read and write paths.
+    queryset = (
+        Issue.objects
+        .select_related("issue_category")
+        .only(*_ISSUE_FIELDS)
+        .order_by("-created_at")
+    )
 
     def get_serializer_class(self):
         if self.request.method == "GET":
@@ -34,5 +50,5 @@ class IssueListCreateAPIView(generics.ListCreateAPIView):
 
 
 class IssueRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Issue.objects.all()
-    serializer_class = IssueSerializer
+    queryset = Issue.objects.select_related("issue_category").only(*_ISSUE_FIELDS)
+    serializer_class = IssueSerializer2

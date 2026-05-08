@@ -12,7 +12,7 @@ class FAQCategorySerializer(serializers.ModelSerializer):
 class FAQSerializer(serializers.ModelSerializer):
     category = FAQCategorySerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=FAQCategory.objects.all(),
+        queryset=FAQCategory.objects.only("id"),
         source="category",
         write_only=True,
         allow_null=True,

@@ -94,6 +94,7 @@ class PortfolioListSerializer(PortfolioSerializer):
             "id",
             "title",
             "slug",
+            "content",
             "thumbnail_image",
             "thumbnail_image_alt_description",
             "category",

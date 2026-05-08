@@ -131,8 +131,6 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "sales_crm.middleware.CustomDomainTenantMiddleware",
-    # "django_tenants.middleware.main.TenantMainMiddleware",  # MUST come first
-    # "sales_crm.middleware.TenantValidationMiddleware",  # Validate tenant context
     "sales_crm.middleware.RateLimitMiddleware",
     "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
@@ -170,31 +168,28 @@ WSGI_APPLICATION = "sales_crm.wsgi.application"
 
 ASGI_APPLICATION = "sales_crm.asgi.application"
 
-""" CHANNEL_LAYERS = {
+
+CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.getenv("WEBSOCKET_REDIS_URL")],
+            "hosts": ["redis://127.0.0.1:6379/2"],
         },
-    },
-} """
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
 
 # Caching
-""" CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://localhost:6379/2",
-    }
-} """
+
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": "redis://localhost:6379/1",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+        },
     }
 }
 

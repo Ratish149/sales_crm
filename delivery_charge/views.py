@@ -45,11 +45,9 @@ class DefaultDeliveryChargeListCreateView(generics.ListCreateAPIView):
         default_serializer = self.get_serializer(default_prices, many=True)
 
         # Custom response structure
-        return Response(
-            {
-                "default_price": default_serializer.data,
-            }
-        )
+        return Response({
+            "default_price": default_serializer.data,
+        })
 
 
 class DeliveryChargeRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):

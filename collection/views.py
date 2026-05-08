@@ -1,6 +1,3 @@
-import os
-
-import resend
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils.functional import cached_property
@@ -9,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
+from sales_crm.utils.email_service import send_resend_email
 
 from .models import Collection, CollectionData
 from .serializers import CollectionDataSerializer, CollectionSerializer
@@ -127,8 +125,6 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
 
         # Send email if enabled
         if collection.send_email and collection.admin_email:
-            resend.api_key = os.getenv("RESEND_API_KEY")
-
             # Format data for email
             data_html = "<ul>"
 
@@ -161,18 +157,8 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
             {data_html}
             """
 
-            params = {
-                "from": "Nepdora <nepdora@baliyoventures.com>",
-                "to": [collection.admin_email],
-                "subject": f"New Submission Received: {collection.name}",
-                "html": html_body,
-            }
-
-            try:
-                resend.Emails.send(params)
-            except Exception as e:
-                # Log error or handle silently to not disrupt the response
-                print(f"Failed to send email: {str(e)}")
+            subject = f"New Submission Received: {collection.name}"
+            send_resend_email(collection.admin_email, subject, html_body)
 
     def get_serializer_context(self):
         """Pass collection to serializer context for validation"""

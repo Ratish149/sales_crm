@@ -1,6 +1,7 @@
 from datetime import date
 
 from django.core.cache import cache
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
@@ -11,113 +12,35 @@ from django_tenants.utils import (
 
 from tenants.models import Client
 
+# =====================================================
+# CONFIG
+# =====================================================
+
 SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
 
-
-EXEMPT_PATHS = [
+EXEMPT_PATHS = (
     "/admin",
     "/login",
     "/signup",
     "/api/upgrade",
-]
-
-# Tenant-specific URL patterns that require a tenant subdomain
-TENANT_REQUIRED_PATTERNS = [
-    "/api/admin-order/",
-    "/api/order/",
-    "/api/product/",
-    "/api/customer/",
-    "/api/website/",
-    "/api/blog/",
-    "/api/whatsapp/",
-    "/api/issue-tracking/",
-    "/api/advertisement/",
-    "/api/contact/",
-    "/api/testimonial/",
-    "/api/faq/",
-    "/api/team/",
-    "/api/portfolio/",
-    "/api/service/",
-    "/api/payment-gateway/",
-    "/api/logistics/",
-    "/api/promo-code/",
-    "/api/delivery-charge/",
-    "/api/google-analytic/",
-    "/api/facebook/",
-    "/api/our-client/",
-    "/api/appointment/",
-    "/api/videos/",
-    "/api/our-pricing/",
-    "/api/collection/",
-    "/api/builder/",
-]
-
-RATE_LIMIT = (
-    200000  # requests per minute (50 req/sec) - suitable for active website building
 )
-
-RATE_LIMIT_BLOCK_SECONDS = (
-    3600  # 1 hour block (allows recovery from accidental triggers)
-)
-
-
-# class TenantValidationMiddleware(MiddlewareMixin):
-#     """
-#     Validates that tenant-specific endpoints are accessed with a proper tenant subdomain.
-#     Returns a proper error message instead of allowing database errors when accessing
-#     tenant apps from the public schema.
-#     """
-
-#     def process_request(self, request):
-#         tenant = getattr(request, "tenant", None)
-
-#         # If no tenant is set, skip validation
-#         if not tenant:
-#             return None
-
-#         # Check if we're in the public schema
-#         is_public_schema = tenant.schema_name == "public"
-
-#         # If not in public schema, allow the request
-#         if not is_public_schema:
-#             return None
-
-#         # Check if the requested path requires a tenant context
-#         path = request.path.lower()
-#         requires_tenant = any(
-#             path.startswith(pattern.lower()) for pattern in TENANT_REQUIRED_PATTERNS
-#         )
-
-#         if requires_tenant:
-#             return JsonResponse(
-#                 {
-#                     "status": 400,
-#                     "error": {
-#                         "code": 400,
-#                         "message": "Invalid tenant. Please access this endpoint using a tenant subdomain.",
-#                         "params": {
-#                             "requested_path": request.path,
-#                         },
-#                     },
-#                     "success": False,
-#                 },
-#                 status=400,
-#             )
-
-#         return None
 
 WHITELISTED_IPS = {
     "127.0.0.1",
     "::1",
-    "172.188.98.151 ",
+    "172.188.98.151",
 }
 
 
+# =====================================================
+# RATE LIMIT MIDDLEWARE
+# =====================================================
+
+
 class RateLimitMiddleware(MiddlewareMixin):
-    """
-    Rate limit requests based on IP address.
-    Skips trusted internal/build/server traffic.
-    """
+    RATE_LIMIT = 200
+    WINDOW = 60
+    BLOCK_TIME = 3600
 
     def process_request(self, request):
         ip = self.get_client_ip(request)
@@ -125,147 +48,59 @@ class RateLimitMiddleware(MiddlewareMixin):
         if not ip:
             return None
 
-        # Skip internal server requests
         if ip in WHITELISTED_IPS:
             return None
 
-        # Optional: skip health checks/internal calls
-        user_agent = request.META.get("HTTP_USER_AGENT", "").lower()
-        if "node" in user_agent or "next" in user_agent:
-            return None
-
-        # Check if blocked
         blocked_key = f"blocked:{ip}"
+
         if cache.get(blocked_key):
             return JsonResponse(
-                {"detail": "Too Many Requests - IP Blocked"},
+                {"detail": "Too Many Requests"},
                 status=429,
             )
 
-        # Rate limit counter
         rate_key = f"ratelimit:{ip}"
 
         try:
-            cache.add(rate_key, 0, timeout=60)
+            cache.add(rate_key, 0, timeout=self.WINDOW)
             count = cache.incr(rate_key)
         except ValueError:
-            # fallback if cache key disappears
-            cache.set(rate_key, 1, timeout=60)
+            cache.set(rate_key, 1, timeout=self.WINDOW)
             count = 1
+        except Exception:
+            # Never break request if Redis fails
+            return None
 
-        if count > RATE_LIMIT:
-            cache.set(blocked_key, True, timeout=RATE_LIMIT_BLOCK_SECONDS)
+        if count > self.RATE_LIMIT:
+            cache.set(
+                blocked_key,
+                True,
+                timeout=self.BLOCK_TIME,
+            )
+
             return JsonResponse(
-                {"detail": "Too Many Requests - IP Blocked"},
+                {"detail": "Too Many Requests"},
                 status=429,
             )
 
         return None
 
     def get_client_ip(self, request):
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        xff = request.META.get("HTTP_X_FORWARDED_FOR")
 
-        if x_forwarded_for:
-            return x_forwarded_for.split(",")[0].strip()
+        if xff:
+            return xff.split(",")[0].strip()
 
         return request.META.get("REMOTE_ADDR")
 
 
-class CSRFExemptForAllauthHeadless:
-    """
-    Exempt all requests to allauth headless from CSRF
-    """
-
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        if request.path.startswith("/_allauth/browser/v1/"):
-            setattr(request, "_dont_enforce_csrf_checks", True)
-        response = self.get_response(request)
-        return response
-
-
-class SubscriptionMiddleware(MiddlewareMixin):
-    """
-    Enforce subscription validity for tenant-based access.
-    - Blocks write requests for expired tenants.
-    - Allows SAFE_METHODS (GET, HEAD, OPTIONS) even if subscription expired.
-    - Attaches request.tenant_is_active flag.
-    - Skips explicitly exempted routes and views.
-    """
-
-    def process_view(self, request, view_func, view_args, view_kwargs):
-        path = request.path.lower()
-
-        # Skip exempt paths
-        if any(keyword in path for keyword in EXEMPT_PATHS):
-            return None
-
-        tenant = getattr(request, "tenant", None)
-        if not tenant:
-            # Not tenant scoped (public schema, etc.)
-            return None
-
-        # Skip explicitly exempt views
-        if getattr(view_func, "allow_inactive_subscription", False):
-            return None
-
-        # DRF CBVs sometimes wrap view_func; check cls
-        view_class = getattr(view_func, "cls", None)
-        if view_class and getattr(view_class, "allow_inactive_subscription", False):
-            return None
-
-        # Check subscription status
-        is_active = self.check_subscription_active(tenant)
-        request.tenant_is_active = is_active
-
-        # If subscription inactive AND method is not safe, block access
-        if not is_active and request.method not in SAFE_METHODS:
-            return JsonResponse(
-                {
-                    "detail": "Your subscription has expired. You can view data but cannot create, update, or delete.",
-                    "status": "subscription_inactive",
-                    "plan": tenant.pricing_plan.name
-                    if tenant.pricing_plan
-                    else "No plan",
-                    "paid_until": tenant.paid_until,
-                },
-                status=403,
-            )
-
-        # If subscription inactive but method is safe, allow view
-        return None
-
-    def check_subscription_active(self, tenant):
-        """
-        Determine if tenant's subscription is active.
-        Lifetime plans or paid_until in future are considered active.
-        """
-        cache_key = f"tenant_{tenant.schema_name}_sub_active"
-        is_active = cache.get(cache_key)
-        if is_active is not None:
-            return is_active
-
-        if not getattr(tenant, "pricing_plan_id", tenant.pricing_plan):
-            is_active = False  # No plan => inactive
-        elif tenant.paid_until is None:
-            is_active = True  # Lifetime plan => active
-        else:
-            is_active = tenant.paid_until >= date.today()
-
-        cache.set(cache_key, is_active, timeout=300)
-        return is_active
+# =====================================================
+# TENANT MIDDLEWARE
+# =====================================================
 
 
 class CustomDomainTenantMiddleware:
-    """
-    Production-safe tenant middleware:
-    - skips admin/static/media
-    - always ensures request.tenant is NEVER None
-    - caches domain lookup
-    - safe fallback to public schema
-    """
+    CACHE_TIMEOUT = 300
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -273,73 +108,167 @@ class CustomDomainTenantMiddleware:
     def __call__(self, request):
         path = request.path.lower()
 
-        # ---------------------------------------------------
-        # 🚨 1. ADMIN / STATIC / MEDIA SKIP (CRITICAL FIX)
-        # ---------------------------------------------------
-        if (
-            path.startswith("/admin")
-            or path.startswith("/static")
-            or path.startswith("/media")
-        ):
-            connection.set_schema_to_public()
-            request.tenant = self.get_public_tenant()
+        # Skip static/admin/media
+        if path.startswith(("/admin", "/static", "/media")):
+            self.set_public_tenant(request)
             return self.get_response(request)
 
-        # ---------------------------------------------------
-        # 2. GET HOSTNAME SAFELY
-        # ---------------------------------------------------
         hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
-        hostname = hostname.split(":")[0].replace("www.", "").strip()
 
-        # ---------------------------------------------------
-        # 3. CACHE LOOKUP FIRST
-        # ---------------------------------------------------
-        cache_key = f"domain_tenant_{hostname}"
-        tenant = cache.get(cache_key)
+        if not hostname:
+            self.set_public_tenant(request)
+            return self.get_response(request)
+
+        hostname = hostname.split(":")[0].replace("www.", "").strip().lower()
+
+        cache_key = f"tenant_domain:{hostname}"
 
         try:
-            if not tenant:
+            tenant_id = cache.get(cache_key)
+
+            if tenant_id is None:
                 DomainModel = get_tenant_domain_model()
 
                 domain_obj = (
                     DomainModel.objects
                     .select_related("tenant")
-                    .only("domain", "tenant_id")
+                    .only("tenant__id")
                     .get(domain=hostname)
                 )
 
-                tenant = domain_obj.tenant
-                cache.set(cache_key, tenant, timeout=300)
+                tenant_id = domain_obj.tenant_id
+
+                cache.set(
+                    cache_key,
+                    tenant_id,
+                    timeout=self.CACHE_TIMEOUT,
+                )
+
+            tenant = Client.objects.get(id=tenant_id)
 
             connection.set_tenant(tenant)
             request.tenant = tenant
 
-        except DomainModel.DoesNotExist:
-            # ---------------------------------------------------
-            # 4. SAFE FALLBACK → PUBLIC TENANT (NOT None)
-            # ---------------------------------------------------
-            connection.set_schema_to_public()
-            request.tenant = self.get_public_tenant()
+        except (
+            ObjectDoesNotExist,
+            Client.DoesNotExist,
+        ):
+            self.set_public_tenant(request)
 
-        except Exception:
-            # ---------------------------------------------------
-            # 5. HARD SAFETY FALLBACK
-            # ---------------------------------------------------
-            connection.set_schema_to_public()
-            request.tenant = self.get_public_tenant()
+        response = self.get_response(request)
+
+        return response
+
+    def set_public_tenant(self, request):
+        connection.set_schema_to_public()
+
+        try:
+            request.tenant = Client.objects.get(schema_name=get_public_schema_name())
+        except Client.DoesNotExist:
+            request.tenant = None
+
+
+# =====================================================
+# SUBSCRIPTION MIDDLEWARE
+# =====================================================
+
+
+class SubscriptionMiddleware(MiddlewareMixin):
+    def process_view(
+        self,
+        request,
+        view_func,
+        view_args,
+        view_kwargs,
+    ):
+        path = request.path.lower()
+
+        if any(p in path for p in EXEMPT_PATHS):
+            return None
+
+        tenant = getattr(request, "tenant", None)
+
+        if not tenant:
+            return None
+
+        if tenant.schema_name == get_public_schema_name():
+            return None
+
+        if getattr(
+            view_func,
+            "allow_inactive_subscription",
+            False,
+        ):
+            return None
+
+        view_class = getattr(view_func, "cls", None)
+
+        if view_class and getattr(
+            view_class,
+            "allow_inactive_subscription",
+            False,
+        ):
+            return None
+
+        is_active = self.is_subscription_active(tenant)
+
+        request.tenant_is_active = is_active
+
+        if not is_active and request.method not in SAFE_METHODS:
+            return JsonResponse(
+                {
+                    "detail": ("Subscription expired. Read-only mode."),
+                    "plan": (
+                        tenant.pricing_plan.name if tenant.pricing_plan else "No plan"
+                    ),
+                    "paid_until": tenant.paid_until,
+                },
+                status=403,
+            )
+
+        return None
+
+    def is_subscription_active(self, tenant):
+        cache_key = f"tenant_sub:{tenant.schema_name}"
+
+        cached = cache.get(cache_key)
+
+        if cached is not None:
+            return cached
+
+        if not tenant.pricing_plan_id:
+            active = False
+
+        elif tenant.paid_until is None:
+            active = True
+
+        else:
+            active = tenant.paid_until >= date.today()
+
+        cache.set(
+            cache_key,
+            active,
+            timeout=300,
+        )
+
+        return active
+
+
+# =====================================================
+# CSRF EXEMPT
+# =====================================================
+
+
+class CSRFExemptForAllauthHeadless:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith("/_allauth/browser/v1/"):
+            setattr(
+                request,
+                "_dont_enforce_csrf_checks",
+                True,
+            )
 
         return self.get_response(request)
-
-    # ---------------------------------------------------
-    # SAFE PUBLIC TENANT (NEVER RETURNS None)
-    # ---------------------------------------------------
-    def get_public_tenant(self):
-        try:
-            return Client.objects.get(schema_name=get_public_schema_name())
-        except Client.DoesNotExist:
-            # fallback dummy object (prevents django-tenants crash)
-            class DummyTenant:
-                schema_name = "public"
-                domain_url = "localhost"
-
-            return DummyTenant()

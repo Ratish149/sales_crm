@@ -1,11 +1,11 @@
-import os
 from datetime import datetime
 
-import resend
 from django.template.loader import render_to_string
 from django_filters import rest_framework as django_filters
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
+
+from sales_crm.utils.email_service import get_email_common_context, send_resend_email
 
 from .models import (
     FAQ,
@@ -27,9 +27,6 @@ from .serializers import (
     ShowcaseSerializer,
     VideoTestimonialSerializer,
 )
-
-# Initialize Resend
-resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 # Create your views here.
@@ -92,46 +89,42 @@ class ContactListCreateView(generics.ListCreateAPIView):
         # Save the contact
         contact = serializer.save()
 
-        # Send email notification to admin
+        # Send email notifications
         try:
-            # Get current tenant name
-            tenant_name = "Nepdora"
-
-            # Prepare context
-            context = {
+            # Prepare context using centralized utility
+            context = get_email_common_context()
+            context.update({
                 "name": contact.name,
                 "email": contact.email,
                 "phone_number": contact.phone_number,
                 "message": contact.message,
-                "tenant_name": tenant_name,
                 "current_year": datetime.now().year,
-            }
+            })
 
-            # Render HTML
-            html_content = render_to_string(
+            # Render HTML for Admin Notification
+            admin_html = render_to_string(
                 "support/email/new_contact_notification.html", context
             )
 
             # Send via Resend to Admin
-            resend.Emails.send({
-                "from": f"{tenant_name} <nepdora@baliyoventures.com>",
-                "to": "baliyotechnologies@gmail.com",
-                "subject": f"New Contact Submission: {contact.name}",
-                "html": html_content,
-            })
+            send_resend_email(
+                context["admin_email"],
+                f"New Contact Submission: {contact.name}",
+                admin_html,
+            )
+
             # --- Send Acknowledgment to User ---
             try:
                 # Render Acknowledgment HTML
-                user_html_content = render_to_string(
+                user_html = render_to_string(
                     "support/email/contact_acknowledgment.html", context
                 )
 
-                resend.Emails.send({
-                    "from": f"{tenant_name} <nepdora@baliyoventures.com>",
-                    "to": contact.email,
-                    "subject": "Thank you for contacting Nepdora",
-                    "html": user_html_content,
-                })
+                send_resend_email(
+                    contact.email,
+                    f"Thank you for contacting {context['tenant_name']}",
+                    user_html,
+                )
             except Exception as user_e:
                 print(f"Failed to send acknowledgment email to user: {user_e}")
 

@@ -1,10 +1,6 @@
-import os
-
-import resend
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from dotenv import load_dotenv
 from rest_framework import filters, generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
+from sales_crm.utils.email_service import send_resend_email
 
 from .authentication import CustomerJWTAuthentication
 from .models import Customer
@@ -24,9 +21,6 @@ from .serializers import (
 )
 from .tokens import customer_token_generator
 from .utils import get_customer_from_request
-
-load_dotenv()
-resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 class CustomerRegisterView(generics.ListCreateAPIView):
@@ -153,10 +147,6 @@ class CustomerRequestPasswordResetView(APIView):
         uid = urlsafe_base64_encode(force_bytes(customer.pk))
         token = customer_token_generator.make_token(customer)
 
-        tenant_name = "".join(
-            word.capitalize()
-            for word in request.tenant.schema_name.replace("-", " ").split()
-        )
         reset_link = f"{frontend_url}/customer/password/reset?uid={uid}&token={token}"
 
         # Context for your template
@@ -171,16 +161,9 @@ class CustomerRequestPasswordResetView(APIView):
         )
         subject = "Password Reset Requested"
 
-        # Send email using Resend
-        try:
-            params = {
-                "from": f"{tenant_name} <nepdora@baliyoventures.com>",
-                "to": [email],
-                "subject": subject,
-                "html": html_body,
-            }
-            resend.Emails.send(params)
-        except Exception:
+        # Send email using centralized service
+        success = send_resend_email(email, subject, html_body)
+        if not success:
             return Response(
                 {"status": 500, "error": "Failed to send email"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

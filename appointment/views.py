@@ -1,7 +1,5 @@
-import os
 from datetime import datetime
 
-import resend
 from django.template.loader import render_to_string
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics
@@ -9,13 +7,10 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 
 from sales_crm.authentication import TenantJWTAuthentication
-from website.models import SiteConfig
+from sales_crm.utils.email_service import get_email_common_context, send_resend_email
 
 from .models import Appointment, AppointmentReason
 from .serializers import AppointmentReasonSerializer, AppointmentSerializer
-
-# Initialize Resend
-resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 # Create your views here.
@@ -63,7 +58,8 @@ class AppointmentFilterSet(django_filters.FilterSet):
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
     queryset = (
-        Appointment.objects.select_related("reason")
+        Appointment.objects
+        .select_related("reason")
         .only(
             "id",
             "full_name",
@@ -104,27 +100,9 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
 
         # Send email notifications
         try:
-            # Get current tenant
-            tenant = getattr(self.request, "tenant", None)
-            tenant_name = tenant.name if tenant else "Nepdora"
-            admin_email = (
-                tenant.owner.email
-                if (tenant and hasattr(tenant, "owner") and tenant.owner)
-                else None
-            )
-
-            # Get SiteConfig Logo and store name
-            logo_url = None
-            store_name = tenant_name
-            try:
-                site_config = SiteConfig.objects.only("logo").first()
-                if site_config and site_config.logo:
-                    logo_url = site_config.logo.url
-            except Exception:
-                pass
-
-            # Prepare context
-            context = {
+            # Prepare context using centralized utility
+            context = get_email_common_context()
+            context.update({
                 "full_name": appointment.full_name,
                 "email": appointment.email,
                 "phone": appointment.phone,
@@ -132,39 +110,33 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
                 "date": appointment.date,
                 "time": appointment.time,
                 "reason": appointment.reason.name if appointment.reason else None,
-                "tenant_name": tenant_name,
-                "store_name": store_name,
                 "current_year": datetime.now().year,
-                "logo_url": logo_url,
-            }
+            })
 
             # Render Admin Notification HTML
-            admin_html_content = render_to_string(
+            admin_html = render_to_string(
                 "appointment/email/appointment_notification.html", context
             )
 
             # Send via Resend to Admin
-            if admin_email:
-                resend.Emails.send({
-                    "from": f"{store_name} <nepdora@baliyoventures.com>",
-                    "to": admin_email,
-                    "subject": f"New Appointment Request: {appointment.full_name}",
-                    "html": admin_html_content,
-                })
+            send_resend_email(
+                context["admin_email"],
+                f"New Appointment Request: {appointment.full_name}",
+                admin_html,
+            )
 
             # --- Send Acknowledgment to User ---
             try:
                 # Render User Acknowledgment HTML
-                user_html_content = render_to_string(
+                user_html = render_to_string(
                     "appointment/email/appointment_acknowledgment.html", context
                 )
 
-                resend.Emails.send({
-                    "from": f"{store_name} <nepdora@baliyoventures.com>",
-                    "to": appointment.email,
-                    "subject": f"Appointment Requested - {store_name}",
-                    "html": user_html_content,
-                })
+                send_resend_email(
+                    appointment.email,
+                    f"Appointment Requested - {context['store_name']}",
+                    user_html,
+                )
             except Exception as user_e:
                 print(
                     f"Failed to send appointment acknowledgment email to user: {user_e}"
