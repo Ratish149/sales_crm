@@ -492,8 +492,6 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
     filterset_class = ProductFilterSet
     ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
     search_fields = ["name"]
-    authentication_classes = [TenantJWTAuthentication]
-    permission_classes = [IsAuthenticated]
 
     def get_authenticators(self):
         if self.request.method == "POST":
