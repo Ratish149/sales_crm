@@ -12,17 +12,13 @@ import builder.routing
 import facebook.routing
 import website.routing
 
-from .middleware_asgi import TenantWebsocketMiddleware
-
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": TenantWebsocketMiddleware(
-        AuthMiddlewareStack(
-            URLRouter(
-                facebook.routing.websocket_urlpatterns
-                + builder.routing.websocket_urlpatterns
-                + website.routing.websocket_urlpatterns
-            )
+    "websocket": AuthMiddlewareStack(
+        URLRouter(
+            facebook.routing.websocket_urlpatterns
+            + builder.routing.websocket_urlpatterns
+            + website.routing.websocket_urlpatterns
         )
     ),
 })

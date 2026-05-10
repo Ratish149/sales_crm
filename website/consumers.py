@@ -24,6 +24,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.schema_name = self.scope["url_route"]["kwargs"]["schema_name"]
         self.room_group_name = f"website_{self.schema_name}"
+        self.tenant = None  # will be set in set_tenant_context
 
         # Validate tenant exists before accepting the connection
         try:
@@ -52,7 +53,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
         try:
             # Re-apply tenant schema on every message because async workers
-            # can get a different DB connection from the pool between messages
+            # can get a different DB connection from the pool between messages.
+            # This also refreshes self.tenant so all _sync helpers can call
+            # self._set_tenant() safely on whatever thread they land on.
             await self.set_tenant_context()
 
             if action == "get_site_config":
@@ -136,9 +139,17 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def set_tenant_context(self):
-        from django.db import close_old_connections, connection
+        """
+        Fetches the tenant and sets it on the current DB connection.
+        Also stores self.tenant so that every _sync helper can call
+        self._set_tenant() at the top of its own thread.
 
-        close_old_connections()
+        NOTE: close_old_connections() is intentionally NOT called here.
+        Calling it on every message was forcing Django to reopen DB
+        connections each time, adding unnecessary latency. It is called
+        once at the end of each message inside cleanup_connections().
+        """
+        from django.db import connection
 
         try:
             tenant = Client.objects.get(schema_name=self.schema_name)
@@ -147,6 +158,21 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
         connection.set_tenant(tenant)
         self.tenant = tenant
+
+    def _set_tenant(self):
+        """
+        Call this as the FIRST LINE of every @sync_to_async method.
+
+        Each sync_to_async call runs in a thread-pool worker that may receive a
+        brand-new DB connection from the pool — one that has never had
+        set_tenant() called on it.  Calling this here ensures the connection
+        used for the actual ORM query is always pointed at the correct schema.
+        """
+        from django.db import connection
+
+        if self.tenant is None:
+            raise RuntimeError("Tenant not initialised — call set_tenant_context first")
+        connection.set_tenant(self.tenant)
 
     @sync_to_async
     def cleanup_connections(self):
@@ -160,6 +186,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_site_config_sync(self):
+        self._set_tenant()
         config, _ = SiteConfig.objects.get_or_create()
         return SiteConfigSerializer(config).data
 
@@ -174,6 +201,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_site_config_sync(self, data):
+        self._set_tenant()
         try:
             config = SiteConfig.objects.get()
         except SiteConfig.DoesNotExist:
@@ -206,6 +234,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def list_themes_sync(self, status_param):
+        self._set_tenant()
         if status_param == "preview":
             qs = Theme.objects.filter(status="draft")
         else:
@@ -224,6 +253,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_theme_sync(self, pk, data):
+        self._set_tenant()
         theme = get_object_or_404(Theme, id=pk)
         serializer = ThemeSerializer(theme, data=data, partial=True)
         if serializer.is_valid():
@@ -251,6 +281,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_theme_sync(self, pk):
+        self._set_tenant()
         theme = get_object_or_404(Theme, id=pk, status="draft")
         publish_instance(theme)
         return theme.id
@@ -269,6 +300,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_theme_sync(self, data):
+        self._set_tenant()
         serializer = ThemeSerializer(data=data)
         if serializer.is_valid():
             serializer.save(status="draft")
@@ -292,6 +324,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def delete_theme_sync(self, pk):
+        self._set_tenant()
         theme = get_object_or_404(Theme, id=pk)
         theme.delete()
         return {"success": True, "id": pk}
@@ -312,6 +345,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def list_pages_sync(self, status_param):
+        self._set_tenant()
         if status_param == "preview":
             qs = Page.objects.filter(status="draft")
         else:
@@ -330,6 +364,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_page_sync(self, data):
+        self._set_tenant()
         serializer = PageSerializer(data=data)
         if serializer.is_valid():
             serializer.save(status="draft")
@@ -353,6 +388,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_page_sync(self, slug, data):
+        self._set_tenant()
         page = get_object_or_404(Page, slug=slug)
         serializer = PageSerializer(page, data=data, partial=True)
         if serializer.is_valid():
@@ -380,6 +416,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_page_sync(self, slug):
+        self._set_tenant()
         with transaction.atomic():
             page = get_object_or_404(Page, slug=slug, status="draft")
             if page.published_version:
@@ -415,6 +452,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def delete_page_sync(self, slug):
+        self._set_tenant()
         page = get_object_or_404(Page, slug=slug)
         page.delete()
         return {"success": True, "slug": slug}
@@ -435,6 +473,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def list_components_sync(self, slug, status_param):
+        self._set_tenant()
         page = get_object_or_404(Page, slug=slug)
 
         if status_param == "preview":
@@ -480,6 +519,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_component_sync(self, slug, data):
+        self._set_tenant()
         with transaction.atomic():
             page = get_object_or_404(Page, slug=slug)
             serializer = PageComponentSerializer(data=data)
@@ -517,6 +557,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_component_sync(self, slug, component_id, incoming_data):
+        self._set_tenant()
         instance = get_object_or_404(
             PageComponent, page__slug=slug, component_id=component_id
         )
@@ -568,6 +609,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_component_order_sync(self, slug, order_updates):
+        self._set_tenant()
         with transaction.atomic():
             page = get_object_or_404(Page, slug=slug)
             for item in order_updates:
@@ -604,6 +646,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_component_sync(self, slug):
+        self._set_tenant()
         with transaction.atomic():
             component = get_object_or_404(
                 PageComponent, page__slug=slug, status="draft"
@@ -634,6 +677,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def replace_component_sync(self, page_slug, component_id, data):
+        self._set_tenant()
         with transaction.atomic():
             page = get_object_or_404(Page, slug=page_slug)
             components = PageComponent.objects.filter(
@@ -674,6 +718,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def delete_component_sync(self, page_slug, component_id, status_param):
+        self._set_tenant()
         component = get_object_or_404(
             PageComponent, page__slug=page_slug, component_id=component_id
         )
@@ -737,6 +782,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_navbar_sync(self, status_param):
+        self._set_tenant()
         qs = PageComponent.objects.filter(component_type="navbar")
         if status_param == "preview":
             navbar = qs.filter(status="draft").first()
@@ -758,6 +804,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_navbar_sync(self, data):
+        self._set_tenant()
         data = data.copy()
         data["component_type"] = "navbar"
         data["status"] = "draft"
@@ -784,6 +831,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_navbar_sync(self, pk, payload):
+        self._set_tenant()
         instance = get_object_or_404(PageComponent, id=pk, component_type="navbar")
         incoming_data = payload.get("data", payload)
 
@@ -833,6 +881,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_navbar_sync(self, pk):
+        self._set_tenant()
         with transaction.atomic():
             navbar = get_object_or_404(
                 PageComponent, id=pk, component_type="navbar", status="draft"
@@ -861,6 +910,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def replace_navbar_sync(self, data):
+        self._set_tenant()
         with transaction.atomic():
             PageComponent.objects.filter(
                 component_type="navbar", status="draft"
@@ -887,6 +937,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def delete_navbar_sync(self, pk):
+        self._set_tenant()
         navbar = get_object_or_404(PageComponent, id=pk, component_type="navbar")
         navbar.delete()
         return {"success": True, "id": pk}
@@ -909,6 +960,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_footer_sync(self, status_param):
+        self._set_tenant()
         qs = PageComponent.objects.filter(component_type="footer")
         if status_param == "preview":
             footer = qs.filter(status="draft").first()
@@ -930,6 +982,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def create_footer_sync(self, data):
+        self._set_tenant()
         data = data.copy()
         data["component_type"] = "footer"
         data["status"] = "draft"
@@ -956,6 +1009,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def update_footer_sync(self, pk, payload):
+        self._set_tenant()
         instance = get_object_or_404(PageComponent, id=pk, component_type="footer")
         incoming_data = payload.get("data", payload)
 
@@ -1005,6 +1059,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_footer_sync(self, pk):
+        self._set_tenant()
         with transaction.atomic():
             footer = get_object_or_404(
                 PageComponent, id=pk, component_type="footer", status="draft"
@@ -1033,6 +1088,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def replace_footer_sync(self, data):
+        self._set_tenant()
         with transaction.atomic():
             PageComponent.objects.filter(
                 component_type="footer", status="draft"
@@ -1059,6 +1115,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def delete_footer_sync(self, pk):
+        self._set_tenant()
         footer = get_object_or_404(PageComponent, id=pk, component_type="footer")
         footer.delete()
         return {"success": True, "id": pk}
@@ -1081,6 +1138,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def publish_all_sync(self):
+        self._set_tenant()
         with transaction.atomic():
             published_components = PageComponent.objects.filter(status="published")
             published_pages = Page.objects.filter(status="published")
@@ -1112,6 +1170,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def reset_ui_sync(self):
+        self._set_tenant()
         with transaction.atomic():
             Theme.objects.filter(status="draft").delete()
             Page.objects.filter(status="draft").delete()
@@ -1156,6 +1215,7 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def import_template_sync(self, template_id):
+        self._set_tenant()
         template_client = Client.objects.get(id=template_id)
         if not template_client.is_template_account:
             return {"error": "Not a template account"}
