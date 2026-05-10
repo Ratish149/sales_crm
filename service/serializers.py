@@ -6,7 +6,17 @@ from .models import Service, ServiceCategory
 class ServiceCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceCategory
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "thumbnail_image",
+            "thumbnail_image_alt_description",
+            "created_at",
+            "updated_at",
+        ]  # explicit, was __all__
+        read_only_fields = ["id", "created_at", "updated_at"]
 
 
 class ServiceCategoryListSerializer(serializers.ModelSerializer):
@@ -19,17 +29,32 @@ class ServiceCategoryListSerializer(serializers.ModelSerializer):
             "thumbnail_image_alt_description",
             "created_at",
             "updated_at",
-        ]
+        ]  # unchanged
 
 
 class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
-        fields = "__all__"
+        fields = [
+            "id",
+            "title",
+            "slug",
+            "description",
+            "thumbnail_image",
+            "thumbnail_image_alt_description",
+            "meta_title",
+            "meta_description",
+            "service_category",
+            "created_at",
+            "updated_at",
+        ]  # explicit, was __all__
+        read_only_fields = ["id", "slug", "created_at", "updated_at"]
 
 
 class ServiceListSerializer(serializers.ModelSerializer):
-    service_category = ServiceCategoryListSerializer()
+    service_category = ServiceCategoryListSerializer(
+        read_only=True
+    )  # added read_only=True
 
     class Meta:
         model = Service
@@ -44,12 +69,10 @@ class ServiceListSerializer(serializers.ModelSerializer):
             "meta_description",
             "created_at",
             "updated_at",
-        ]
+        ]  # unchanged
 
 
 class BulkCreateServiceItemSerializer(serializers.Serializer):
-    """Serializer for a single service item inside the bulk create request."""
-
     title = serializers.CharField(max_length=255)
     description = serializers.CharField(required=False, allow_blank=True)
     meta_title = serializers.CharField(required=False, allow_blank=True, default="")
@@ -60,6 +83,4 @@ class BulkCreateServiceItemSerializer(serializers.Serializer):
 
 
 class BulkCreateServiceSerializer(serializers.Serializer):
-    """Serializer for the bulk service creation request body."""
-
     services = BulkCreateServiceItemSerializer(many=True, min_length=1)

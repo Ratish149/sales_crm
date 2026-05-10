@@ -23,6 +23,52 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
+# ─── Shared querysets ─────────────────────────────────────────────────────────
+
+SERVICE_CATEGORY_QS = ServiceCategory.objects.only(
+    "id",
+    "name",
+    "slug",
+    "description",
+    "thumbnail_image",
+    "thumbnail_image_alt_description",
+    "created_at",
+    "updated_at",
+)
+
+# used for list (GET) — joins category so no N+1 per row
+SERVICE_LIST_QS = (
+    Service.objects
+    .select_related("service_category")
+    .only(
+        "id",
+        "title",
+        "slug",
+        "description",
+        "thumbnail_image",
+        "thumbnail_image_alt_description",
+        "meta_title",
+        "meta_description",
+        "service_category_id",
+        "service_category__name",
+        "service_category__slug",
+        "service_category__thumbnail_image",
+        "service_category__thumbnail_image_alt_description",
+        "service_category__created_at",
+        "service_category__updated_at",
+        "created_at",
+        "updated_at",
+    )
+    .order_by("-created_at")
+)
+
+# used for detail / write views — no only() so updates aren't blocked
+SERVICE_QS = Service.objects.select_related("service_category")
+
+
+# ─── Filters ──────────────────────────────────────────────────────────────────
+
+
 class ServiceFilterSet(django_filters.FilterSet):
     service_category = django_filters.CharFilter(
         field_name="service_category__slug", lookup_expr="iexact"
@@ -33,13 +79,20 @@ class ServiceFilterSet(django_filters.FilterSet):
         fields = ["service_category"]
 
 
+# ─── Service ──────────────────────────────────────────────────────────────────
+
+
 class ServiceListCreateView(generics.ListCreateAPIView):
-    queryset = Service.objects.all().order_by("-created_at")
     serializer_class = ServiceSerializer
     pagination_class = CustomPagination
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = ServiceFilterSet
     search_fields = ["title"]
+
+    def get_queryset(self):
+        if self.request.method == "GET":
+            return SERVICE_LIST_QS
+        return Service.objects.all()
 
     def get_authenticators(self):
         if self.request.method == "POST":
@@ -58,7 +111,7 @@ class ServiceListCreateView(generics.ListCreateAPIView):
 
 
 class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Service.objects.all()
+    queryset = SERVICE_QS
     serializer_class = ServiceSerializer
     lookup_field = "slug"
 
@@ -73,8 +126,11 @@ class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return super().get_permissions()
 
 
+# ─── Service Category ─────────────────────────────────────────────────────────
+
+
 class ServiceCategoryListCreateView(generics.ListCreateAPIView):
-    queryset = ServiceCategory.objects.all()
+    queryset = SERVICE_CATEGORY_QS
     serializer_class = ServiceCategorySerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
@@ -82,39 +138,15 @@ class ServiceCategoryListCreateView(generics.ListCreateAPIView):
 
 
 class ServiceCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ServiceCategory.objects.all()
+    queryset = SERVICE_CATEGORY_QS
     serializer_class = ServiceCategorySerializer
     lookup_field = "slug"
 
 
+# ─── Bulk Create ──────────────────────────────────────────────────────────────
+
+
 class ServiceBulkCreateView(APIView):
-    """
-    POST /api/services/bulk-create/
-
-    Accepts a JSON body with a `services` list and creates all of them
-    inside a single database transaction.
-
-    Request body example:
-    {
-      "services": [
-        {
-          "title": "Service One",
-          "description": "<p>...</p>",
-          "meta_title": "...",
-          "meta_description": "...",
-          "service_category_name": "Consulting"
-        },
-        { ... }
-      ]
-    }
-
-    Response on success (201):
-    {
-      "created": 3,
-      "services": [ <ServiceSerializer data for each created service> ]
-    }
-    """
-
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -127,21 +159,33 @@ class ServiceBulkCreateView(APIView):
         services_data = serializer.validated_data["services"]
         created_services = []
 
+        # batch-fetch all matching categories in one query
+        category_names = [
+            item["service_category_name"]
+            for item in services_data
+            if item.get("service_category_name")
+        ]
+        existing_categories = {
+            c.name.lower(): c
+            for c in ServiceCategory.objects.filter(name__in=category_names).only(
+                "id", "name"
+            )
+        }
+
         for item in services_data:
             category_name = item.pop("service_category_name", None)
-            # Resolve category
+
             category = None
             if category_name:
-                category = ServiceCategory.objects.filter(
-                    name__icontains=category_name
-                ).first()
+                category = existing_categories.get(category_name.lower())
                 if not category:
                     category = ServiceCategory.objects.create(name=category_name)
+                    existing_categories[category_name.lower()] = category
 
             if category:
                 item["service_category"] = category
 
-            # Deduplicate titles
+            # deduplicate titles
             title = item["title"]
             if Service.objects.filter(title=title).exists():
                 suffix = 1
