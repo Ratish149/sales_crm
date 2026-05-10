@@ -3,7 +3,7 @@ import re
 from itertools import chain
 
 import pandas as pd
-from django.db.models import Avg
+from django.db.models import Avg, Prefetch
 from django.http import FileResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
@@ -55,8 +55,6 @@ from .utils import (
     safe_value,
 )
 
-# Create your views here.
-
 
 class CustomPagination(PageNumberPagination):
     page_size = 10
@@ -64,8 +62,174 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
+# ─── Shared optimized queryset ────────────────────────────────────────────────
+
+PRODUCT_LIST_QS = (
+    Product.objects
+    .select_related("category", "sub_category")
+    .prefetch_related(
+        Prefetch(
+            "images",
+            queryset=ProductImage.objects.only("id", "product_id", "image"),
+        ),
+        Prefetch(
+            "variants",
+            queryset=ProductVariant.objects.only(
+                "id", "product_id", "price", "stock", "image"
+            ).prefetch_related(
+                Prefetch(
+                    "option_values",
+                    queryset=ProductOptionValue.objects.only(
+                        "id", "value", "option_id"
+                    ).select_related("option"),
+                )
+            ),
+        ),
+        Prefetch(
+            "productoption_set",
+            queryset=ProductOption.objects.only(
+                "id", "product_id", "name"
+            ).prefetch_related(
+                Prefetch(
+                    "productoptionvalue_set",
+                    queryset=ProductOptionValue.objects.only(
+                        "id", "option_id", "value"
+                    ),
+                )
+            ),
+        ),
+        Prefetch(
+            "compositions",
+            queryset=ProductComposition.objects.only(
+                "id", "product_id", "metric_id", "quantity"
+            ).select_related("metric"),
+        ),
+    )
+    .annotate(average_rating=Avg("productreview__rating"))
+    .only(
+        "id",
+        "name",
+        "slug",
+        "description",
+        "price",
+        "market_price",
+        "use_dynamic_pricing",
+        "base_making_charge",
+        "track_stock",
+        "stock",
+        "weight",
+        "thumbnail_image",
+        "thumbnail_alt_description",
+        "category_id",
+        "sub_category_id",
+        "is_popular",
+        "is_featured",
+        "status",
+        "fast_shipping",
+        "warranty",
+        "meta_title",
+        "meta_description",
+        "created_at",
+        "updated_at",
+    )
+    .order_by("-created_at")
+)
+
+CATEGORY_QS = Category.objects.only(
+    "id", "name", "slug", "description", "image", "created_at", "updated_at"
+)
+
+SUBCATEGORY_QS = SubCategory.objects.select_related("category").only(
+    "id",
+    "name",
+    "slug",
+    "description",
+    "image",
+    "category_id",
+    "category__id",
+    "category__name",
+    "category__slug",
+    "created_at",
+    "updated_at",
+)
+
+PRICING_METRIC_QS = PricingMetric.objects.only(
+    "id", "name", "price_per_unit", "unit", "last_updated"
+)
+
+PRODUCT_COMPOSITION_QS = ProductComposition.objects.select_related("metric").only(
+    "id",
+    "product_id",
+    "metric_id",
+    "quantity",
+    "metric__id",
+    "metric__name",
+    "metric__price_per_unit",
+    "metric__unit",
+    "metric__last_updated",
+)
+
+PRODUCT_IMAGE_QS = ProductImage.objects.only(
+    "id", "product_id", "image", "created_at", "updated_at"
+)
+
+PRODUCT_REVIEW_QS = (
+    ProductReview.objects
+    .select_related("product", "user")
+    .only("id", "product_id", "user_id", "review", "rating", "created_at", "updated_at")
+    .order_by("-created_at")
+)
+
+WISHLIST_QS = Wishlist.objects.select_related("user", "product").only(
+    "id", "user_id", "product_id", "created_at", "updated_at"
+)
+
+PRODUCT_VARIANT_QS = (
+    ProductVariant.objects
+    .select_related("product", "product__category", "product__sub_category")
+    .prefetch_related("option_values__option")
+    .only(
+        "id",
+        "product_id",
+        "price",
+        "stock",
+        "image",
+        "created_at",
+        "updated_at",
+        "product__id",
+        "product__name",
+        "product__slug",
+        "product__price",
+        "product__market_price",
+        "product__thumbnail_image",
+        "product__thumbnail_alt_description",
+        "product__is_popular",
+        "product__is_featured",
+        "product__fast_shipping",
+        "product__warranty",
+        "product__use_dynamic_pricing",
+        "product__base_making_charge",
+        "product__created_at",
+        "product__updated_at",
+        "product__category_id",
+        "product__sub_category_id",
+        "product__category__id",
+        "product__category__name",
+        "product__category__slug",
+        "product__sub_category__id",
+        "product__sub_category__name",
+        "product__sub_category__slug",
+        "product__sub_category__description",
+        "product__sub_category__image",
+    )
+)
+
+
+# ─── Category ─────────────────────────────────────────────────────────────────
+
+
 class CategoryListCreateView(generics.ListCreateAPIView):
-    queryset = Category.objects.all()
+    queryset = CATEGORY_QS
     serializer_class = CategorySerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter]
@@ -73,9 +237,12 @@ class CategoryListCreateView(generics.ListCreateAPIView):
 
 
 class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Category.objects.all()
+    queryset = CATEGORY_QS
     serializer_class = CategorySerializer
     lookup_field = "slug"
+
+
+# ─── SubCategory ──────────────────────────────────────────────────────────────
 
 
 class SubCategoryFilterSet(django_filters.FilterSet):
@@ -89,7 +256,7 @@ class SubCategoryFilterSet(django_filters.FilterSet):
 
 
 class SubCategoryListCreateView(generics.ListCreateAPIView):
-    queryset = SubCategory.objects.all()
+    queryset = SUBCATEGORY_QS
     serializer_class = SubCategorySerializer
     pagination_class = CustomPagination
     filter_backends = [filters.SearchFilter, django_filters.DjangoFilterBackend]
@@ -103,18 +270,21 @@ class SubCategoryListCreateView(generics.ListCreateAPIView):
 
 
 class SubCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = SubCategory.objects.all()
+    queryset = SUBCATEGORY_QS
     serializer_class = SubCategorySerializer
     lookup_field = "slug"
 
     def get_serializer_class(self):
-        if self.request.method == "POST":
-            return SubCategorySerializer
-        return SubCategoryDetailSerializer
+        if self.request.method in ("GET",):
+            return SubCategoryDetailSerializer
+        return SubCategorySerializer
+
+
+# ─── Product Image ────────────────────────────────────────────────────────────
 
 
 class ProductImageListCreateView(generics.ListCreateAPIView):
-    queryset = ProductImage.objects.all()
+    queryset = PRODUCT_IMAGE_QS
     serializer_class = ProductImageSerializer
 
     def get_authenticators(self):
@@ -129,10 +299,13 @@ class ProductImageListCreateView(generics.ListCreateAPIView):
 
 
 class ProductImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ProductImage.objects.all()
+    queryset = PRODUCT_IMAGE_QS
     serializer_class = ProductImageSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
+
+# ─── Product filters ──────────────────────────────────────────────────────────
 
 
 class ProductFilterSet(django_filters.FilterSet):
@@ -183,8 +356,11 @@ class ProductVariantFilterSet(django_filters.FilterSet):
         ]
 
 
+# ─── Product ──────────────────────────────────────────────────────────────────
+
+
 class ProductListCreateView(generics.ListCreateAPIView):
-    queryset = Product.objects.all()
+    queryset = PRODUCT_LIST_QS
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
     filter_backends = [
@@ -214,10 +390,13 @@ class ProductListCreateView(generics.ListCreateAPIView):
             return UnifiedProductListingSerializer
         return ProductSmallSerializer
 
+    def get_queryset(self):
+        if self.request.method == "GET":
+            return PRODUCT_LIST_QS
+        return Product.objects.all()
+
     def list(self, request, *args, **kwargs):
         site_config = SiteConfig.get_solo()
-
-        # 🔥 prevent DRF filter backend crash
         self.filter_backends = []
 
         if not site_config.use_product_variant:
@@ -225,7 +404,6 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
         params = request.GET.copy()
 
-        # normalize boolean
         from distutils.util import strtobool
 
         if "is_popular" in params:
@@ -234,14 +412,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
             except ValueError:
                 params.pop("is_popular")
 
-        # 1. VARIANTS
-        variant_qs = (
-            ProductVariant.objects
-            .all()
-            .select_related("product", "product__category", "product__sub_category")
-            .prefetch_related("option_values__option")
-        )
-
+        variant_qs = PRODUCT_VARIANT_QS
         variant_filter = ProductVariantFilterSet(params, queryset=variant_qs)
         variant_qs = variant_filter.qs
 
@@ -256,27 +427,50 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
         self.search_fields = orig_search_fields
 
-        # 2. PRODUCTS (no variants)
         product_qs = (
             Product.objects
             .filter(variants__isnull=True)
             .select_related("category", "sub_category")
-            .prefetch_related("images")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.only("id", "product_id", "image"),
+                ),
+            )
             .annotate(average_rating=Avg("productreview__rating"))
+            .only(
+                "id",
+                "name",
+                "slug",
+                "price",
+                "market_price",
+                "stock",
+                "thumbnail_image",
+                "thumbnail_alt_description",
+                "category_id",
+                "sub_category_id",
+                "is_popular",
+                "is_featured",
+                "fast_shipping",
+                "warranty",
+                "use_dynamic_pricing",
+                "base_making_charge",
+                "created_at",
+                "updated_at",
+            )
         )
 
         product_filter = ProductFilterSet(params, queryset=product_qs)
         product_qs = product_filter.qs
-
         product_qs = search_filter.filter_queryset(request, product_qs, self)
         product_qs = ordering_filter.filter_queryset(request, product_qs, self)
 
-        # 3. MERGE
         combined = sorted(
-            chain(variant_qs, product_qs), key=lambda x: x.created_at, reverse=True
+            chain(variant_qs, product_qs),
+            key=lambda x: x.created_at,
+            reverse=True,
         )
 
-        # 4. PAGINATION
         page = self.paginate_queryset(combined)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -285,55 +479,9 @@ class ProductListCreateView(generics.ListCreateAPIView):
         serializer = self.get_serializer(combined, many=True)
         return Response(serializer.data)
 
-    def get_queryset(self):
-        """
-        Optimized queryset for the non-variant (standard) listing.
-        """
-        if self.request.method == "GET":
-            # For list view - optimized with prefetch and only
-            return (
-                Product.objects
-                .select_related("category", "sub_category")
-                .prefetch_related(
-                    "images",
-                    "variants__option_values__option",
-                    "productoption_set__productoptionvalue_set",
-                    "compositions__metric",
-                )
-                .annotate(average_rating=Avg("productreview__rating"))
-                .only(
-                    "id",
-                    "name",
-                    "slug",
-                    "description",
-                    "price",
-                    "market_price",
-                    "use_dynamic_pricing",
-                    "base_making_charge",
-                    "track_stock",
-                    "stock",
-                    "weight",
-                    "thumbnail_image",
-                    "thumbnail_alt_description",
-                    "category_id",
-                    "sub_category_id",
-                    "is_popular",
-                    "is_featured",
-                    "status",
-                    "meta_title",
-                    "meta_description",
-                    "created_at",
-                    "updated_at",
-                )
-                .order_by("-created_at")
-            )
-        else:
-            # For POST requests, return basic queryset
-            return Product.objects.all()
-
 
 class AdminProductListCreateView(generics.ListCreateAPIView):
-    queryset = Product.objects.all()
+    queryset = PRODUCT_LIST_QS
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
     filter_backends = [
@@ -344,6 +492,8 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
     filterset_class = ProductFilterSet
     ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
     search_fields = ["name"]
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_authenticators(self):
         if self.request.method == "POST":
@@ -361,54 +511,13 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
         return ProductSmallSerializer
 
     def get_queryset(self):
-        """
-        Optimized queryset with selective prefetching based on request method
-        """
         if self.request.method == "GET":
-            # For list view - optimized with prefetch and only
-            return (
-                Product.objects
-                .select_related("category", "sub_category")
-                .prefetch_related(
-                    "images",
-                    "variants__option_values__option",
-                    "productoption_set__productoptionvalue_set",
-                    "compositions__metric",
-                )
-                .annotate(average_rating=Avg("productreview__rating"))
-                .only(
-                    "id",
-                    "name",
-                    "slug",
-                    "description",
-                    "price",
-                    "market_price",
-                    "use_dynamic_pricing",
-                    "base_making_charge",
-                    "track_stock",
-                    "stock",
-                    "weight",
-                    "thumbnail_image",
-                    "thumbnail_alt_description",
-                    "category_id",
-                    "sub_category_id",
-                    "is_popular",
-                    "is_featured",
-                    "status",
-                    "meta_title",
-                    "meta_description",
-                    "created_at",
-                    "updated_at",
-                )
-                .order_by("-created_at")
-            )
-        else:
-            # For POST requests, return basic queryset
-            return Product.objects.all()
+            return PRODUCT_LIST_QS
+        return Product.objects.all()
 
 
 class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Product.objects.all()
+    queryset = PRODUCT_LIST_QS
     serializer_class = ProductSerializer
     lookup_field = "slug"
 
@@ -423,67 +532,33 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return super().get_permissions()
 
     def get_queryset(self):
-        """
-        Optimized queryset for single product retrieval with all necessary relations
-        """
         if self.request.method == "GET":
-            # For single product GET - prefetch all related data
-            return (
-                Product.objects
-                .select_related("category", "sub_category")
-                .prefetch_related(
-                    "images",
-                    "variants__option_values__option",
-                    "productoption_set__productoptionvalue_set",
-                    "compositions__metric",
-                )
-                .only(
-                    "id",
-                    "name",
-                    "slug",
-                    "description",
-                    "price",
-                    "market_price",
-                    "use_dynamic_pricing",
-                    "base_making_charge",
-                    "track_stock",
-                    "stock",
-                    "weight",
-                    "thumbnail_image",
-                    "thumbnail_alt_description",
-                    "category_id",
-                    "sub_category_id",
-                    "is_popular",
-                    "is_featured",
-                    "status",
-                    "meta_title",
-                    "meta_description",
-                    "created_at",
-                    "updated_at",
-                )
-                .all()
-            )
-        else:
-            # For PUT/PATCH/DELETE, use basic queryset
-            return Product.objects.all()
+            return PRODUCT_LIST_QS
+        return Product.objects.all()
+
+
+# ─── Pricing Metric ───────────────────────────────────────────────────────────
 
 
 class PricingMetricListCreateView(generics.ListCreateAPIView):
-    queryset = PricingMetric.objects.all()
+    queryset = PRICING_METRIC_QS
     serializer_class = PricingMetricSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
 
 
 class PricingMetricRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PricingMetric.objects.all()
+    queryset = PRICING_METRIC_QS
     serializer_class = PricingMetricSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
 
 
+# ─── Product Composition ──────────────────────────────────────────────────────
+
+
 class ProductCompositionListCreateView(generics.ListCreateAPIView):
-    queryset = ProductComposition.objects.all()
+    queryset = PRODUCT_COMPOSITION_QS
     serializer_class = ProductCompositionSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -492,10 +567,13 @@ class ProductCompositionListCreateView(generics.ListCreateAPIView):
 class ProductCompositionRetrieveUpdateDestroyView(
     generics.RetrieveUpdateDestroyAPIView
 ):
-    queryset = ProductComposition.objects.all()
+    queryset = PRODUCT_COMPOSITION_QS
     serializer_class = ProductCompositionSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
+
+# ─── Product Review ───────────────────────────────────────────────────────────
 
 
 class ProductReviewFilter(django_filters.FilterSet):
@@ -507,17 +585,10 @@ class ProductReviewFilter(django_filters.FilterSet):
 
 
 class ProductReviewView(generics.ListCreateAPIView):
-    queryset = (
-        ProductReview.objects
-        .only("id", "product", "user", "review", "rating", "created_at")
-        .select_related("product", "user")
-        .order_by("-created_at")
-    )
+    queryset = PRODUCT_REVIEW_QS
     serializer_class = ProductReviewSerializer
     pagination_class = CustomPagination
-    filter_backends = [
-        django_filters.DjangoFilterBackend,
-    ]
+    filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = ProductReviewFilter
     authentication_classes = [CustomerJWTAuthentication]
 
@@ -535,9 +606,9 @@ class ProductReviewView(generics.ListCreateAPIView):
         slug = self.request.query_params.get("slug")
         try:
             product = Product.objects.only("id").get(slug=slug)
-            return ProductReview.objects.filter(product=product)
+            return PRODUCT_REVIEW_QS.filter(product=product)
         except Product.DoesNotExist:
-            return ProductReview.objects.all()
+            return PRODUCT_REVIEW_QS
 
     def perform_create(self, serializer):
         user = get_customer_from_request(self.request)
@@ -549,9 +620,7 @@ class ProductReviewView(generics.ListCreateAPIView):
 
 
 class ProductReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = ProductReview.objects.only(
-        "id", "product", "user", "review", "rating", "created_at", "updated_at"
-    ).select_related("product", "user")
+    queryset = PRODUCT_REVIEW_QS
     serializer_class = ProductReviewSerializer
     authentication_classes = [CustomerJWTAuthentication]
     lookup_field = "id"
@@ -562,10 +631,11 @@ class ProductReviewRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVi
         return [permissions.IsAuthenticated()]
 
 
+# ─── Wishlist ─────────────────────────────────────────────────────────────────
+
+
 class WishlistListCreateView(generics.ListCreateAPIView):
-    queryset = Wishlist.objects.only(
-        "id", "user", "product", "created_at", "updated_at"
-    ).select_related("user", "product")
+    queryset = WISHLIST_QS
     serializer_class = WishlistSerializer
     authentication_classes = [CustomerJWTAuthentication]
 
@@ -573,7 +643,7 @@ class WishlistListCreateView(generics.ListCreateAPIView):
         user = get_customer_from_request(self.request)
         if not user:
             return Wishlist.objects.none()
-        return Wishlist.objects.filter(user=user)
+        return WISHLIST_QS.filter(user=user)
 
     def perform_create(self, serializer):
         user = get_customer_from_request(self.request)
@@ -585,9 +655,7 @@ class WishlistListCreateView(generics.ListCreateAPIView):
 
 
 class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Wishlist.objects.only(
-        "id", "user", "product", "created_at", "updated_at"
-    ).select_related("user", "product")
+    queryset = WISHLIST_QS
     serializer_class = WishlistSerializer
     authentication_classes = [CustomerJWTAuthentication]
     lookup_field = "id"
@@ -619,55 +687,100 @@ class WishlistRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             )
 
 
+# ─── Product Variant ──────────────────────────────────────────────────────────
+
+
+class ProductVariantListCreateView(generics.ListCreateAPIView):
+    queryset = PRODUCT_VARIANT_QS
+    serializer_class = ProductVariantAsProductSerializer
+    pagination_class = CustomPagination
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductVariantFilterSet
+    search_fields = ["product__name", "option_values__value"]
+    ordering_fields = ["created_at", "price"]
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class ProductVariantRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PRODUCT_VARIANT_QS
+    serializer_class = ProductVariantAsProductSerializer
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+# ─── Download Template ────────────────────────────────────────────────────────
+
+
 class DownloadProductSampleTemplateView(APIView):
     def get(self, request):
         wb = Workbook()
         ws = wb.active
         ws.title = "Product Template"
 
-        from .models import Category, PricingMetric, SubCategory
+        metrics = list(
+            PricingMetric.objects.only("id", "name", "price_per_unit", "unit")
+        )
 
-        metrics = list(PricingMetric.objects.all())
-
-        # ── Headers ──────────────────────────────────────────────────────────
         headers = [
-            "name",  # A
-            "description",  # B
-            "price",  # C
-            "market_price",  # D
-            "track_stock",  # E
-            "stock",  # F
-            "weight",  # G
-            "thumbnail_image",  # H
-            "thumbnail_image_aly_description",  # I
-            "category",  # J
-            "subcategory",  # K
-            "is_popular",  # L
-            "is_featured",  # M
-            "status",  # N
-            "use_dynamic_pricing",  # O
-            "base_making_charge",  # P
-            "composition",  # Q  ← dropdown of metrics
-            "quantity",  # R  ← numeric quantity
-            "option1 name",  # S
-            "option1 values",  # T
-            "option2 name",  # U
-            "option2 values",  # V
-            "option3 name",  # W
-            "option3 values",  # X
-            "variant price",  # Y
-            "variant stock",  # Z
-            "variant image",  # AA
-            "meta title",  # AB
-            "meta description",  # AC
+            "name",
+            "description",
+            "price",
+            "market_price",
+            "track_stock",
+            "stock",
+            "weight",
+            "thumbnail_image",
+            "thumbnail_image_aly_description",
+            "category",
+            "subcategory",
+            "is_popular",
+            "is_featured",
+            "status",
+            "use_dynamic_pricing",
+            "base_making_charge",
+            "composition",
+            "quantity",
+            "option1 name",
+            "option1 values",
+            "option2 name",
+            "option2 values",
+            "option3 name",
+            "option3 values",
+            "variant price",
+            "variant stock",
+            "variant image",
+            "meta title",
+            "meta description",
         ]
 
         for col, header in enumerate(headers, 1):
             ws.cell(row=1, column=col, value=header)
 
-        # ── Sample data ───────────────────────────────────────────────────────
-        categories = Category.objects.all()
-        subcategories = SubCategory.objects.select_related("category").all()
+        categories = Category.objects.only("id", "name")
+        subcategories = SubCategory.objects.select_related("category").only(
+            "id", "name", "category__name"
+        )
 
         sample_category = (
             categories.first().name if categories.exists() else "Electronics"
@@ -681,62 +794,59 @@ class DownloadProductSampleTemplateView(APIView):
             else "Gold (13000.00/gram)"
         )
 
-        # Row 2 — main product row with first composition and first variant
         sample_data = [
-            "productname",  # A  name
-            "product description",  # B  description
-            100,  # C  price
-            100,  # D  market_price
-            "TRUE",  # E  track_stock
-            15,  # F  stock
-            "45g",  # G  weight
-            "image url",  # H  thumbnail_image
-            "alt description",  # I  thumbnail_image_aly_description
-            sample_category,  # J  category
-            sample_subcategory,  # K  subcategory
-            "TRUE",  # L  is_popular
-            "FALSE",  # M  is_featured
-            "active",  # N  status
-            "TRUE",  # O  use_dynamic_pricing
-            0.00,  # P  base_making_charge
-            sample_metric,  # Q  composition (first metric)
-            5,  # R  quantity
-            "Color",  # S  option1 name
-            "Green",  # T  option1 values
-            "Size",  # U  option2 name
-            "S",  # V  option2 values
-            "",  # W  option3 name
-            "",  # X  option3 values
-            80,  # Y  variant price
-            10,  # Z  variant stock
-            "image url",  # AA variant image
-            "Meta Title",  # AB meta title
-            "Meta Description",  # AC meta description
+            "productname",
+            "product description",
+            100,
+            100,
+            "TRUE",
+            15,
+            "45g",
+            "image url",
+            "alt description",
+            sample_category,
+            sample_subcategory,
+            "TRUE",
+            "FALSE",
+            "active",
+            "TRUE",
+            0.00,
+            sample_metric,
+            5,
+            "Color",
+            "Green",
+            "Size",
+            "S",
+            "",
+            "",
+            80,
+            10,
+            "image url",
+            "Meta Title",
+            "Meta Description",
         ]
 
         for col, value in enumerate(sample_data, 1):
             ws.cell(row=2, column=col, value=value)
 
-        # Row 3 — second composition row for the same product (only Q & R filled)
         second_metric = (
             f"{metrics[1].name} ({metrics[1].price_per_unit}/{metrics[1].unit})"
             if len(metrics) > 1
             else "Silver (190000.00/10)"
         )
         composition_row_2 = [""] * len(headers)
-        composition_row_2[16] = second_metric  # Q (0-based index 16)
-        composition_row_2[17] = 3  # R quantity
+        composition_row_2[16] = second_metric
+        composition_row_2[17] = 3
         for col, value in enumerate(composition_row_2, 1):
             ws.cell(row=3, column=col, value=value)
 
-        # Rows 4-6 — variant-only rows (product columns blank, composition blank)
         def make_variant_row(opt1_val, opt2_val, v_price, v_stock, v_image):
             row = [""] * len(headers)
-            row[19] = opt1_val  # T  option1 values
-            row[21] = opt2_val  # V  option2 values
-            row[24] = v_price  # Y  variant price
-            row[25] = v_stock  # Z  variant stock
-            row[26] = v_image  # AA variant image
+            row[19] = opt1_val
+            row[21] = opt2_val
+            row[24] = v_price
+            row[25] = v_stock
+            row[26] = v_image
             return row
 
         variant_rows = [
@@ -749,11 +859,9 @@ class DownloadProductSampleTemplateView(APIView):
             for col, value in enumerate(variant_data, 1):
                 ws.cell(row=row_num, column=col, value=value)
 
-        # ── Validations & widths ──────────────────────────────────────────────
         self._add_data_validations(wb, ws, categories, subcategories, metrics)
         self._adjust_column_widths(ws)
 
-        # ── Stream response ───────────────────────────────────────────────────
         buffer = io.BytesIO()
         wb.save(buffer)
         buffer.seek(0)
@@ -766,7 +874,6 @@ class DownloadProductSampleTemplateView(APIView):
         )
 
     def _add_data_validations(self, wb, ws, categories, subcategories, metrics):
-        """Add data validation for dropdown and numeric fields."""
         if "_dropdown_data" in wb.sheetnames:
             dropdown_ws = wb["_dropdown_data"]
         else:
@@ -785,12 +892,11 @@ class DownloadProductSampleTemplateView(APIView):
             ws.add_data_validation(dv)
             dv.add(cell_range)
 
-        add_bool_validation("E2:E1048576")  # track_stock
-        add_bool_validation("L2:L1048576")  # is_popular
-        add_bool_validation("M2:M1048576")  # is_featured
-        add_bool_validation("O2:O1048576")  # use_dynamic_pricing
+        add_bool_validation("E2:E1048576")
+        add_bool_validation("L2:L1048576")
+        add_bool_validation("M2:M1048576")
+        add_bool_validation("O2:O1048576")
 
-        # Status
         status_dv = DataValidation(
             type="list",
             formula1='"active,draft,archived"',
@@ -802,7 +908,6 @@ class DownloadProductSampleTemplateView(APIView):
         ws.add_data_validation(status_dv)
         status_dv.add("N2:N1048576")
 
-        # Category (dynamic from DB)
         if categories.exists():
             cat_names = [c.name for c in categories]
             for i, name in enumerate(cat_names, 1):
@@ -818,7 +923,6 @@ class DownloadProductSampleTemplateView(APIView):
             ws.add_data_validation(cat_dv)
             cat_dv.add("J2:J1048576")
 
-        # Subcategory (dynamic from DB)
         if subcategories.exists():
             sub_names = [f"{s.name} ({s.category.name})" for s in subcategories]
             for i, name in enumerate(sub_names, 1):
@@ -834,15 +938,12 @@ class DownloadProductSampleTemplateView(APIView):
             ws.add_data_validation(sub_dv)
             sub_dv.add("K2:K1048576")
 
-        # Composition column Q — dropdown of metrics: "Gold (13000.00/gram)"
         if metrics:
             metric_display_names = [
                 f"{m.name} ({m.price_per_unit}/{m.unit})" for m in metrics
             ]
             for i, name in enumerate(metric_display_names, 1):
-                dropdown_ws.cell(
-                    row=i, column=3, value=name
-                )  # Column C of hidden sheet
+                dropdown_ws.cell(row=i, column=3, value=name)
             comp_dv = DataValidation(
                 type="list",
                 formula1=f"'_dropdown_data'!$C$1:$C${len(metric_display_names)}",
@@ -852,9 +953,8 @@ class DownloadProductSampleTemplateView(APIView):
                 error="Please select a valid metric from the dropdown",
             )
             ws.add_data_validation(comp_dv)
-            comp_dv.add("Q2:Q1048576")  # composition column
+            comp_dv.add("Q2:Q1048576")
 
-        # Quantity column R — numeric validation
         qty_dv = DataValidation(
             type="decimal",
             operator="greaterThan",
@@ -865,53 +965,51 @@ class DownloadProductSampleTemplateView(APIView):
             error="Enter a numeric quantity greater than 0",
         )
         ws.add_data_validation(qty_dv)
-        qty_dv.add("R2:R1048576")  # quantity column
+        qty_dv.add("R2:R1048576")
 
     def _adjust_column_widths(self, ws):
-        """Adjust column widths for better readability."""
         column_widths = {
-            "A": 15,  # name
-            "B": 20,  # description
-            "C": 10,  # price
-            "D": 15,  # market_price
-            "E": 12,  # track_stock
-            "F": 10,  # stock
-            "G": 10,  # weight
-            "H": 20,  # thumbnail_image
-            "I": 20,  # thumbnail_image_aly_description
-            "J": 15,  # category
-            "K": 25,  # subcategory
-            "L": 12,  # is_popular
-            "M": 12,  # is_featured
-            "N": 10,  # status
-            "O": 20,  # use_dynamic_pricing
-            "P": 20,  # base_making_charge
-            "Q": 30,  # composition (wider for metric display name)
-            "R": 12,  # quantity
-            "S": 15,  # option1 name
-            "T": 15,  # option1 values
-            "U": 15,  # option2 name
-            "V": 15,  # option2 values
-            "W": 15,  # option3 name
-            "X": 15,  # option3 values
-            "Y": 15,  # variant price
-            "Z": 15,  # variant stock
-            "AA": 20,  # variant image
-            "AB": 20,  # meta title
-            "AC": 25,  # meta description
+            "A": 15,
+            "B": 20,
+            "C": 10,
+            "D": 15,
+            "E": 12,
+            "F": 10,
+            "G": 10,
+            "H": 20,
+            "I": 20,
+            "J": 15,
+            "K": 25,
+            "L": 12,
+            "M": 12,
+            "N": 10,
+            "O": 20,
+            "P": 20,
+            "Q": 30,
+            "R": 12,
+            "S": 15,
+            "T": 15,
+            "U": 15,
+            "V": 15,
+            "W": 15,
+            "X": 15,
+            "Y": 15,
+            "Z": 15,
+            "AA": 20,
+            "AB": 20,
+            "AC": 25,
         }
         for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ─── Bulk Upload ──────────────────────────────────────────────────────────────
 
 
 class BulkProductUploadView(APIView):
     serializer_class = BulkUploadSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
-    """Upload Excel/CSV and create products."""
 
     def post(self, request):
         serializer = BulkUploadSerializer(data=request.data)
@@ -943,35 +1041,38 @@ class BulkProductUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from .models import PricingMetric
-
-        # Pre-load all metrics and map normalised display name → metric instance
-        # e.g. "gold (13000.00/gram)" → <PricingMetric: Gold>
-        all_metrics = list(PricingMetric.objects.all())
+        # batch-load all metrics once
+        all_metrics = list(
+            PricingMetric.objects.only("id", "name", "price_per_unit", "unit")
+        )
         metric_col_map = {
             f"{m.name} ({m.price_per_unit}/{m.unit})".strip().lower(): m
             for m in all_metrics
+        }
+
+        # batch-load all categories and subcategories once
+        all_categories = {
+            c.name.lower(): c for c in Category.objects.only("id", "name")
+        }
+        all_subcategories = {
+            s.name.lower(): s for s in SubCategory.objects.only("id", "name")
         }
 
         created_products = {}
         current_product = None
         current_option_names = {}
         product_options = {}
-        # Accumulate composition rows per product before saving
-        # { product_key: [(metric_instance, quantity), ...] }
         pending_compositions = {}
 
         for idx, row in df.iterrows():
             product_name = safe_value(row.get("name"))
 
             if product_name:
-                # Flush pending compositions for previous product if any
                 if current_product and current_product.pk in pending_compositions:
                     self._save_compositions(
                         current_product, pending_compositions.pop(current_product.pk)
                     )
 
-                # Skip if product already exists in DB
                 if Product.objects.filter(name=product_name).exists():
                     current_product = None
                     current_option_names = {}
@@ -980,29 +1081,27 @@ class BulkProductUploadView(APIView):
                 current_product_key = product_name
 
                 if current_product_key not in created_products:
-                    # ── Resolve FK fields ─────────────────────────────────────
                     category_name = safe_value(row.get("category"))
                     sub_category_name = safe_value(row.get("subcategory"))
 
+                    # use pre-loaded dicts — no per-row DB query
                     category = (
-                        Category.objects.filter(name=category_name).first()
+                        all_categories.get(category_name.lower())
                         if category_name
                         else None
                     )
                     sub_category = (
-                        SubCategory.objects.filter(name=sub_category_name).first()
+                        all_subcategories.get(sub_category_name.lower())
                         if sub_category_name
                         else None
                     )
 
-                    # ── use_dynamic_pricing (normalise to bool) ───────────────
                     raw_dynamic = safe_value(row.get("use_dynamic_pricing"), False)
                     if isinstance(raw_dynamic, str):
                         use_dynamic_pricing = raw_dynamic.strip().upper() == "TRUE"
                     else:
                         use_dynamic_pricing = bool(raw_dynamic)
 
-                    # ── base_making_charge ────────────────────────────────────
                     base_making_charge = safe_value(row.get("base_making_charge"), 0.00)
                     try:
                         base_making_charge = (
@@ -1013,7 +1112,6 @@ class BulkProductUploadView(APIView):
                     except (ValueError, TypeError):
                         base_making_charge = 0.00
 
-                    # ── Build product dict ────────────────────────────────────
                     product_data = {
                         "name": current_product_key,
                         "description": safe_value(row.get("description"), ""),
@@ -1049,7 +1147,6 @@ class BulkProductUploadView(APIView):
                     }
                     product = Product(**product_data)
 
-                    # ── Thumbnail image ───────────────────────────────────────
                     thumb_val = safe_value(row.get("thumbnail_image"))
                     if thumb_val:
                         if not str(thumb_val).startswith(("http://", "https://")):
@@ -1074,7 +1171,6 @@ class BulkProductUploadView(APIView):
                             {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                         )
 
-                    # ── Options ───────────────────────────────────────────────
                     option_names = self._create_product_options(product, row)
                     product_options[current_product_key] = option_names
 
@@ -1083,14 +1179,11 @@ class BulkProductUploadView(APIView):
                         "options_created": True,
                         "use_dynamic_pricing": use_dynamic_pricing,
                     }
-
-                    # Initialise composition accumulator for this product
                     pending_compositions[product.pk] = []
 
                 current_product = created_products[current_product_key]["product"]
                 current_option_names = product_options[current_product_key]
 
-            # ── Collect composition from this row (product row OR continuation row) ──
             if current_product:
                 product_meta = next(
                     (
@@ -1121,12 +1214,10 @@ class BulkProductUploadView(APIView):
                                 current_product.pk, []
                             ).append((metric, quantity))
 
-                # Create variant for current product
                 self._create_product_variant(
                     current_product, row, current_option_names, images_from_zip
                 )
 
-        # Flush compositions for the very last product in the file
         if current_product and current_product.pk in pending_compositions:
             self._save_compositions(
                 current_product, pending_compositions.pop(current_product.pk)
@@ -1137,17 +1228,8 @@ class BulkProductUploadView(APIView):
             "message": f"Successfully processed {len(created_products)} products with variants",
         })
 
-    # ── Composition save helper ───────────────────────────────────────────────
     def _save_compositions(self, product, composition_list):
-        """
-        Persist accumulated (metric, quantity) pairs as ProductComposition rows.
-        Clears existing compositions first to allow clean re-imports.
-        Only called when use_dynamic_pricing is True.
-        """
-        from .models import ProductComposition
-
         ProductComposition.objects.filter(product=product).delete()
-
         for metric, quantity in composition_list:
             ProductComposition.objects.create(
                 product=product,
@@ -1155,11 +1237,8 @@ class BulkProductUploadView(APIView):
                 quantity=quantity,
             )
 
-    # ── Options helper ────────────────────────────────────────────────────────
     def _create_product_options(self, product, row):
-        """Create product options from option columns and return option names."""
         ProductOption.objects.filter(product=product).delete()
-
         option_names = {}
         option_columns = {}
 
@@ -1186,9 +1265,7 @@ class BulkProductUploadView(APIView):
 
         return option_names
 
-    # ── Variant helper ────────────────────────────────────────────────────────
     def _create_product_variant(self, product, row, option_names, images_from_zip=None):
-        """Create product variant with option values."""
         variant_price = safe_value(row.get("variant price"))
         variant_stock = safe_value(row.get("variant stock"))
         variant_image_val = safe_value(row.get("variant image"))
@@ -1236,52 +1313,3 @@ class BulkProductUploadView(APIView):
                 variant.option_values.add(option_value)
 
         return variant
-
-
-class ProductVariantListCreateView(generics.ListCreateAPIView):
-    queryset = (
-        ProductVariant.objects
-        .all()
-        .select_related("product", "product__category", "product__sub_category")
-        .prefetch_related("option_values__option")
-    )
-    serializer_class = ProductVariantAsProductSerializer
-    pagination_class = CustomPagination
-    filter_backends = [
-        django_filters.DjangoFilterBackend,
-        filters.SearchFilter,
-        filters.OrderingFilter,
-    ]
-    filterset_class = ProductVariantFilterSet
-    search_fields = ["product__name", "option_values__value"]
-    ordering_fields = ["created_at", "price"]
-
-    def get_authenticators(self):
-        if self.request.method == "POST":
-            return [TenantJWTAuthentication()]
-        return []
-
-    def get_permissions(self):
-        if self.request.method == "POST":
-            return [IsAuthenticated()]
-        return super().get_permissions()
-
-
-class ProductVariantRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = (
-        ProductVariant.objects
-        .all()
-        .select_related("product", "product__category", "product__sub_category")
-        .prefetch_related("option_values__option")
-    )
-    serializer_class = ProductVariantAsProductSerializer
-
-    def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
-            return [TenantJWTAuthentication()]
-        return []
-
-    def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
-            return [IsAuthenticated()]
-        return super().get_permissions()

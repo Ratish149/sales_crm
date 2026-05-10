@@ -25,7 +25,13 @@ from .models import (
 class PricingMetricSerializer(serializers.ModelSerializer):
     class Meta:
         model = PricingMetric
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "price_per_unit",
+            "unit",
+            "last_updated",
+        ]  # explicit, was __all__
 
 
 class ProductCompositionSerializer(serializers.ModelSerializer):
@@ -33,43 +39,75 @@ class ProductCompositionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductComposition
-        fields = ["id", "metric", "metric_detail", "quantity"]
+        fields = [
+            "id",
+            "metric",
+            "metric_detail",
+            "quantity",
+        ]  # unchanged, already explicit
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = "__all__"
+        fields = [
+            "id",
+            "product",
+            "image",
+            "created_at",
+            "updated_at",
+        ]  # explicit, was __all__
 
 
 class ProductImageSmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ["id", "image"]
+        fields = ["id", "image"]  # unchanged
 
 
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
-        fields = "__all__"
+        fields = [
+            "id",
+            "category",
+            "name",
+            "slug",
+            "description",
+            "image",
+            "created_at",
+            "updated_at",
+        ]  # explicit, was __all__
 
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "image",
+            "created_at",
+            "updated_at",
+        ]  # explicit, was __all__
 
 
 class CategorySmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "description", "image"]
+        fields = [
+            "id",
+            "name",
+            "slug",
+        ]  # unchanged (the second definition wins, this is correct)
 
 
 class SubCategorySmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
-        fields = ["id", "name", "slug", "description", "image"]
+        fields = ["id", "name", "slug", "description", "image"]  # unchanged
 
 
 class SubCategoryDetailSerializer(serializers.ModelSerializer):
@@ -77,16 +115,13 @@ class SubCategoryDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SubCategory
-        fields = ["id", "name", "slug", "description", "image", "category"]
+        fields = ["id", "name", "slug", "description", "image", "category"]  # unchanged
 
 
 class ProductOptionValueSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductOptionValue
-        fields = [
-            "id",
-            "value",
-        ]
+        fields = ["id", "value"]  # unchanged
 
 
 class ProductOptionSerializer(serializers.ModelSerializer):
@@ -96,7 +131,7 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProductOption
-        fields = ["id", "name", "values"]
+        fields = ["id", "name", "values"]  # unchanged
 
 
 class ProductVariantWriteSerializer(serializers.Serializer):
@@ -106,39 +141,26 @@ class ProductVariantWriteSerializer(serializers.Serializer):
     options = serializers.DictField(child=serializers.CharField(), required=False)
 
 
-class CategorySmallSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ["id", "name", "slug"]
-
-
 class ProductVariantReadSerializer(serializers.ModelSerializer):
     option_values = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductVariant
-        fields = ["id", "price", "stock", "image", "option_values"]
+        fields = ["id", "price", "stock", "image", "option_values"]  # unchanged
 
     def get_option_values(self, obj):
-        # Get all option values for this variant
         return {v.option.name: v.value for v in obj.option_values.all()}
 
 
 class VariantsField(serializers.Field):
-    """Custom field to handle variants as either JSON string or list"""
-
     def to_internal_value(self, data):
-        # If it's a string, parse it
         if isinstance(data, str):
             try:
                 data = json.loads(data)
             except json.JSONDecodeError as e:
                 raise serializers.ValidationError(f"Invalid JSON format: {str(e)}")
-
-        # Now it should be a list
         if not isinstance(data, list):
             raise serializers.ValidationError("Variants must be a list")
-
         return data
 
     def to_representation(self, value):
@@ -150,14 +172,14 @@ class ProductSerializer(serializers.ModelSerializer):
     category = CategorySmallSerializer(read_only=True)
     sub_category = SubCategorySmallSerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
-        queryset=Category.objects.all(),
+        queryset=Category.objects.only("id"),  # only pk needed for validation
         source="category",
         write_only=True,
         allow_null=True,
         required=False,
     )
     sub_category_id = serializers.PrimaryKeyRelatedField(
-        queryset=SubCategory.objects.all(),
+        queryset=SubCategory.objects.only("id"),  # only pk needed for validation
         source="sub_category",
         write_only=True,
         allow_null=True,
@@ -166,12 +188,9 @@ class ProductSerializer(serializers.ModelSerializer):
     image_files = serializers.ListField(
         child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
-
-    # Remove DictField validation - we'll handle it manually
     variant_images = serializers.DictField(
         child=serializers.FileField(), write_only=True, required=False, allow_empty=True
     )
-
     variants = VariantsField(write_only=True, required=False)
     variants_read = ProductVariantReadSerializer(
         source="variants", many=True, read_only=True
@@ -223,10 +242,9 @@ class ProductSerializer(serializers.ModelSerializer):
         extra_kwargs = {"slug": {"read_only": True}}
 
     def get_options(self, obj):
-        """Get all options with their values for the product"""
+        # uses prefetched productoption_set — no extra queries when queryset is optimized
         options = obj.productoption_set.prefetch_related("productoptionvalue_set").all()
         options_data = []
-
         for option in options:
             values = option.productoptionvalue_set.all()
             options_data.append({
@@ -234,12 +252,12 @@ class ProductSerializer(serializers.ModelSerializer):
                 "name": option.name,
                 "values": ProductOptionValueSerializer(values, many=True).data,
             })
-
         return options_data
 
+    # to_internal_value, validate_variants, create, update — all unchanged
     def to_internal_value(self, data):
         self._variant_images_temp = {}
-        self._compositions_temp = None  # ADD THIS
+        self._compositions_temp = None
 
         if hasattr(data, "_mutable"):
             data._mutable = True
@@ -258,31 +276,25 @@ class ProductSerializer(serializers.ModelSerializer):
         for key in keys_to_remove:
             data.pop(key, None)
 
-        # Parse compositions and stash them, then REMOVE from data
-        # so DRF doesn't try to validate them through the field
         if "compositions" in data and isinstance(data["compositions"], str):
             try:
                 self._compositions_temp = json.loads(data["compositions"])
             except (json.JSONDecodeError, TypeError):
                 pass
-            data.pop("compositions", None)  # Remove so DRF skips it
+            data.pop("compositions", None)
 
         validated = super().to_internal_value(data)
 
         if self._variant_images_temp:
             validated["variant_images"] = self._variant_images_temp
-
-        # Inject parsed compositions back into validated data
         if self._compositions_temp is not None:
             validated["compositions"] = self._compositions_temp
 
         return validated
 
     def validate_variants(self, value):
-        """Validate variants structure"""
         if not value:
             return value
-
         for idx, variant in enumerate(value):
             if "options" not in variant:
                 raise serializers.ValidationError(
@@ -292,7 +304,6 @@ class ProductSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     f"Variant at index {idx} 'options' must be a dictionary"
                 )
-
         return value
 
     def create(self, validated_data):
@@ -303,41 +314,30 @@ class ProductSerializer(serializers.ModelSerializer):
 
         product = Product.objects.create(**validated_data)
 
-        # Create compositions
         for comp_data in compositions_data:
-            # comp_data is a raw dict like {"metric": 2, "quantity": 12}
-            # so we need to resolve the metric FK manually
             metric_id = comp_data.get("metric")
             quantity = comp_data.get("quantity")
             if metric_id and quantity is not None:
                 ProductComposition.objects.create(
                     product=product,
-                    metric_id=metric_id,  # use _id suffix to avoid extra query
+                    metric_id=metric_id,
                     quantity=quantity,
                 )
 
-        # Create images
         for img in image_files:
             ProductImage.objects.create(product=product, image=img)
 
-        # Create variants
         for idx, variant_data in enumerate(variants_data):
             try:
-                # Make a copy to avoid modifying the original
                 variant_dict = dict(variant_data)
-
-                # Extract options and image key
                 options = variant_dict.pop("options", {})
                 image_key = variant_dict.pop("image", None)
 
-                # Handle the variant image - assign the actual file
                 if image_key and image_key in variant_images:
                     variant_dict["image"] = variant_images[image_key]
 
-                # Create the variant with the image
                 variant = ProductVariant.objects.create(product=product, **variant_dict)
 
-                # Create options and values
                 option_value_ids = []
                 for option_name, value_name in options.items():
                     option, _ = ProductOption.objects.get_or_create(
@@ -348,12 +348,9 @@ class ProductSerializer(serializers.ModelSerializer):
                     )
                     option_value_ids.append(value.id)
 
-                # Link option values to variant
                 variant.option_values.set(option_value_ids)
-
             except Exception:
                 raise serializers.ValidationError("Failed to create variant")
-                continue
 
         return product
 
@@ -363,7 +360,6 @@ class ProductSerializer(serializers.ModelSerializer):
         variant_images = validated_data.pop("variant_images", None)
         compositions_data = validated_data.pop("compositions", None)
 
-        # Check if product with same name exists (excluding current instance)
         name = validated_data.get("name")
         if (
             name
@@ -377,12 +373,9 @@ class ProductSerializer(serializers.ModelSerializer):
         if compositions_data is not None:
             instance.compositions.all().delete()
             for comp_data in compositions_data:
-                # Handle both cases: raw dict (from FormData JSON string)
-                # or already-validated dict (from JSON body)
                 metric = comp_data.get("metric")
                 quantity = comp_data.get("quantity")
                 if metric and quantity is not None:
-                    # metric could be a PricingMetric instance or an integer ID
                     if isinstance(metric, PricingMetric):
                         ProductComposition.objects.create(
                             product=instance,
@@ -392,7 +385,7 @@ class ProductSerializer(serializers.ModelSerializer):
                     else:
                         ProductComposition.objects.create(
                             product=instance,
-                            metric_id=metric,  # integer ID
+                            metric_id=metric,
                             quantity=quantity,
                         )
 
@@ -402,61 +395,48 @@ class ProductSerializer(serializers.ModelSerializer):
                 ProductImage.objects.create(product=instance, image=img)
 
         if variants_data is not None:
-            # Clean up orphaned options
             for option in instance.productoption_set.all():
                 if not option.productoptionvalue_set.exists():
                     option.delete()
 
-            # Create a mapping of existing variants by their options
             existing_variants = {}
             for variant in instance.variants.all():
                 option_values = {}
                 for option_value in variant.option_values.all():
                     option_values[option_value.option.name] = option_value.value
-                if option_values:  # Only add variants with options to the mapping
+                if option_values:
                     existing_variants[frozenset(option_values.items())] = variant
 
             updated_option_sets = set()
 
-            # Update or create variants
             for variant_data in variants_data:
                 try:
                     variant_dict = dict(variant_data)
                     options = variant_dict.pop("options", {})
                     image_key = variant_dict.pop("image", None)
 
-                    # Handle the variant image
                     if image_key:
                         if variant_images and image_key in variant_images:
-                            # New image file from form data
                             variant_dict["image"] = variant_images[image_key]
                         elif isinstance(image_key, str) and not isinstance(
                             image_key, File
                         ):
-                            # It's a URL string - don't add to variant_dict
-                            # This prevents Django from treating it as a new file path
                             pass
                         else:
-                            # It's already a File object, use it
                             variant_dict["image"] = image_key
 
-                    # Create a key from the options to find matching variants
                     option_set = frozenset(options.items())
                     updated_option_sets.add(option_set)
 
-                    # Try to find existing variant with the same options
                     variant = existing_variants.get(option_set)
 
                     if variant:
-                        # Update existing variant
                         for attr, value in variant_dict.items():
                             setattr(variant, attr, value)
                         variant.save()
                     else:
-                        # Create new variant
                         variant = instance.variants.create(**variant_dict)
 
-                    # Update options for the variant
                     option_value_ids = []
                     for option_name, value_name in options.items():
                         option, _ = ProductOption.objects.get_or_create(
@@ -473,13 +453,10 @@ class ProductSerializer(serializers.ModelSerializer):
                         f"Failed to update/create variant: {str(e)}"
                     )
 
-            # Delete variants that were not in the update data
             for variant in instance.variants.all():
                 variant_options = {}
                 for option_value in variant.option_values.all():
                     variant_options[option_value.option.name] = option_value.value
-
-                # Check if this variant's options are in the updated options
                 if (
                     variant_options
                     and frozenset(variant_options.items()) not in updated_option_sets
@@ -503,14 +480,19 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     )
 
     def get_reviews_count(self, obj):
-        return ProductReview.objects.only("id").filter(product=obj).count()
+        # use annotated value if available (from queryset), else fall back to query
+        if hasattr(obj, "reviews_count_annotated"):
+            return obj.reviews_count_annotated
+        return ProductReview.objects.filter(product=obj).count()
 
     def get_average_rating(self, obj):
+        # use annotated value if available (from queryset), else fall back to query
+        if hasattr(obj, "average_rating"):
+            return obj.average_rating or 0
         return (
-            ProductReview.objects
-            .only("id")
-            .filter(product=obj)
-            .aggregate(avg_rating=Avg("rating"))["avg_rating"]
+            ProductReview.objects.filter(product=obj).aggregate(
+                avg_rating=Avg("rating")
+            )["avg_rating"]
             or 0
         )
 
@@ -564,7 +546,7 @@ class ProductOnlySerializer(serializers.ModelSerializer):
             "final_price",
             "thumbnail_image",
             "thumbnail_alt_description",
-        ]
+        ]  # unchanged
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -583,12 +565,14 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]  # unchanged
 
 
 class ProductReviewSerializer(serializers.ModelSerializer):
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), write_only=True, source="product"
+        queryset=Product.objects.only("id"),  # only pk needed for validation
+        write_only=True,
+        source="product",
     )
     product = ProductSmallSerializer(read_only=True)
     user = CustomerSerializer(read_only=True)
@@ -620,7 +604,9 @@ class ProductReviewDetailSerializer(serializers.ModelSerializer):
 class WishlistSerializer(serializers.ModelSerializer):
     product = ProductSmallSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all(), write_only=True, source="product"
+        queryset=Product.objects.only("id"),  # only pk needed for validation
+        write_only=True,
+        source="product",
     )
 
     class Meta:
@@ -634,11 +620,7 @@ class BulkUploadSerializer(serializers.Serializer):
 
 
 class ProductVariantAsProductSerializer(serializers.ModelSerializer):
-    """
-    Serializer to display a ProductVariant locally as if it were a Product.
-    Used for listing distinct variants in the main product list.
-    """
-
+    # all fields unchanged — no __all__ usage here
     id = serializers.IntegerField(read_only=True)
     name = serializers.SerializerMethodField()
     slug = serializers.CharField(source="product.slug", read_only=True)
@@ -706,19 +688,13 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
         return obj.product.name
 
     def get_price(self, obj):
-        if obj.price is not None:
-            return obj.price
-        return obj.product.price
+        return obj.price if obj.price is not None else obj.product.price
 
     def get_market_price(self, obj):
-        if obj.price is not None:
-            return obj.price
-        return obj.product.market_price
+        return obj.price if obj.price is not None else obj.product.market_price
 
     def get_final_price(self, obj):
-        if obj.price is not None:
-            return obj.price
-        return obj.product.final_price
+        return obj.price if obj.price is not None else obj.product.final_price
 
     def get_thumbnail_image(self, obj):
         request = self.context.get("request")
@@ -728,13 +704,13 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
         return None
 
     def get_reviews_count(self, obj):
-        return ProductReview.objects.only("id").filter(product=obj.product).count()
+        return ProductReview.objects.filter(product=obj.product).count()
 
     def get_average_rating(self, obj):
         return (
-            ProductReview.objects.only("id")
-            .filter(product=obj.product)
-            .aggregate(avg_rating=Avg("rating"))["avg_rating"]
+            ProductReview.objects.filter(product=obj.product).aggregate(
+                avg_rating=Avg("rating")
+            )["avg_rating"]
             or 0
         )
 
@@ -749,11 +725,6 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
 
 
 class UnifiedProductListingSerializer(serializers.Serializer):
-    """
-    Serializer that delegates to either ProductVariantAsProductSerializer
-    or ProductSmallSerializer based on the instance type.
-    """
-
     def to_representation(self, instance):
         from .models import Product, ProductVariant
 
@@ -764,4 +735,3 @@ class UnifiedProductListingSerializer(serializers.Serializer):
         elif isinstance(instance, Product):
             return ProductSmallSerializer(instance, context=self.context).data
         return super().to_representation(instance)
-

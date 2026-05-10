@@ -25,12 +25,20 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         self.schema_name = self.scope["url_route"]["kwargs"]["schema_name"]
         self.room_group_name = f"website_{self.schema_name}"
 
-        # Add to group
+        # Validate tenant exists before accepting the connection
+        try:
+            await self.set_tenant_context()
+        except ValueError:
+            await self.close(code=4004)
+            return
+        except Exception:
+            await self.close(code=4011)
+            return
+
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
-        # Leave group
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def receive(self, text_data):
@@ -43,7 +51,8 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         action = data.get("action")
 
         try:
-            # Switch context to the tenant schema
+            # Re-apply tenant schema on every message because async workers
+            # can get a different DB connection from the pool between messages
             await self.set_tenant_context()
 
             if action == "get_site_config":
@@ -121,20 +130,34 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         finally:
             await self.cleanup_connections()
 
-    @sync_to_async
-    def cleanup_connections(self):
-        from django.db import close_old_connections
-
-        close_old_connections()
+    # -------------------------------------------------------------------------
+    # Tenant / Connection Helpers
+    # -------------------------------------------------------------------------
 
     @sync_to_async
     def set_tenant_context(self):
         from django.db import close_old_connections, connection
 
         close_old_connections()
-        connection.set_schema(self.schema_name)
 
-    # --- Site Config ---
+        try:
+            tenant = Client.objects.get(schema_name=self.schema_name)
+        except Client.DoesNotExist:
+            raise ValueError(f"Tenant '{self.schema_name}' not found")
+
+        connection.set_tenant(tenant)
+        self.tenant = tenant
+
+    @sync_to_async
+    def cleanup_connections(self):
+        from django.db import close_old_connections
+
+        close_old_connections()
+
+    # -------------------------------------------------------------------------
+    # Site Config
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def get_site_config_sync(self):
         config, _ = SiteConfig.objects.get_or_create()
@@ -169,14 +192,18 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "site_config_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "site_config_updated",
+                        "data": result["data"],
+                    })
                 )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Theme ---
+    # -------------------------------------------------------------------------
+    # Theme
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def list_themes_sync(self, status_param):
         if status_param == "preview":
@@ -212,9 +239,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "theme_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "theme_updated",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Theme not found"}))
@@ -254,9 +282,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "theme_created", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "theme_created",
+                        "data": result["data"],
+                    })
                 )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
@@ -277,7 +306,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Page ---
+    # -------------------------------------------------------------------------
+    # Page
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def list_pages_sync(self, status_param):
         if status_param == "preview":
@@ -311,9 +343,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "page_created", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "page_created",
+                        "data": result["data"],
+                    })
                 )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
@@ -335,9 +368,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "page_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "page_updated",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
@@ -368,9 +402,11 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         try:
             page_id = await self.publish_page_sync(slug)
             await self.send(
-                text_data=json.dumps(
-                    {"action": "page_published", "slug": slug, "id": page_id}
-                )
+                text_data=json.dumps({
+                    "action": "page_published",
+                    "slug": slug,
+                    "id": page_id,
+                })
             )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
@@ -393,27 +429,33 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Page Component ---
+    # -------------------------------------------------------------------------
+    # Page Component
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def list_components_sync(self, slug, status_param):
         page = get_object_or_404(Page, slug=slug)
 
         if status_param == "preview":
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="draft")
             )
         elif page.status == "draft" and page.published_version:
             page = page.published_version
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="published")
             )
         else:
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="published")
             )
@@ -423,13 +465,13 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
     async def list_components(self, data):
         slug = data.get("slug")
         status_param = data.get("status", "published")
-
         try:
             component_data = await self.list_components_sync(slug, status_param)
             await self.send(
-                text_data=json.dumps(
-                    {"action": "components_list", "data": component_data}
-                )
+                text_data=json.dumps({
+                    "action": "components_list",
+                    "data": component_data,
+                })
             )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
@@ -446,7 +488,6 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 if order is None:
                     order = page.components.filter(status="draft").count()
                 else:
-                    # Shift existing draft components at this position or later down by 1
                     PageComponent.objects.filter(
                         page=page, status="draft", order__gte=order
                     ).exclude(component_type__in=["navbar", "footer"]).update(
@@ -464,9 +505,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "component_created", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "component_created",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
@@ -514,9 +556,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "component_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "component_updated",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Component not found"}))
@@ -535,9 +578,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 PageComponent.objects.filter(
                     page=page, component_id=component_id, status="draft"
                 ).update(order=new_order)
-        # Return the refreshed ordered list
         qs = (
-            PageComponent.objects.filter(page=page)
+            PageComponent.objects
+            .filter(page=page)
             .exclude(component_type__in=["navbar", "footer"])
             .filter(status="draft")
         )
@@ -549,12 +592,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         try:
             updated_list = await self.update_component_order_sync(slug, order_updates)
             await self.send(
-                text_data=json.dumps(
-                    {
-                        "action": "component_order_updated",
-                        "data": updated_list,
-                    }
-                )
+                text_data=json.dumps({
+                    "action": "component_order_updated",
+                    "data": updated_list,
+                })
             )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Page not found"}))
@@ -637,24 +678,26 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             PageComponent, page__slug=page_slug, component_id=component_id
         )
         component.delete()
-        # Re-fetch the list to return the updated state
         page = get_object_or_404(Page, slug=page_slug)
         if status_param == "preview":
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="draft")
             )
         elif page.status == "draft" and page.published_version:
             page = page.published_version
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="published")
             )
         else:
             qs = (
-                PageComponent.objects.filter(page=page)
+                PageComponent.objects
+                .filter(page=page)
                 .exclude(component_type__in=["navbar", "footer"])
                 .filter(status="published")
             )
@@ -663,28 +706,23 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
     async def delete_component(self, data):
         page_slug = data.get("page_slug")
         component_id = data.get("component_id")
-        status_param = data.get(
-            "status", "preview"
-        )  # Default to preview when deleting usually
+        status_param = data.get("status", "preview")
         try:
-            # We treat delete mostly as a draft operation, hence default status=preview for fetch
-            # But let's respect if client sent a specific status context
             updated_list = await self.delete_component_sync(
                 page_slug, component_id, status_param
             )
             await self.send(
-                text_data=json.dumps(
-                    {
-                        "action": "component_deleted",
-                        "success": True,
-                        "component_id": component_id,
-                    }
-                )
+                text_data=json.dumps({
+                    "action": "component_deleted",
+                    "success": True,
+                    "component_id": component_id,
+                })
             )
             await self.send(
-                text_data=json.dumps(
-                    {"action": "components_list", "data": updated_list}
-                )
+                text_data=json.dumps({
+                    "action": "components_list",
+                    "data": updated_list,
+                })
             )
         except Http404:
             await self.send(
@@ -693,7 +731,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Navbar ---
+    # -------------------------------------------------------------------------
+    # Navbar
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def get_navbar_sync(self, status_param):
         qs = PageComponent.objects.filter(component_type="navbar")
@@ -701,7 +742,6 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             navbar = qs.filter(status="draft").first()
         else:
             navbar = qs.filter(status="published").first()
-
         if navbar:
             return PageComponentSerializer(navbar).data
         return None
@@ -710,14 +750,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         status_param = data.get("status", "published")
         try:
             navbar_data = await self.get_navbar_sync(status_param)
-            if navbar_data:
-                await self.send(
-                    text_data=json.dumps({"action": "navbar", "data": navbar_data})
-                )
-            else:
-                await self.send(
-                    text_data=json.dumps({"action": "navbar", "data": None})
-                )
+            await self.send(
+                text_data=json.dumps({"action": "navbar", "data": navbar_data})
+            )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
@@ -739,9 +774,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "navbar_created", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "navbar_created",
+                        "data": result["data"],
+                    })
                 )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
@@ -785,9 +821,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "navbar_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "navbar_updated",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Navbar not found"}))
@@ -866,7 +903,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Footer ---
+    # -------------------------------------------------------------------------
+    # Footer
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def get_footer_sync(self, status_param):
         qs = PageComponent.objects.filter(component_type="footer")
@@ -874,7 +914,6 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
             footer = qs.filter(status="draft").first()
         else:
             footer = qs.filter(status="published").first()
-
         if footer:
             return PageComponentSerializer(footer).data
         return None
@@ -883,14 +922,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         status_param = data.get("status", "published")
         try:
             footer_data = await self.get_footer_sync(status_param)
-            if footer_data:
-                await self.send(
-                    text_data=json.dumps({"action": "footer", "data": footer_data})
-                )
-            else:
-                await self.send(
-                    text_data=json.dumps({"action": "footer", "data": None})
-                )
+            await self.send(
+                text_data=json.dumps({"action": "footer", "data": footer_data})
+            )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
@@ -912,9 +946,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "footer_created", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "footer_created",
+                        "data": result["data"],
+                    })
                 )
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
@@ -958,9 +993,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
                 await self.send(text_data=json.dumps({"error": result["error"]}))
             else:
                 await self.send(
-                    text_data=json.dumps(
-                        {"action": "footer_updated", "data": result["data"]}
-                    )
+                    text_data=json.dumps({
+                        "action": "footer_updated",
+                        "data": result["data"],
+                    })
                 )
         except Http404:
             await self.send(text_data=json.dumps({"error": "Footer not found"}))
@@ -1039,7 +1075,10 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await self.send(text_data=json.dumps({"error": str(e)}))
 
-    # --- Bulk Operations ---
+    # -------------------------------------------------------------------------
+    # Bulk Operations
+    # -------------------------------------------------------------------------
+
     @sync_to_async
     def publish_all_sync(self):
         with transaction.atomic():
@@ -1120,9 +1159,6 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         template_client = Client.objects.get(id=template_id)
         if not template_client.is_template_account:
             return {"error": "Not a template account"}
-
-        # Note: In consumers, we don't have request.tenant like in middleware
-        # We assume the schema_name from URL is the correct tenant
         target_client = Client.objects.get(schema_name=self.schema_name)
         import_template_to_tenant(template_client, target_client)
         return {"success": True}

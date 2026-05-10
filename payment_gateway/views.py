@@ -12,8 +12,25 @@ from .serializers import (
     PaymentSmallSerializer,
 )
 
+# reusable querysets
+PAYMENT_QS = Payment.objects.only(
+    "id", "payment_type", "secret_key", "merchant_code", "is_enabled"
+)
+PAYMENT_SMALL_QS = Payment.objects.only("id", "payment_type", "is_enabled")
+PAYMENT_HISTORY_QS = PaymentHistory.objects.only(
+    "id",
+    "payment_type",
+    "pay_amount",
+    "transaction_id",
+    "products_purchased",
+    "status",
+    "additional_info",
+    "is_read",
+    "created_at",
+    "updated_at",
+)
 
-# Create your views here.
+
 class PaymentFilterSet(django_filters.FilterSet):
     payment_type = django_filters.CharFilter(
         field_name="payment_type", lookup_expr="iexact"
@@ -25,7 +42,6 @@ class PaymentFilterSet(django_filters.FilterSet):
 
 
 class PaymentListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Payment.objects.all()
     serializer_class = PaymentSerializer
     filter_backends = [django_filters.DjangoFilterBackend]
     filterset_class = PaymentFilterSet
@@ -40,6 +56,12 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
             return [IsAuthenticated()]
         return super().get_permissions()
 
+    def get_queryset(self):
+        # GET uses PaymentSmallSerializer which only needs 3 fields
+        if self.request.method == "GET":
+            return PAYMENT_SMALL_QS
+        return PAYMENT_QS
+
     def get_serializer_class(self):
         if self.request.method == "GET":
             return PaymentSmallSerializer
@@ -49,17 +71,16 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
         response = super().create(request, *args, **kwargs)
         if response.status_code == 201:
             instance_data = response.data
-            custom_response = {
+            response.data = {
                 "id": instance_data.get("id"),
                 "payment_type": instance_data.get("payment_type"),
                 "merchant_code": instance_data.get("merchant_code"),
             }
-            response.data = custom_response
         return response
 
 
 class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Payment.objects.all()
+    queryset = PAYMENT_QS
     serializer_class = PaymentSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -68,22 +89,21 @@ class PaymentRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView)
         response = super().update(request, *args, **kwargs)
         if response.status_code == 200:
             instance_data = response.data
-            custom_response = {
+            response.data = {
                 "id": instance_data.get("id"),
                 "payment_type": instance_data.get("payment_type"),
                 "merchant_code": instance_data.get("merchant_code"),
             }
-            response.data = custom_response
         return response
 
 
 class PaymentListAPIView(generics.ListAPIView):
-    queryset = Payment.objects.all()
+    queryset = PAYMENT_QS
     serializer_class = PaymentSerializer
 
 
 class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
-    queryset = PaymentHistory.objects.all()
+    queryset = PAYMENT_HISTORY_QS
     serializer_class = PaymentHistorySerializer
     pagination_class = CustomPagination
 
@@ -99,7 +119,7 @@ class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PaymentHistoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PaymentHistory.objects.all()
+    queryset = PAYMENT_HISTORY_QS
     serializer_class = PaymentHistorySerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]

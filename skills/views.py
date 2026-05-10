@@ -6,9 +6,11 @@ from sales_crm.authentication import TenantJWTAuthentication
 from .models import Skills
 from .serializers import SkillsSerializer
 
+SKILLS_QS = Skills.objects.only("id", "name", "description", "created_at", "updated_at")
+
 
 class SkillsListCreateView(generics.ListCreateAPIView):
-    queryset = Skills.objects.all().order_by("-created_at")
+    queryset = SKILLS_QS.order_by("-created_at")
     serializer_class = SkillsSerializer
 
     def get_authenticators(self):
@@ -23,7 +25,7 @@ class SkillsListCreateView(generics.ListCreateAPIView):
 
 
 class SkillsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Skills.objects.all()
+    queryset = SKILLS_QS
     serializer_class = SkillsSerializer
 
     def get_authenticators(self):

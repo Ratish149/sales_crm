@@ -22,7 +22,9 @@ from .serializers import (
 
 
 class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
-    queryset = NepdoraPayment.objects.all()
+    queryset = NepdoraPayment.objects.only(
+        "id", "payment_type", "secret_key", "merchant_code"
+    )
     serializer_class = NepdoraPaymentSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["payment_type"]
@@ -30,7 +32,7 @@ class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for POST
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -39,7 +41,9 @@ class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
 
 
 class NepdoraPaymentRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = NepdoraPayment.objects.all()
+    queryset = NepdoraPayment.objects.only(
+        "id", "payment_type", "secret_key", "merchant_code"
+    )
     serializer_class = NepdoraPaymentSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -57,7 +61,25 @@ class TenantCentralPaymentHistoryFilter(django_filters.FilterSet):
 
 
 class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
-    queryset = TenantCentralPaymentHistory.objects.all().select_related("tenant")
+    queryset = (
+        TenantCentralPaymentHistory.objects
+        .select_related("tenant")
+        .only(
+            "id",
+            "payment_type",
+            "pay_amount",
+            "transaction_id",
+            "products_purchased",
+            "status",
+            "additional_info",
+            "is_read",
+            "created_at",
+            "updated_at",
+            "tenant__id",
+            "tenant__name",  # only tenant fields used in serializer/filter
+        )
+        .order_by("-created_at")  # consistent ordering avoids unpredictable pagination
+    )
     serializer_class = TenantCentralPaymentHistorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = TenantCentralPaymentHistoryFilter
@@ -67,7 +89,7 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for POST
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -76,7 +98,6 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         instance = serializer.save()
-        # Log activity: Subscription Purchase
         log_user_activity(
             user=self.request.user,
             action="purchase_subscription",
@@ -85,7 +106,7 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
                 "pay_amount": str(instance.pay_amount),
                 "payment_type": instance.payment_type,
                 "transaction_id": instance.transaction_id,
-                "tenant_name": instance.tenant.name,
+                "tenant_name": instance.tenant.name,  # already fetched via select_related
             },
         )
 
@@ -93,7 +114,20 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
 class TenantCentralPaymentHistoryRetrieveUpdateDestroyView(
     generics.RetrieveUpdateDestroyAPIView
 ):
-    queryset = TenantCentralPaymentHistory.objects.all()
+    queryset = TenantCentralPaymentHistory.objects.select_related("tenant").only(
+        "id",
+        "payment_type",
+        "pay_amount",
+        "transaction_id",
+        "products_purchased",
+        "status",
+        "additional_info",
+        "is_read",
+        "created_at",
+        "updated_at",
+        "tenant__id",
+        "tenant__name",
+    )
     serializer_class = TenantCentralPaymentHistorySerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -112,7 +146,22 @@ class TenantTransferHistoryFilter(django_filters.FilterSet):
 
 
 class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
-    queryset = TenantTransferHistory.objects.all().select_related("tenant")
+    queryset = (
+        TenantTransferHistory.objects
+        .select_related("tenant")
+        .only(
+            "id",
+            "amount",
+            "transfer_date",
+            "reference_note",
+            "is_read",
+            "created_at",
+            "updated_at",
+            "tenant__id",
+            "tenant__name",
+        )
+        .order_by("-transfer_date")
+    )
     serializer_class = TenantTransferHistorySerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = TenantTransferHistoryFilter
@@ -122,7 +171,7 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for POST
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -133,7 +182,17 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
 class TenantTransferHistoryRetrieveUpdateDestroyView(
     generics.RetrieveUpdateDestroyAPIView
 ):
-    queryset = TenantTransferHistory.objects.all()
+    queryset = TenantTransferHistory.objects.select_related("tenant").only(
+        "id",
+        "amount",
+        "transfer_date",
+        "reference_note",
+        "is_read",
+        "created_at",
+        "updated_at",
+        "tenant__id",
+        "tenant__name",
+    )
     serializer_class = TenantTransferHistorySerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -147,7 +206,7 @@ class PaymentSummaryAPIView(APIView):
     Returns aggregated payment totals.
 
     Optional query param:
-      - ?tenant=<tenant_id>  — filter results to a specific tenant
+      - ?tenant=<tenant_name>  — filter results to a specific tenant
     """
 
     def get(self, request, *args, **kwargs):
@@ -155,6 +214,9 @@ class PaymentSummaryAPIView(APIView):
 
         tenant_name_param = request.query_params.get("tenant")
 
+        # .only() is intentionally skipped here — Sum aggregation
+        # does not load model instances, so only() has no effect on aggregates.
+        # We defer the import-time queryset and filter inline for clarity.
         received_qs = TenantCentralPaymentHistory.objects.all()
         transferred_qs = TenantTransferHistory.objects.all()
 

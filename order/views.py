@@ -28,7 +28,9 @@ ORDER_OPTIMIZED_QS = (
         Prefetch(
             "items",
             queryset=OrderItem.objects.select_related(
-                "product", "variant", "variant__product"
+                "product",
+                "variant",
+                "variant__product",
             ).prefetch_related("variant__option_values__option"),
         )
     )

@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.db.models import Prefetch
 from django_filters import rest_framework as django_filters
 from rest_framework import filters, generics, status
 from rest_framework.pagination import PageNumberPagination
@@ -26,28 +27,65 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
-# Create your views here.
+# reusable querysets
+CATEGORY_QS = PortfolioCategory.objects.only(
+    "id", "name", "slug", "created_at", "updated_at"
+)
+TAGS_QS = PortfolioTags.objects.only("id", "name", "slug", "created_at", "updated_at")
+IMAGE_QS = PortfolioImage.objects.only(
+    "id", "portfolio_id", "image", "alt_description", "created_at", "updated_at"
+)
+
+PORTFOLIO_OPTIMIZED_QS = (
+    Portfolio.objects
+    .select_related("category")
+    .prefetch_related(
+        Prefetch("tags", queryset=TAGS_QS),
+        Prefetch("images", queryset=IMAGE_QS),
+    )
+    .only(
+        "id",
+        "title",
+        "slug",
+        "content",
+        "thumbnail_image",
+        "thumbnail_image_alt_description",
+        "category_id",  # FK column, needed by select_related
+        "category__id",
+        "category__name",
+        "category__slug",
+        "category__created_at",
+        "category__updated_at",
+        "project_url",
+        "github_url",
+        "meta_title",
+        "meta_description",
+        "created_at",
+        "updated_at",
+    )
+    .order_by("-created_at")
+)
 
 
 class PortfolioCategoryListCreateAPIView(generics.ListCreateAPIView):
-    queryset = PortfolioCategory.objects.all()
+    queryset = CATEGORY_QS
     serializer_class = PortfolioCategorySerializer
 
 
 class PortfolioCategoryRetrieveUpdateDestroyAPIView(
     generics.RetrieveUpdateDestroyAPIView
 ):
-    queryset = PortfolioCategory.objects.all()
+    queryset = CATEGORY_QS
     serializer_class = PortfolioCategorySerializer
 
 
 class PortfolioTagsListCreateAPIView(generics.ListCreateAPIView):
-    queryset = PortfolioTags.objects.all()
+    queryset = TAGS_QS
     serializer_class = PortfolioTagsSerializer
 
 
 class PortfolioTagsRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PortfolioTags.objects.all()
+    queryset = TAGS_QS
     serializer_class = PortfolioTagsSerializer
 
 
@@ -61,7 +99,7 @@ class PortfolioFilterSet(django_filters.FilterSet):
 
 
 class PortfolioListCreateAPIView(generics.ListCreateAPIView):
-    queryset = Portfolio.objects.all().order_by("-created_at")
+    queryset = PORTFOLIO_OPTIMIZED_QS
     serializer_class = PortfolioSerializer
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = PortfolioFilterSet
@@ -85,7 +123,7 @@ class PortfolioListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Portfolio.objects.all()
+    queryset = PORTFOLIO_OPTIMIZED_QS
     serializer_class = PortfolioSerializer
     lookup_field = "slug"
 
@@ -106,7 +144,7 @@ class PortfolioRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIVie
 
 
 class PortfolioImageListCreateAPIView(generics.ListCreateAPIView):
-    queryset = PortfolioImage.objects.all()
+    queryset = IMAGE_QS
     serializer_class = PortfolioImageSerializer
 
     def get_authenticators(self):
@@ -121,7 +159,7 @@ class PortfolioImageListCreateAPIView(generics.ListCreateAPIView):
 
 
 class PortfolioImageRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = PortfolioImage.objects.all()
+    queryset = IMAGE_QS
     serializer_class = PortfolioImageSerializer
 
     def get_authenticators(self):
@@ -136,13 +174,6 @@ class PortfolioImageRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
 
 
 class PortfolioBulkCreateView(APIView):
-    """
-    POST /api/portfolio-bulk-create/
-
-    Accepts a JSON body with a `portfolios` list and creates all of them
-    inside a single database transaction.
-    """
-
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
@@ -155,22 +186,39 @@ class PortfolioBulkCreateView(APIView):
         portfolios_data = serializer.validated_data["portfolios"]
         created_portfolios = []
 
+        # batch-fetch all matching categories and tags in one query each
+        cat_names = [
+            i["category_name"] for i in portfolios_data if i.get("category_name")
+        ]
+        tag_names_flat = [n for i in portfolios_data for n in i.get("tag_names", [])]
+
+        existing_categories = {
+            c.name.lower(): c
+            for c in PortfolioCategory.objects.filter(name__in=cat_names).only(
+                "id", "name"
+            )
+        }
+        existing_tags = {
+            t.name.lower(): t
+            for t in PortfolioTags.objects.filter(name__in=tag_names_flat).only(
+                "id", "name"
+            )
+        }
+
         for item in portfolios_data:
             cat_name = item.pop("category_name", None)
             tag_names = item.pop("tag_names", [])
-            # Resolve category
+
             category = None
             if cat_name:
-                category = PortfolioCategory.objects.filter(
-                    name__icontains=cat_name
-                ).first()
+                category = existing_categories.get(cat_name.lower())
                 if not category:
                     category = PortfolioCategory.objects.create(name=cat_name)
-
+                    existing_categories[cat_name.lower()] = category
             if category:
                 item["category"] = category
 
-            # Deduplicate titles
+            # deduplicate titles — two queries per conflict, acceptable for bulk
             title = item["title"]
             if Portfolio.objects.filter(title=title).exists():
                 suffix = 1
@@ -180,14 +228,13 @@ class PortfolioBulkCreateView(APIView):
 
             portfolio = Portfolio.objects.create(**item)
 
-            # Resolve tags
             tag_objects = set()
-            if tag_names:
-                for name in tag_names:
-                    tag = PortfolioTags.objects.filter(name__icontains=name).first()
-                    if not tag:
-                        tag = PortfolioTags.objects.create(name=name)
-                    tag_objects.add(tag)
+            for name in tag_names:
+                tag = existing_tags.get(name.lower())
+                if not tag:
+                    tag = PortfolioTags.objects.create(name=name)
+                    existing_tags[name.lower()] = tag
+                tag_objects.add(tag)
 
             if tag_objects:
                 portfolio.tags.set(list(tag_objects))
