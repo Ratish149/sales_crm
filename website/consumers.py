@@ -144,12 +144,16 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
         Also stores self.tenant so that every _sync helper can call
         self._set_tenant() at the top of its own thread.
 
-        NOTE: close_old_connections() is intentionally NOT called here.
-        Calling it on every message was forcing Django to reopen DB
-        connections each time, adding unnecessary latency. It is called
-        once at the end of each message inside cleanup_connections().
+        We explicitly set_schema_to_public() first so that the
+        Client.objects.get() lookup always runs against the public schema,
+        regardless of what schema this connection was previously set to.
+        Without this, a recycled connection left on a tenant schema could
+        fail or return wrong results when looking up the Client table.
         """
         from django.db import connection
+
+        # Always query Client from public schema
+        connection.set_schema_to_public()
 
         try:
             tenant = Client.objects.get(schema_name=self.schema_name)
@@ -165,8 +169,9 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
         Each sync_to_async call runs in a thread-pool worker that may receive a
         brand-new DB connection from the pool — one that has never had
-        set_tenant() called on it.  Calling this here ensures the connection
-        used for the actual ORM query is always pointed at the correct schema.
+        set_tenant() called on it, or worse, one left on a different tenant.
+        Calling this here ensures the connection used for the actual ORM query
+        is always pointed at the correct schema.
         """
         from django.db import connection
 
@@ -176,8 +181,19 @@ class WebsiteConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def cleanup_connections(self):
-        from django.db import close_old_connections
+        """
+        Called in the finally block after every message.
 
+        Resets the connection back to public schema before returning it to the
+        pool — this prevents a "dirty" tenant connection being picked up by
+        another consumer or HTTP request that doesn't expect it.
+        """
+        from django.db import close_old_connections, connection
+
+        try:
+            connection.set_schema_to_public()
+        except Exception:
+            pass
         close_old_connections()
 
     # -------------------------------------------------------------------------
