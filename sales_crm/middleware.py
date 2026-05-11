@@ -114,8 +114,8 @@ class CustomDomainTenantMiddleware:
 
         path = request.path.lower()
 
-        # Skip static/admin/media
-        if path.startswith(("/admin", "/static", "/media")):
+        # Skip static/media
+        if path.startswith(("/static", "/media")):
             self.set_public_tenant(request)
             return self.get_response(request)
 
