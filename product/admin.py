@@ -50,7 +50,7 @@ class ProductCompositionInline(admin.TabularInline):
 class ProductAdmin(admin.ModelAdmin):
     list_display = ("name", "price", "final_price", "stock", "use_dynamic_pricing")
     search_fields = ["name"]
-    list_per_page = 25
+    list_per_page = 100
     inlines = [ProductImageInline, ProductCompositionInline]
 
     def formfield_for_dbfield(self, db_field, **kwargs):
