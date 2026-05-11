@@ -3,6 +3,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, generics
 from rest_framework.permissions import IsAuthenticated
 
+from sales_crm.pagination import CustomPagination
+
 from .filters import BookingFilter
 from .models import Booking
 from .serializers import BookingListSerializer, BookingSerializer
@@ -36,6 +38,7 @@ class BookingListCreateView(generics.ListCreateAPIView):
         "end_date",
         "total_amount",
     ]
+    pagination_class = CustomPagination
     ordering = ["-created_at"]
 
     def get_serializer_class(self):
