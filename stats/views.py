@@ -220,7 +220,7 @@ class UnreadCountView(APIView):
         unread_tenant_central_payments = TenantCentralPaymentHistory.objects.filter(
             tenant=request.tenant, is_read=False
         ).count()
-        unread_bookings = Booking.objects.filter(is_read=False).count()
+        unread_bookings = Booking.objects.filter(status="pending").count()
 
         return Response({
             "unread_appointments": unread_appointments,
