@@ -106,6 +106,12 @@ class CustomDomainTenantMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        # Always reset to public schema FIRST — before any DB query.
+        # If this connection was recycled from a previous tenant request,
+        # any query (including the domain lookup below) would otherwise
+        # run against the wrong tenant schema.
+        connection.set_schema_to_public()
+
         path = request.path.lower()
 
         # Skip static/admin/media
@@ -129,6 +135,7 @@ class CustomDomainTenantMiddleware:
             if tenant_id is None:
                 DomainModel = get_tenant_domain_model()
 
+                # Safe: connection is guaranteed public schema at this point
                 domain_obj = (
                     DomainModel.objects
                     .select_related("tenant")
@@ -146,6 +153,7 @@ class CustomDomainTenantMiddleware:
 
             tenant = Client.objects.get(id=tenant_id)
 
+            # Switch to tenant schema for the actual request
             connection.set_tenant(tenant)
             request.tenant = tenant
 
@@ -156,6 +164,11 @@ class CustomDomainTenantMiddleware:
             self.set_public_tenant(request)
 
         response = self.get_response(request)
+
+        # Reset back to public after the response so the connection returns
+        # to the pool in a clean state — prevents the next request from
+        # inheriting this tenant schema.
+        connection.set_schema_to_public()
 
         return response
 
