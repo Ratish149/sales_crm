@@ -6,6 +6,9 @@ from product.models import (
     PricingMetric,
     Product,
     ProductComposition,
+    ProductOption,
+    ProductOptionValue,
+    ProductVariant,
     SubCategory,
 )
 
@@ -60,6 +63,19 @@ class PageListSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at", "published_version")
 
 
+class BulkProductVariantSerializer(serializers.Serializer):
+    price = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, allow_null=True
+    )
+    stock = serializers.IntegerField(default=0)
+    options = serializers.DictField(
+        child=serializers.CharField(),
+        required=False,
+        default=dict,
+    )
+    # No image support in bulk — files can't be sent via JSON
+
+
 class BulkProductCompositionSerializer(serializers.Serializer):
     metric = serializers.PrimaryKeyRelatedField(queryset=PricingMetric.objects.all())
     quantity = serializers.DecimalField(max_digits=10, decimal_places=3)
@@ -79,6 +95,7 @@ class BulkProductCreateSerializer(serializers.ModelSerializer):
         required=False,
     )
     compositions = BulkProductCompositionSerializer(many=True, required=False)
+    variants = BulkProductVariantSerializer(many=True, required=False)
 
     class Meta:
         model = Product
@@ -102,20 +119,48 @@ class BulkProductCreateSerializer(serializers.ModelSerializer):
             "use_dynamic_pricing",
             "base_making_charge",
             "compositions",
+            "variants",
         ]
+
+    def validate_variants(self, value):
+        for idx, variant in enumerate(value):
+            options = variant.get("options", {})
+            if not isinstance(options, dict):
+                raise serializers.ValidationError(
+                    f"Variant at index {idx}: 'options' must be a dictionary "
+                    f'e.g. {{"Size": "M", "Color": "Black"}}'
+                )
+        return value
 
     def create(self, validated_data):
         compositions_data = validated_data.pop("compositions", [])
+        variants_data = validated_data.pop("variants", [])
 
         product = Product.objects.create(**validated_data)
 
         for comp in compositions_data:
             ProductComposition.objects.create(
                 product=product,
-                metric=comp[
-                    "metric"
-                ],  # PricingMetric instance, resolved by PrimaryKeyRelatedField
+                metric=comp["metric"],
                 quantity=comp["quantity"],
             )
+
+        for variant_data in variants_data:
+            variant_data = dict(variant_data)
+            options = variant_data.pop("options", {})
+
+            variant = ProductVariant.objects.create(product=product, **variant_data)
+
+            option_value_ids = []
+            for option_name, value_name in options.items():
+                option, _ = ProductOption.objects.get_or_create(
+                    product=product, name=option_name
+                )
+                value, _ = ProductOptionValue.objects.get_or_create(
+                    option=option, value=value_name
+                )
+                option_value_ids.append(value.id)
+
+            variant.option_values.set(option_value_ids)
 
         return product
