@@ -397,10 +397,11 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         site_config = SiteConfig.get_solo()
-        self.filter_backends = []
 
         if not site_config.use_product_variant:
             return super().list(request, *args, **kwargs)
+
+        self.filter_backends = []
 
         params = request.GET.copy()
 
