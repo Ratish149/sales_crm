@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from advertisement.models import PopUpForm
 from appointment.models import Appointment
+from booking.models import Booking
 from contact.models import Contact, NewsLetter
 from nepdora_payment.models import TenantCentralPaymentHistory, TenantTransferHistory
 from order.models import Order, OrderItem
@@ -219,6 +220,7 @@ class UnreadCountView(APIView):
         unread_tenant_central_payments = TenantCentralPaymentHistory.objects.filter(
             tenant=request.tenant, is_read=False
         ).count()
+        unread_bookings = Booking.objects.filter(is_read=False).count()
 
         return Response({
             "unread_appointments": unread_appointments,
@@ -229,4 +231,5 @@ class UnreadCountView(APIView):
             "unread_own_payment": unread_own_payment,
             "unread_tenant_transfers": unread_tenant_transfers,
             "unread_tenant_payments": unread_tenant_central_payments,
+            "unread_bookings": unread_bookings,
         })

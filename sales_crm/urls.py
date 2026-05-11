@@ -68,6 +68,7 @@ urlpatterns = [
     path("api/stats/", include("stats.urls")),
     path("api/", include("dashboard.urls")),
     path("api/s3/", include("s3bucket.urls")),
+    path("api/", include("booking.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),
