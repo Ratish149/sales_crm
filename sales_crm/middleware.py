@@ -1,4 +1,5 @@
 from datetime import date
+from urllib.parse import urlparse
 
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
@@ -101,6 +102,13 @@ class RateLimitMiddleware(MiddlewareMixin):
 
 class CustomDomainTenantMiddleware:
     CACHE_TIMEOUT = 300
+    TENANT_REQUIRED_PATHS = ("/api/",)
+    PUBLIC_API_PATHS = (
+        "/api/schema/",
+        "/api/docs/",
+        "/api/redoc/",
+        "/api/support/",
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -119,39 +127,8 @@ class CustomDomainTenantMiddleware:
             self.set_public_tenant(request)
             return self.get_response(request)
 
-        hostname = request.headers.get("X-Tenant-Domain") or request.get_host()
-
-        if not hostname:
-            self.set_public_tenant(request)
-            return self.get_response(request)
-
-        hostname = hostname.split(":")[0].replace("www.", "").strip().lower()
-
-        cache_key = f"tenant_domain:{hostname}"
-
         try:
-            tenant_id = cache.get(cache_key)
-
-            if tenant_id is None:
-                DomainModel = get_tenant_domain_model()
-
-                # Safe: connection is guaranteed public schema at this point
-                domain_obj = (
-                    DomainModel.objects
-                    .select_related("tenant")
-                    .only("tenant__id")
-                    .get(domain=hostname)
-                )
-
-                tenant_id = domain_obj.tenant_id
-
-                cache.set(
-                    cache_key,
-                    tenant_id,
-                    timeout=self.CACHE_TIMEOUT,
-                )
-
-            tenant = Client.objects.get(id=tenant_id)
+            tenant = self.resolve_tenant(request)
 
             # Switch to tenant schema for the actual request
             connection.set_tenant(tenant)
@@ -163,14 +140,79 @@ class CustomDomainTenantMiddleware:
         ):
             self.set_public_tenant(request)
 
-        response = self.get_response(request)
+            if self.requires_tenant(path):
+                return JsonResponse(
+                    {
+                        "detail": "Tenant could not be resolved for this API request.",
+                        "hint": "Send a valid X-Tenant-Domain header matching tenants_domain.domain.",
+                    },
+                    status=400,
+                )
 
-        # Reset back to public after the response so the connection returns
-        # to the pool in a clean state — prevents the next request from
-        # inheriting this tenant schema.
-        connection.set_schema_to_public()
+        try:
+            response = self.get_response(request)
+        finally:
+            # Reset back to public after the response so the connection returns
+            # to the pool in a clean state — prevents the next request from
+            # inheriting this tenant schema, even if the view raises an error.
+            connection.set_schema_to_public()
 
         return response
+
+    def resolve_tenant(self, request):
+        DomainModel = get_tenant_domain_model()
+
+        for hostname in self.tenant_host_candidates(request):
+            cache_key = f"tenant_domain:{hostname}"
+            tenant_id = cache.get(cache_key)
+
+            try:
+                if tenant_id is None:
+                    domain_obj = (
+                        DomainModel.objects
+                        .select_related("tenant")
+                        .only("tenant__id")
+                        .get(domain=hostname)
+                    )
+
+                    tenant_id = domain_obj.tenant_id
+                    cache.set(cache_key, tenant_id, timeout=self.CACHE_TIMEOUT)
+
+                return Client.objects.get(id=tenant_id)
+            except (ObjectDoesNotExist, Client.DoesNotExist):
+                cache.delete(cache_key)
+                continue
+
+        raise Client.DoesNotExist
+
+    def tenant_host_candidates(self, request):
+        values = [
+            request.headers.get("X-Tenant-Domain"),
+            request.headers.get("Origin"),
+            request.headers.get("Referer"),
+            request.get_host(),
+        ]
+
+        seen = set()
+        for value in values:
+            hostname = self.clean_hostname(value)
+            if hostname and hostname not in seen:
+                seen.add(hostname)
+                yield hostname
+
+    def clean_hostname(self, value):
+        if not value:
+            return None
+
+        value = value.strip()
+        parsed = urlparse(value if "://" in value else f"//{value}")
+        hostname = parsed.hostname or value.split("/")[0].split(":")[0]
+        return hostname.replace("www.", "").strip().lower() if hostname else None
+
+    def requires_tenant(self, path):
+        if not path.startswith(self.TENANT_REQUIRED_PATHS):
+            return False
+        return not path.startswith(self.PUBLIC_API_PATHS)
 
     def set_public_tenant(self, request):
         connection.set_schema_to_public()

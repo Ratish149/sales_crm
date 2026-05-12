@@ -6,14 +6,16 @@ import requests
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from sales_crm.authentication import TenantJWTAuthentication
 
 from .models import Logistics
 from .serializers import LogisticsSerializer
 
 DASH_BASE_URL = "https://dashlogistics.dev"
-from sales_crm.authentication import TenantJWTAuthentication
-from rest_framework.permissions import IsAuthenticated
+
 
 def dash_login(email, password, dash_obj=None):
     # Use values from dash_obj if provided, else use defaults

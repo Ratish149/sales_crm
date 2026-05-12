@@ -215,7 +215,7 @@ CACHES = {
         "OPTIONS": {
             "options": "-c search_path=public"  # important for first migration
         },
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": 0,
     }
 } """
 
