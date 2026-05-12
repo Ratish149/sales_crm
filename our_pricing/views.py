@@ -15,7 +15,16 @@ PRICING_OPTIMIZED_QS = OurPricing.objects.prefetch_related(
             "id", "pricing_id", "feature", "order", "created_at", "updated_at"
         ).order_by("order"),  # matches model Meta ordering, explicit is safer
     )
-).only("id", "name", "price", "description", "is_popular", "created_at", "updated_at")
+).only(
+    "id",
+    "name",
+    "price",
+    "unit",
+    "description",
+    "is_popular",
+    "created_at",
+    "updated_at",
+)
 
 
 class OurPricingListCreateAPIView(generics.ListCreateAPIView):
