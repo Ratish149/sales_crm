@@ -5,6 +5,11 @@ from django.db import models
 class OurPricing(models.Model):
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    unit = models.CharField(
+        max_length=100,
+        choices=[("month", "Month"), ("year", "Year"), ("once", "Once")],
+        default="month",
+    )
     description = models.TextField(null=True, blank=True)
     is_popular = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
