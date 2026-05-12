@@ -1,4 +1,5 @@
 from datetime import date
+from threading import get_ident
 from urllib.parse import urlparse
 
 from django.core.cache import cache
@@ -133,12 +134,14 @@ class CustomDomainTenantMiddleware:
             # Switch to tenant schema for the actual request
             connection.set_tenant(tenant)
             request.tenant = tenant
+            self.debug_tenant("resolved", request, tenant)
 
         except (
             ObjectDoesNotExist,
             Client.DoesNotExist,
         ):
             self.set_public_tenant(request)
+            self.debug_tenant("unresolved", request, getattr(request, "tenant", None))
 
             if self.requires_tenant(path):
                 return JsonResponse(
@@ -150,8 +153,10 @@ class CustomDomainTenantMiddleware:
                 )
 
         try:
+            self.debug_tenant("before_view", request, getattr(request, "tenant", None))
             response = self.get_response(request)
         finally:
+            self.debug_tenant("after_view", request, getattr(request, "tenant", None))
             # Reset back to public after the response so the connection returns
             # to the pool in a clean state — prevents the next request from
             # inheriting this tenant schema, even if the view raises an error.
@@ -208,6 +213,29 @@ class CustomDomainTenantMiddleware:
         parsed = urlparse(value if "://" in value else f"//{value}")
         hostname = parsed.hostname or value.split("/")[0].split(":")[0]
         return hostname.replace("www.", "").strip().lower() if hostname else None
+
+    def debug_tenant(self, stage, request, tenant):
+        if not request.path.startswith("/api/"):
+            return
+
+        try:
+            schema_name = connection.schema_name
+        except Exception:
+            schema_name = "<unavailable>"
+
+        tenant_schema = getattr(tenant, "schema_name", None)
+        candidates = list(self.tenant_host_candidates(request))
+
+        print(
+            "TENANT DEBUG",
+            f"stage={stage}",
+            f"thread={get_ident()}",
+            f"path={request.path}",
+            f"tenant={tenant_schema}",
+            f"connection_schema={schema_name}",
+            f"candidates={candidates}",
+            flush=True,
+        )
 
     def requires_tenant(self, path):
         if not path.startswith(self.TENANT_REQUIRED_PATHS):
