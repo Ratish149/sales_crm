@@ -1,5 +1,4 @@
 from datetime import date
-from threading import get_ident
 from urllib.parse import urlparse
 
 from django.core.cache import cache
@@ -135,14 +134,12 @@ class CustomDomainTenantMiddleware:
             # search_path for the actual request.
             self.set_tenant_schema(tenant)
             request.tenant = tenant
-            self.debug_tenant("resolved", request, tenant)
 
         except (
             ObjectDoesNotExist,
             Client.DoesNotExist,
         ):
             self.set_public_tenant(request)
-            self.debug_tenant("unresolved", request, getattr(request, "tenant", None))
 
             if self.requires_tenant(path):
                 return JsonResponse(
@@ -158,10 +155,8 @@ class CustomDomainTenantMiddleware:
             if tenant and tenant.schema_name != get_public_schema_name():
                 self.set_tenant_schema(tenant)
 
-            self.debug_tenant("before_view", request, getattr(request, "tenant", None))
             response = self.get_response(request)
         finally:
-            self.debug_tenant("after_view", request, getattr(request, "tenant", None))
             # Reset back to public after the response so the connection returns
             # to the pool in a clean state — prevents the next request from
             # inheriting this tenant schema, even if the view raises an error.
@@ -229,39 +224,6 @@ class CustomDomainTenantMiddleware:
 
         with connection.cursor() as cursor:
             cursor.execute(f"SET search_path = {quoted_schema}, public")
-
-    def debug_tenant(self, stage, request, tenant):
-        if not request.path.startswith("/api/"):
-            return
-
-        try:
-            schema_name = connection.schema_name
-        except Exception:
-            schema_name = "<unavailable>"
-
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT current_schema(), current_setting('search_path')")
-                db_schema, search_path = cursor.fetchone()
-        except Exception:
-            db_schema = "<unavailable>"
-            search_path = "<unavailable>"
-
-        tenant_schema = getattr(tenant, "schema_name", None)
-        candidates = list(self.tenant_host_candidates(request))
-
-        print(
-            "TENANT DEBUG",
-            f"stage={stage}",
-            f"thread={get_ident()}",
-            f"path={request.path}",
-            f"tenant={tenant_schema}",
-            f"connection_schema={schema_name}",
-            f"db_schema={db_schema}",
-            f"search_path={search_path}",
-            f"candidates={candidates}",
-            flush=True,
-        )
 
     def requires_tenant(self, path):
         if not path.startswith(self.TENANT_REQUIRED_PATHS):

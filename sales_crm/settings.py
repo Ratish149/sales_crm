@@ -229,6 +229,7 @@ DATABASES = {
         "PORT": "6432",
         "OPTIONS": {},
         "CONN_MAX_AGE": 0,
+        "DISABLE_SERVER_SIDE_CURSORS": True,
     }
 }
 
