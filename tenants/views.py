@@ -20,7 +20,7 @@ from django.utils.text import slugify
 from django_filters import rest_framework as django_filters
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
-from rest_framework import filters, generics, status
+from rest_framework import filters, generics, permissions, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -531,3 +531,37 @@ class ClientRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
 
     queryset = Client.objects.all()
     serializer_class = ClientUpdateSerializer
+
+
+class TenantSidebarConfigAPIView(APIView):
+    """
+    API view to get or update the sidebar configuration for the current tenant.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"error": "No tenant context found"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(tenant.sidebar_config)
+
+    def patch(self, request):
+        tenant = getattr(request, "tenant", None)
+        if not tenant:
+            return Response(
+                {"error": "No tenant context found"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        sidebar_config = request.data.get("sidebar_config")
+        if sidebar_config is None:
+            return Response(
+                {"error": "sidebar_config is required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tenant.sidebar_config = sidebar_config
+        tenant.save()
+        return Response(tenant.sidebar_config)

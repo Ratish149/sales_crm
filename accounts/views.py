@@ -953,6 +953,7 @@ class UserDataAPIView(APIView):
                 "description": client.description,
                 "preview_url": client.preview_url,
                 "is_template_account": client.is_template_account,
+                "sidebar_config": client.sidebar_config,
             }
         except Client.DoesNotExist:
             client_data = None

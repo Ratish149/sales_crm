@@ -243,7 +243,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://faculty-clip-containers-sets.trycloudflare.com",
+    "https://apr-aggregate-weblog-teach.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -252,7 +252,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://faculty-clip-containers-sets.trycloudflare.com",
+    "https://apr-aggregate-weblog-teach.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

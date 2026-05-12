@@ -14,6 +14,7 @@ from .views import (
     TemplateTenantRetrieveUpdateDestroyAPIView,
     TenantDomainView,
     TenantInternalRepoView,
+    TenantSidebarConfigAPIView,
 )
 
 urlpatterns = [
@@ -66,5 +67,10 @@ urlpatterns = [
         "client/<int:pk>/",
         ClientRetrieveUpdateAPIView.as_view(),
         name="client-update",
+    ),
+    path(
+        "sidebar-config/",
+        TenantSidebarConfigAPIView.as_view(),
+        name="tenant-sidebar-config",
     ),
 ]

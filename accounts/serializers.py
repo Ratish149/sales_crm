@@ -229,6 +229,7 @@ class ClientDataSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_null=True)
     preview_url = serializers.URLField(required=False, allow_null=True)
     is_template_account = serializers.BooleanField(required=False)
+    sidebar_config = serializers.JSONField(required=False, default=dict)
 
 
 class UserDataSerializer(serializers.Serializer):
