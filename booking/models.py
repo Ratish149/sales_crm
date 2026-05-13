@@ -66,6 +66,11 @@ class Booking(models.Model):
                 fields=["status", "payment_status"]
             ),  # combined filter (most common)
             models.Index(fields=["booking_type", "status"]),  # e.g. all confirmed tours
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["end_date"]),
+            models.Index(fields=["total_amount"]),
+            models.Index(fields=["user", "-created_at"]),
+            models.Index(fields=["transaction_id"]),
         ]
 
     def __str__(self):

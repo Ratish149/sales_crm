@@ -32,6 +32,13 @@ class CustomUser(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_deleted", "-id"]),
+            models.Index(fields=["is_deleted", "deleted_at"]),
+            models.Index(fields=["created_at"]),
+        ]
+
     def is_owner_of(self, store):
         return self == store.owner
 
@@ -145,6 +152,11 @@ class UserActivity(models.Model):
     class Meta:
         verbose_name_plural = "User Activities"
         ordering = ["-timestamp"]
+        indexes = [
+            models.Index(fields=["-timestamp"]),
+            models.Index(fields=["user", "-timestamp"]),
+            models.Index(fields=["action"]),
+        ]
 
     def __str__(self):
         return f"{self.user.email if self.user else 'Anonymous'} - {self.action} - {self.timestamp}"

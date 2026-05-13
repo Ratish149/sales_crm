@@ -33,6 +33,15 @@ class PopUpForm(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["-created_at"],
+                name="popupform_unread_idx",
+                condition=models.Q(is_read=False),
+            ),
+        ]
+
     def __str__(self):
         return self.name
 

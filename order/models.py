@@ -64,6 +64,11 @@ class Order(models.Model):
         indexes = [
             models.Index(fields=["status"]),
             models.Index(fields=["created_at"]),
+            models.Index(fields=["customer", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+            models.Index(fields=["is_manual", "-created_at"]),
+            models.Index(fields=["pos_order", "-created_at"]),
+            models.Index(fields=["created_at", "status"]),
         ]
 
     def __str__(self):

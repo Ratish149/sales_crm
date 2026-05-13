@@ -53,6 +53,17 @@ class TenantCentralPaymentHistory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["tenant"],
+                name="tenant_central_unread_idx",
+                condition=models.Q(is_read=False),
+            ),
+            models.Index(fields=["tenant", "-created_at"]),
+            models.Index(fields=["transaction_id"]),
+        ]
+
     def __str__(self):
         return f"{self.tenant.name} - {self.payment_type} - {self.pay_amount} ({self.status})"
 
@@ -71,6 +82,16 @@ class TenantTransferHistory(models.Model):
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=["tenant"],
+                name="tenant_transfer_unread_idx",
+                condition=models.Q(is_read=False),
+            ),
+            models.Index(fields=["tenant", "-transfer_date"]),
+        ]
 
     def __str__(self):
         return f"{self.tenant.name} — {self.amount} on {self.transfer_date}"

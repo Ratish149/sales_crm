@@ -13,6 +13,11 @@ class PortfolioCategory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["slug"]),
+        ]
+
     def __str__(self):
         return self.name
 
@@ -54,6 +59,11 @@ class Portfolio(models.Model):
 
     class Meta:
         unique_together = ("title", "slug")
+        indexes = [
+            models.Index(fields=["slug"]),
+            models.Index(fields=["category"]),
+            models.Index(fields=["created_at"]),
+        ]
 
     def __str__(self):
         return self.title
@@ -68,6 +78,11 @@ class PortfolioTags(models.Model):
     slug = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["slug"]),
+        ]
 
     def __str__(self):
         return self.name

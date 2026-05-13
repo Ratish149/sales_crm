@@ -80,6 +80,9 @@ class Page(models.Model):
         unique_together = ("title", "status")
         indexes = [
             models.Index(fields=["status"]),
+            models.Index(fields=["slug"]),
+            models.Index(fields=["status", "slug"]),
+            models.Index(fields=["published_version"]),
         ]
 
     def __str__(self):
@@ -124,6 +127,10 @@ class PageComponent(models.Model):
             models.Index(fields=["status"]),
             models.Index(fields=["component_type"]),
             models.Index(fields=["component_id"]),
+            models.Index(fields=["page", "status", "order"]),
+            models.Index(fields=["page", "component_id"]),
+            models.Index(fields=["component_type", "status"]),
+            models.Index(fields=["published_version"]),
         ]
 
     def __str__(self):

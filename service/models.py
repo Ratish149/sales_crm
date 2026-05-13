@@ -22,6 +22,9 @@ class ServiceCategory(models.Model):
 
     class Meta:
         unique_together = ("name", "slug")
+        indexes = [
+            models.Index(fields=["slug"]),
+        ]
 
     def __str__(self):
         return self.name
@@ -55,6 +58,11 @@ class Service(models.Model):
 
     class Meta:
         unique_together = ("title", "slug")
+        indexes = [
+            models.Index(fields=["slug"]),
+            models.Index(fields=["service_category"]),
+            models.Index(fields=["created_at"]),
+        ]
 
     def __str__(self):
         return self.title

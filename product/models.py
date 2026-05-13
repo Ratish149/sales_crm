@@ -159,6 +159,12 @@ class Product(models.Model):
             models.Index(fields=["is_popular"]),
             models.Index(fields=["is_featured"]),
             models.Index(fields=["status"]),
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["price"]),
+            models.Index(fields=["category", "status", "-created_at"]),
+            models.Index(fields=["sub_category", "status", "-created_at"]),
+            models.Index(fields=["is_popular", "-created_at"]),
+            models.Index(fields=["is_featured", "-created_at"]),
         ]
 
     def __str__(self):
@@ -212,6 +218,13 @@ class ProductVariant(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["price"]),
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["product", "price"]),
+        ]
+
     def __str__(self):
         values = ", ".join(v.value for v in self.option_values.all())
         return f"{self.product.name} ({values})"
@@ -239,6 +252,11 @@ class Wishlist(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "product"]),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.product.name}"
