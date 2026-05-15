@@ -25,6 +25,7 @@ class SiteConfig(SingletonModel):
     youtube_url = models.URLField(null=True, blank=True)
     tiktok_url = models.URLField(null=True, blank=True)
     use_product_variant = models.BooleanField(default=False)
+    map_link = models.TextField(blank=True, null=True)
 
 
 class Theme(models.Model):
