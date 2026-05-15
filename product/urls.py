@@ -10,6 +10,7 @@ from .views import (
     PricingMetricRetrieveUpdateDestroyView,
     ProductCompositionListCreateView,
     ProductCompositionRetrieveUpdateDestroyView,
+    ProductExcelExportView,
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
     ProductListCreateView,
@@ -26,6 +27,11 @@ from .views import (
 
 urlpatterns = [
     path("product/", ProductListCreateView.as_view(), name="product-list-create"),
+    path(
+        "product-export/",
+        ProductExcelExportView.as_view(),
+        name="product-export",
+    ),
     path(
         "admin-product/",
         AdminProductListCreateView.as_view(),

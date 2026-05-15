@@ -1,4 +1,9 @@
+import io
+
+from django.http import FileResponse
 from django.template.loader import render_to_string
+from django.utils import timezone
+from openpyxl import Workbook
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
@@ -141,3 +146,73 @@ class NewsLetterRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     serializer_class = NewsLetterSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
+
+
+class ContactExcelExportView(generics.ListAPIView):
+    queryset = CONTACT_OPTIMIZED_QS
+    serializer_class = ContactSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Contacts"
+
+        headers = [
+            "Name",
+            "Phone Number",
+            "Email",
+            "Message",
+            "Is Read",
+            "Created At",
+        ]
+
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        current_row = 2
+        for contact in queryset:
+            row_data = [
+                contact.name,
+                contact.phone_number,
+                contact.email,
+                contact.message,
+                "Yes" if contact.is_read else "No",
+                (
+                    contact.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if contact.created_at
+                    else ""
+                ),
+            ]
+
+            for col, value in enumerate(row_data, 1):
+                ws.cell(row=current_row, column=col, value=value)
+            current_row += 1
+
+        # Adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if cell.value and len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except Exception:
+                    pass
+            adjusted_width = min(max_length + 2, 50)  # Cap at 50
+            ws.column_dimensions[column].width = adjusted_width
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f"contacts_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )

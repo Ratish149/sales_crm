@@ -1,10 +1,13 @@
+import io
 import logging
 import os
 
 from django.db.models import Prefetch, Sum
+from django.http import FileResponse
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
+from openpyxl import Workbook
 from rest_framework import filters, generics
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -192,6 +195,141 @@ class OrderGetAPIView(generics.RetrieveAPIView):
     queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderSerializer
     lookup_field = "order_number"
+
+
+class OrderExcelExportView(generics.ListAPIView):
+    queryset = ORDER_OPTIMIZED_QS
+    serializer_class = AdminOrderSerializer
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = OrderFilter
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Orders"
+
+        headers = [
+            "Order Number",
+            "Customer Name",
+            "Customer Email",
+            "Customer Phone",
+            "City",
+            "Address",
+            "Shipping Address",
+            "Payment Type",
+            "Status",
+            "Total Amount",
+            "Delivery Charge",
+            "Is Paid",
+            "Transaction ID",
+            "Note",
+            "Created At",
+            "Product Name",
+            "Variant",
+            "Quantity",
+            "Unit Price",
+            "Item Total",
+        ]
+
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        current_row = 2
+        for order in queryset:
+            # Prefer Customer model details if available
+            if order.customer:
+                name = f"{order.customer.first_name} {order.customer.last_name}"
+                email = order.customer.email
+                phone = order.customer.phone
+                address = order.customer.address
+            else:
+                name = order.customer_name
+                email = order.customer_email
+                phone = order.customer_phone
+                address = order.customer_address
+
+            # Base order info
+            base_order_info = [
+                order.order_number,
+                name,
+                email,
+                phone,
+                order.city,
+                address,
+                order.shipping_address,
+                order.get_payment_type_display(),
+                order.get_status_display(),
+                float(order.total_amount),
+                float(order.delivery_charge) if order.delivery_charge else 0.0,
+                "Yes" if order.is_paid else "No",
+                order.transaction_id,
+                order.note,
+                (
+                    order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                    if order.created_at
+                    else ""
+                ),
+            ]
+
+            items = list(order.items.all())
+
+            for i, item in enumerate(items):
+                row_data = [""] * len(headers)
+
+                # Only add order info for the first item row
+                if i == 0:
+                    row_data[:15] = base_order_info
+
+                # Item info
+                product_name = (
+                    item.product.name
+                    if item.product
+                    else (item.variant.product.name if item.variant else "Unknown")
+                )
+                variant_info = str(item.variant) if item.variant else ""
+
+                row_data[15] = product_name
+                row_data[16] = variant_info
+                row_data[17] = item.quantity
+                row_data[18] = float(item.price)
+                row_data[19] = float(item.price * item.quantity)
+
+                for col, value in enumerate(row_data, 1):
+                    ws.cell(row=current_row, column=col, value=value)
+                current_row += 1
+
+        # Adjust column widths
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except Exception:
+                    pass
+            adjusted_width = max_length + 2
+            ws.column_dimensions[column].width = adjusted_width
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f"orders_export_{timezone.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
 
 class DashboardStatsView(APIView):

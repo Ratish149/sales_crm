@@ -37,14 +37,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
         fields = ["id", "product_id", "variant_id", "quantity", "price"]
 
     def validate(self, data):
-        if not data.get("product") and not data.get("variant"):
+        product = data.get("product")
+        variant = data.get("variant")
+
+        if not product and not variant:
             raise serializers.ValidationError(
                 "Either product_id or variant_id must be provided"
             )
-        if data.get("product") and data.get("variant"):
+        if product and variant:
             raise serializers.ValidationError(
                 "Cannot specify both product_id and variant_id"
             )
+
+        # Force price to be the current discounted price
+        if variant:
+            data["price"] = variant.discounted_price
+        else:
+            data["price"] = product.discounted_price
+
         return data
 
 

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.utils.text import slugify
 
 from customer.models import Customer
@@ -184,6 +185,42 @@ class Product(models.Model):
         )
         return composition_price + self.base_making_charge
 
+    @property
+    def active_offer(self):
+        from django.utils import timezone
+
+        now = timezone.now()
+        offers = (
+            ProductOffer.objects
+            .filter(is_active=True, start_date__lte=now, end_date__gte=now)
+            .filter(
+                Q(products=self)
+                | Q(categories=self.category)
+                | Q(sub_categories=self.sub_category)
+            )
+            .distinct()
+        )
+
+        # Pick the best offer (highest discount value)
+        return offers.order_by("-discount_value").first()
+
+    @property
+    def discounted_price(self):
+        offer = self.active_offer
+        base_price = self.final_price
+        if not offer:
+            return base_price
+
+        if offer.offer_type == "percentage":
+            from decimal import Decimal
+
+            return base_price * (Decimal("1") - offer.discount_value / Decimal("100"))
+        elif offer.offer_type == "fixed":
+            from decimal import Decimal
+
+            return max(Decimal("0.00"), base_price - offer.discount_value)
+        return base_price
+
 
 class ProductOption(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -229,6 +266,29 @@ class ProductVariant(models.Model):
         values = ", ".join(v.value for v in self.option_values.all())
         return f"{self.product.name} ({values})"
 
+    @property
+    def active_offer(self):
+        return self.product.active_offer
+
+    @property
+    def discounted_price(self):
+        offer = self.active_offer
+        # Use variant price if set, otherwise use product's base price
+        base_price = self.price if self.price is not None else self.product.final_price
+
+        if not offer:
+            return base_price
+
+        if offer.offer_type == "percentage":
+            from decimal import Decimal
+
+            return base_price * (Decimal("1") - offer.discount_value / Decimal("100"))
+        elif offer.offer_type == "fixed":
+            from decimal import Decimal
+
+            return max(Decimal("0.00"), base_price - offer.discount_value)
+        return base_price
+
 
 class ProductReview(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -260,3 +320,44 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.product.name}"
+
+
+class ProductOffer(models.Model):
+    OFFER_TYPE_CHOICES = (
+        ("percentage", "Percentage Discount"),
+        ("fixed", "Fixed Amount Discount"),
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    offer_type = models.CharField(
+        max_length=20, choices=OFFER_TYPE_CHOICES, default="percentage"
+    )
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+
+    # Applicability
+    products = models.ManyToManyField(
+        "Product", related_name="product_offers", blank=True
+    )
+    categories = models.ManyToManyField(
+        "Category", related_name="category_offers", blank=True
+    )
+    sub_categories = models.ManyToManyField(
+        "SubCategory", related_name="subcategory_offers", blank=True
+    )
+
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+
+        now = timezone.now()
+        return self.is_active and self.start_date <= now <= self.end_date

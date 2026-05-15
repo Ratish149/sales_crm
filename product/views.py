@@ -536,6 +536,199 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return Product.objects.all()
 
 
+class ProductExcelExportView(generics.ListAPIView):
+    queryset = PRODUCT_LIST_QS
+    serializer_class = ProductSerializer
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductFilterSet
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Products"
+
+        headers = [
+            "name",
+            "description",
+            "price",
+            "market_price",
+            "track_stock",
+            "stock",
+            "weight",
+            "thumbnail_image",
+            "thumbnail_image_aly_description",
+            "category",
+            "subcategory",
+            "is_popular",
+            "is_featured",
+            "status",
+            "use_dynamic_pricing",
+            "base_making_charge",
+            "composition",
+            "quantity",
+            "option1 name",
+            "option1 values",
+            "option2 name",
+            "option2 values",
+            "option3 name",
+            "option3 values",
+            "variant price",
+            "variant stock",
+            "variant image",
+            "meta title",
+            "meta description",
+        ]
+
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        current_row = 2
+        for product in queryset:
+            # Prepare base product data
+            base_data = [
+                product.name,
+                product.description,
+                float(product.price) if product.price else 0.0,
+                float(product.market_price) if product.market_price else 0.0,
+                "TRUE" if product.track_stock else "FALSE",
+                product.stock,
+                product.weight,
+                product.thumbnail_image.url if product.thumbnail_image else "",
+                product.thumbnail_alt_description,
+                product.category.name if product.category else "",
+                product.sub_category.name if product.sub_category else "",
+                "TRUE" if product.is_popular else "FALSE",
+                "TRUE" if product.is_featured else "FALSE",
+                product.status,
+                "TRUE" if product.use_dynamic_pricing else "FALSE",
+                float(product.base_making_charge) if product.base_making_charge else 0.0,
+            ]
+
+            compositions = list(product.compositions.all())
+            variants = list(product.variants.all())
+            options = list(product.productoption_set.all())
+
+            # Fill options headers for the first row
+            option_headers = ["", "", "", "", "", ""]
+            for i, opt in enumerate(options[:3]):
+                option_headers[i * 2] = opt.name
+
+            # Initial full row data
+            row_data = (
+                base_data
+                + ["", ""]
+                + option_headers
+                + ["", "", "", product.meta_title, product.meta_description]
+            )
+
+            # Add first composition and first variant to the first row
+            if compositions:
+                comp = compositions[0]
+                row_data[16] = (
+                    f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
+                )
+                row_data[17] = float(comp.quantity)
+
+            if variants:
+                var = variants[0]
+                var_values = list(var.option_values.all())
+                for val in var_values:
+                    for i, opt in enumerate(options[:3]):
+                        if val.option_id == opt.id:
+                            row_data[19 + i * 2] = val.value
+                row_data[24] = float(var.price) if var.price else 0.0
+                row_data[25] = var.stock
+                row_data[26] = var.image.url if var.image else ""
+
+            # Write first row
+            for col, value in enumerate(row_data, 1):
+                ws.cell(row=current_row, column=col, value=value)
+            current_row += 1
+
+            # Additional rows for remaining compositions and variants
+            max_remaining = max(len(compositions), len(variants))
+            for i in range(1, max_remaining):
+                extra_row = [""] * len(headers)
+                if i < len(compositions):
+                    comp = compositions[i]
+                    extra_row[16] = (
+                        f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
+                    )
+                    extra_row[17] = float(comp.quantity)
+
+                if i < len(variants):
+                    var = variants[i]
+                    var_values = list(var.option_values.all())
+                    for val in var_values:
+                        for j, opt in enumerate(options[:3]):
+                            if val.option_id == opt.id:
+                                extra_row[19 + j * 2] = val.value
+                    extra_row[24] = float(var.price) if var.price else 0.0
+                    extra_row[25] = var.stock
+                    extra_row[26] = var.image.url if var.image else ""
+
+                for col, value in enumerate(extra_row, 1):
+                    ws.cell(row=current_row, column=col, value=value)
+                current_row += 1
+
+        # Adjust column widths
+        column_widths = {
+            "A": 15,
+            "B": 20,
+            "C": 10,
+            "D": 15,
+            "E": 12,
+            "F": 10,
+            "G": 10,
+            "H": 20,
+            "I": 20,
+            "J": 15,
+            "K": 25,
+            "L": 12,
+            "M": 12,
+            "N": 10,
+            "O": 20,
+            "P": 20,
+            "Q": 30,
+            "R": 12,
+            "S": 15,
+            "T": 15,
+            "U": 15,
+            "V": 15,
+            "W": 15,
+            "X": 15,
+            "Y": 15,
+            "Z": 15,
+            "AA": 20,
+            "AB": 20,
+            "AC": 25,
+        }
+        for col_let, width in column_widths.items():
+            ws.column_dimensions[col_let].width = width
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = (
+            f"products_export_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        )
+        return FileResponse(
+            buffer,
+            as_attachment=True,
+            filename=filename,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+
 # ─── Pricing Metric ───────────────────────────────────────────────────────────
 
 

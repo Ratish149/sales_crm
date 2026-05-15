@@ -5,6 +5,7 @@ from .views import (
     DashboardStatsView,
     MyOrderListAPIView,
     MyOrderStatusView,
+    OrderExcelExportView,
     OrderGetAPIView,
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
@@ -12,6 +13,11 @@ from .views import (
 
 urlpatterns = [
     path("order/", OrderListCreateAPIView.as_view(), name="order-list-create"),
+    path(
+        "order-export/",
+        OrderExcelExportView.as_view(),
+        name="order-export",
+    ),
     path(
         "order/<int:pk>/",
         OrderRetrieveUpdateDestroyAPIView.as_view(),

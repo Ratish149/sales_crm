@@ -7,6 +7,7 @@ from .models import (
     Product,
     ProductComposition,
     ProductImage,
+    ProductOffer,
     ProductOption,
     ProductOptionValue,
     ProductReview,
@@ -99,3 +100,18 @@ class PricingMetricAdmin(admin.ModelAdmin):
     list_display = ("name", "price_per_unit", "unit", "last_updated")
     search_fields = ("name",)
     list_per_page = 25
+
+
+@admin.register(ProductOffer)
+class ProductOfferAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "offer_type",
+        "discount_value",
+        "start_date",
+        "end_date",
+        "is_active",
+    )
+    list_filter = ("offer_type", "is_active", "start_date", "end_date")
+    search_fields = ("name", "description")
+    filter_horizontal = ("products", "categories", "sub_categories")
