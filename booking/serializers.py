@@ -52,6 +52,7 @@ class BookingListSerializer(serializers.ModelSerializer):
             "booking_name",
             "customer_name",
             "customer_email",
+            "customer_phone",
             "start_date",
             "end_date",
             "total_amount",
