@@ -5,7 +5,7 @@ from django_filters import rest_framework as django_filters
 from rest_framework import generics
 from rest_framework.pagination import PageNumberPagination
 
-from sales_crm.utils.email_service import get_email_common_context, send_resend_email
+from sales_crm.utils.email_service import send_resend_email
 
 from .models import (
     FAQ,
@@ -92,14 +92,15 @@ class ContactListCreateView(generics.ListCreateAPIView):
         # Send email notifications
         try:
             # Prepare context using centralized utility
-            context = get_email_common_context()
-            context.update({
+            context = {
                 "name": contact.name,
                 "email": contact.email,
                 "phone_number": contact.phone_number,
                 "message": contact.message,
                 "current_year": datetime.now().year,
-            })
+                "admin_email": "baliyotechnologies@gmail.com",
+                "tenant_name": "Nepdora",
+            }
 
             # Render HTML for Admin Notification
             admin_html = render_to_string(
@@ -111,6 +112,7 @@ class ContactListCreateView(generics.ListCreateAPIView):
                 context["admin_email"],
                 f"New Contact Submission: {contact.name}",
                 admin_html,
+                from_email="Nepdora <nepdora@baliyoventures.com>",
             )
 
             # --- Send Acknowledgment to User ---
@@ -124,6 +126,7 @@ class ContactListCreateView(generics.ListCreateAPIView):
                     contact.email,
                     f"Thank you for contacting {context['tenant_name']}",
                     user_html,
+                    from_email="Nepdora <nepdora@baliyoventures.com>",
                 )
             except Exception as user_e:
                 print(f"Failed to send acknowledgment email to user: {user_e}")
@@ -175,6 +178,58 @@ class NepdoraPopupFormListCreateView(generics.ListCreateAPIView):
     queryset = NepdoraPopupForm.objects.all().order_by("-created_at")
     serializer_class = NepdoraPopupFormSerializer
     pagination_class = CustomPagination
+
+    def perform_create(self, serializer):
+        # Save the form
+        popup_form = serializer.save()
+
+        # Send email notifications
+        try:
+            # Prepare context
+            context = {
+                "name": popup_form.name,
+                "email": popup_form.email,
+                "phone_number": popup_form.phone_number,
+                "message": popup_form.message,
+                "website_type": popup_form.website_type,
+                "current_year": datetime.now().year,
+                "admin_email": "baliyotechnologies@gmail.com",
+                "tenant_name": "Nepdora",
+            }
+
+            # Render HTML for Admin Notification
+            admin_html = render_to_string(
+                "support/email/new_contact_notification.html", context
+            )
+
+            # Send via Resend to Admin
+            send_resend_email(
+                context["admin_email"],
+                f"New Popup Form Submission: {popup_form.name}",
+                admin_html,
+                from_email="Nepdora <nepdora@baliyoventures.com>",
+            )
+
+            # --- Send Acknowledgment to User ---
+            try:
+                # Render Acknowledgment HTML
+                if popup_form.email:
+                    user_html = render_to_string(
+                        "support/email/contact_acknowledgment.html", context
+                    )
+
+                    send_resend_email(
+                        popup_form.email,
+                        f"Thank you for contacting {context['tenant_name']}",
+                        user_html,
+                        from_email="Nepdora <nepdora@baliyoventures.com>",
+                    )
+            except Exception as user_e:
+                print(f"Failed to send acknowledgment email to user: {user_e}")
+
+        except Exception as e:
+            # Log error but don't fail the request
+            print(f"Failed to send popup form notification email: {e}")
 
 
 class NepdoraPopupFormRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):

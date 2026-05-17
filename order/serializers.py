@@ -9,7 +9,7 @@ from customer.models import Customer
 from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
-from product.serializers import ProductOnlySerializer, ProductVariantSerializer
+from product.serializers import ProductOnlySerializer
 from promo_code.models import PromoCode
 from sms.utils import send_sms_test
 
@@ -19,52 +19,134 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_id = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.only("id"),  # only pk needed for validation
-        source="product",
-        required=False,
-        allow_null=True,
-    )
-    variant_id = serializers.PrimaryKeyRelatedField(
-        queryset=ProductVariant.objects.only("id"),  # only pk needed for validation
-        source="variant",
-        required=False,
-        allow_null=True,
-    )
+    product_id = serializers.IntegerField(required=False, allow_null=True)
+    variant_id = serializers.IntegerField(required=False, allow_null=True)
 
     class Meta:
         model = OrderItem
         fields = ["id", "product_id", "variant_id", "quantity", "price"]
 
     def validate(self, data):
-        product = data.get("product")
-        variant = data.get("variant")
+        product_id = data.get("product_id")
+        variant_id = data.get("variant_id")
 
-        if not product and not variant:
-            raise serializers.ValidationError(
-                "Either product_id or variant_id must be provided"
-            )
-        if product and variant:
-            raise serializers.ValidationError(
-                "Cannot specify both product_id and variant_id"
-            )
+        try:
+            from website.models import SiteConfig
+
+            config = SiteConfig.get_solo()
+            use_variant = config.use_product_variant if config else False
+        except Exception:
+            use_variant = False
+
+        product = None
+        variant = None
+
+        if use_variant:
+            # If use_product_variant is true, frontend might send variant_id as product_id
+            actual_variant_id = variant_id or product_id
+            if not actual_variant_id:
+                raise serializers.ValidationError(
+                    "Either product_id or variant_id must be provided for variant"
+                )
+            try:
+                variant = ProductVariant.objects.get(id=actual_variant_id)
+            except ProductVariant.DoesNotExist:
+                error_field = "product_id" if not variant_id else "variant_id"
+                raise serializers.ValidationError({
+                    error_field: [
+                        f'Invalid pk "{actual_variant_id}" - object does not exist.'
+                    ]
+                })
+        else:
+            if not product_id and not variant_id:
+                raise serializers.ValidationError(
+                    "Either product_id or variant_id must be provided"
+                )
+
+            if product_id:
+                try:
+                    product = Product.objects.get(id=product_id)
+                except Product.DoesNotExist:
+                    raise serializers.ValidationError({
+                        "product_id": [
+                            f'Invalid pk "{product_id}" - object does not exist.'
+                        ]
+                    })
+
+            if variant_id:
+                try:
+                    variant = ProductVariant.objects.get(id=variant_id)
+                except ProductVariant.DoesNotExist:
+                    raise serializers.ValidationError({
+                        "variant_id": [
+                            f'Invalid pk "{variant_id}" - object does not exist.'
+                        ]
+                    })
+
+            if product and variant:
+                raise serializers.ValidationError(
+                    "Cannot specify both product_id and variant_id"
+                )
+
+        # Set resolved model instances for create method
+        data["product"] = product
+        data["variant"] = variant
+
+        # Remove raw ID fields
+        data.pop("product_id", None)
+        data.pop("variant_id", None)
 
         # Force price to be the current discounted price
         if variant:
             data["price"] = variant.discounted_price
-        else:
+        elif product:
             data["price"] = product.discounted_price
 
         return data
 
 
 class OrderItemDetailSerializer(serializers.ModelSerializer):
-    product = ProductOnlySerializer(read_only=True)
-    variant = ProductVariantSerializer(read_only=True)
+    product = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "variant", "quantity", "price"]
+        fields = ["id", "product", "quantity", "price"]
+
+    def get_product(self, obj):
+        if obj.variant:
+            product_data = ProductOnlySerializer(
+                obj.variant.product, context=self.context
+            ).data
+            product_data["id"] = obj.variant.id
+
+            options = [v.value for v in obj.variant.option_values.all()]
+            if options:
+                product_data["name"] = (
+                    f"{obj.variant.product.name} ({' '.join(options)})"
+                )
+
+            if obj.variant.price is not None:
+                product_data["price"] = str(obj.variant.price)
+
+            product_data["discounted_price"] = (
+                str(obj.variant.discounted_price)
+                if obj.variant.discounted_price is not None
+                else None
+            )
+
+            if obj.variant.image:
+                request = self.context.get("request")
+                if request:
+                    product_data["thumbnail_image"] = request.build_absolute_uri(
+                        obj.variant.image.url
+                    )
+                else:
+                    product_data["thumbnail_image"] = obj.variant.image.url
+
+            return product_data
+        elif obj.product:
+            return ProductOnlySerializer(obj.product, context=self.context).data
+        return None
 
 
 class OrderSerializer(serializers.ModelSerializer):

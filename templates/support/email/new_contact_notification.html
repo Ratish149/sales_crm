@@ -37,6 +37,12 @@
                   <td style="border-bottom: 1px solid #eeeeee;">{{ phone_number }}</td>
                 </tr>
                 {% endif %}
+                {% if website_type %}
+                <tr>
+                  <td style="background-color: #f9f9f9; font-weight: bold; border-bottom: 1px solid #eeeeee;">Website Type:</td>
+                  <td style="border-bottom: 1px solid #eeeeee;">{{ website_type }}</td>
+                </tr>
+                {% endif %}
                 <tr>
                   <td style="background-color: #f9f9f9; font-weight: bold; vertical-align: top;">Message:</td>
                   <td>{{ message|linebreaksbr }}</td>

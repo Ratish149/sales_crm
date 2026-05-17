@@ -204,7 +204,7 @@ CACHES = {
 #     }
 # }
 
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -217,9 +217,9 @@ CACHES = {
         },
         "CONN_MAX_AGE": 0,
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME"),
@@ -231,7 +231,7 @@ DATABASES = {
         "CONN_MAX_AGE": 0,
         "DISABLE_SERVER_SIDE_CURSORS": True,
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -244,7 +244,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://basic-believed-primary-supporters.trycloudflare.com",
+    "https://mba-feature-picnic-gossip.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -253,7 +253,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://basic-believed-primary-supporters.trycloudflare.com",
+    "https://mba-feature-picnic-gossip.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

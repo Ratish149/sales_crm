@@ -30,7 +30,7 @@ def get_email_common_context():
     return {
         "tenant_name": tenant_name,
         "store_name": tenant_name,  # Often used interchangeably
-        "site_name": site_config.name if site_config else tenant_name,
+        "site_name": site_config.business_name if site_config else tenant_name,
         "logo_url": site_config.logo.url if site_config and site_config.logo else None,
         "admin_email": admin_email,
         "current_year": datetime.now().year,
@@ -62,6 +62,7 @@ def send_resend_email(to_emails, subject, html_content, from_email=None):
 
     try:
         resend.Emails.send(params)
+        print("Email sent successfully via Resend.")
         return True
     except Exception as e:
         print(f"Failed to send email via Resend: {str(e)}")
