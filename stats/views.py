@@ -105,13 +105,11 @@ class StatsView(APIView):
             )
             daily_count = day_orders.count()
 
-            daily_stats.append(
-                {
-                    "date": current_day.strftime("%Y-%m-%d"),
-                    "revenue": daily_revenue,
-                    "orders": daily_count,
-                }
-            )
+            daily_stats.append({
+                "date": current_day.strftime("%Y-%m-%d"),
+                "revenue": daily_revenue,
+                "orders": daily_count,
+            })
             current_day += timezone.timedelta(days=1)
 
         # Basic Metrics
@@ -148,7 +146,8 @@ class StatsView(APIView):
 
         # Top 5 Cities
         top_cities = (
-            valid_orders_qs.exclude(city__isnull=True)
+            valid_orders_qs
+            .exclude(city__isnull=True)
             .exclude(city="")
             .values("city")
             .annotate(count=Count("id"), amount=Sum("total_amount"))
@@ -160,79 +159,115 @@ class StatsView(APIView):
         order_items_qs = OrderItem.objects.filter(order__in=valid_orders_qs)
 
         top_selling_products_qs = (
-            order_items_qs.annotate(
+            order_items_qs
+            .annotate(
                 p_id=Coalesce("product__id", "variant__product__id"),
                 p_name=Coalesce("product__name", "variant__product__name"),
                 p_image=Coalesce(
                     "product__thumbnail_image", "variant__product__thumbnail_image"
                 ),
+                v_id=F("variant__id"),
             )
-            .values("p_id", "p_name", "p_image")
+            .values("p_id", "p_name", "p_image", "v_id")
             .annotate(qty_sold=Sum("quantity"), amount=Sum(F("quantity") * F("price")))
             .order_by("-qty_sold")[:5]
         )
+
+        from product.models import ProductVariant
+
+        top_variant_ids = [p["v_id"] for p in top_selling_products_qs if p["v_id"]]
+        top_variants = {
+            v.id: v
+            for v in ProductVariant.objects.filter(
+                id__in=top_variant_ids
+            ).prefetch_related("option_values")
+        }
 
         top_selling_products = []
         for p in top_selling_products_qs:
             image_url = p.get("p_image")
             if image_url:
                 image_url = storage.url(image_url)
-            top_selling_products.append(
-                {
-                    "product__id": p["p_id"],
-                    "product__name": p["p_name"],
-                    "product__thumbnail_image": image_url,
-                    "qty_sold": p["qty_sold"],
-                    "amount": p["amount"],
-                }
-            )
+
+            p_name = p["p_name"]
+            if p["v_id"] and p["v_id"] in top_variants:
+                variant = top_variants[p["v_id"]]
+                options = ", ".join(
+                    val.value for val in variant.option_values.all() if val.value
+                )
+                if options:
+                    p_name = f"{p_name} ({options})"
+
+            top_selling_products.append({
+                "product__id": p["p_id"],
+                "product__name": p_name,
+                "product__thumbnail_image": image_url,
+                "qty_sold": p["qty_sold"],
+                "amount": p["amount"],
+            })
 
         # Least Selling Products
         least_selling_products_qs = (
-            order_items_qs.annotate(
+            order_items_qs
+            .annotate(
                 p_id=Coalesce("product__id", "variant__product__id"),
                 p_name=Coalesce("product__name", "variant__product__name"),
                 p_image=Coalesce(
                     "product__thumbnail_image", "variant__product__thumbnail_image"
                 ),
+                v_id=F("variant__id"),
             )
-            .values("p_id", "p_name", "p_image")
+            .values("p_id", "p_name", "p_image", "v_id")
             .annotate(qty_sold=Sum("quantity"), amount=Sum(F("quantity") * F("price")))
             .order_by("qty_sold")[:5]
         )
+
+        least_variant_ids = [p["v_id"] for p in least_selling_products_qs if p["v_id"]]
+        least_variants = {
+            v.id: v
+            for v in ProductVariant.objects.filter(
+                id__in=least_variant_ids
+            ).prefetch_related("option_values")
+        }
 
         least_selling_products = []
         for p in least_selling_products_qs:
             image_url = p.get("p_image")
             if image_url:
                 image_url = storage.url(image_url)
-            least_selling_products.append(
-                {
-                    "product__id": p["p_id"],
-                    "product__name": p["p_name"],
-                    "product__thumbnail_image": image_url,
-                    "qty_sold": p["qty_sold"],
-                    "amount": p["amount"],
-                }
-            )
 
-        return Response(
-            {
-                "revenue": revenue,
-                "orders": order_count,
-                "delivery_charge": delivery_charge,
-                "online_payments": online_payments,
-                "unique_customers": unique_customers,
-                "average_order_value": avg_order_value,
-                "channel_distribution": channel_dist,
-                "status_distribution": status_dist,
-                "top_cities": top_cities,
-                "top_selling_products": top_selling_products,
-                "least_selling_products": least_selling_products,
-                "revenue_contribution_by_product": top_selling_products,
-                "daily_stats": daily_stats,
-            }
-        )
+            p_name = p["p_name"]
+            if p["v_id"] and p["v_id"] in least_variants:
+                variant = least_variants[p["v_id"]]
+                options = ", ".join(
+                    val.value for val in variant.option_values.all() if val.value
+                )
+                if options:
+                    p_name = f"{p_name} ({options})"
+
+            least_selling_products.append({
+                "product__id": p["p_id"],
+                "product__name": p_name,
+                "product__thumbnail_image": image_url,
+                "qty_sold": p["qty_sold"],
+                "amount": p["amount"],
+            })
+
+        return Response({
+            "revenue": revenue,
+            "orders": order_count,
+            "delivery_charge": delivery_charge,
+            "online_payments": online_payments,
+            "unique_customers": unique_customers,
+            "average_order_value": avg_order_value,
+            "channel_distribution": channel_dist,
+            "status_distribution": status_dist,
+            "top_cities": top_cities,
+            "top_selling_products": top_selling_products,
+            "least_selling_products": least_selling_products,
+            "revenue_contribution_by_product": top_selling_products,
+            "daily_stats": daily_stats,
+        })
 
 
 class UnreadCountView(APIView):
@@ -254,16 +289,14 @@ class UnreadCountView(APIView):
         ).count()
         unread_bookings = Booking.objects.filter(status="pending").count()
 
-        return Response(
-            {
-                "unread_appointments": unread_appointments,
-                "unread_popup_forms": unread_popup_forms,
-                "unread_contacts": unread_contacts,
-                "unread_orders": unread_orders,
-                "unread_newsletters": unread_newsletters,
-                "unread_own_payment": unread_own_payment,
-                "unread_tenant_transfers": unread_tenant_transfers,
-                "unread_tenant_payments": unread_tenant_central_payments,
-                "unread_bookings": unread_bookings,
-            }
-        )
+        return Response({
+            "unread_appointments": unread_appointments,
+            "unread_popup_forms": unread_popup_forms,
+            "unread_contacts": unread_contacts,
+            "unread_orders": unread_orders,
+            "unread_newsletters": unread_newsletters,
+            "unread_own_payment": unread_own_payment,
+            "unread_tenant_transfers": unread_tenant_transfers,
+            "unread_tenant_payments": unread_tenant_central_payments,
+            "unread_bookings": unread_bookings,
+        })
