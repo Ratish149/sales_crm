@@ -119,6 +119,7 @@ TENANT_APPS = [
     "sms",
     "ai_generation",
     "booking",
+    "gallery",
 ]
 SILENCED_SYSTEM_CHECKS = ["auth.W004"]
 AUTH_CREATE_PERMISSIONS = True
