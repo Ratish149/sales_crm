@@ -134,7 +134,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     "sales_crm.middleware.CustomDomainTenantMiddleware",
-    "sales_crm.middleware.RateLimitMiddleware",
+    # "sales_crm.middleware.RateLimitMiddleware",
     "sales_crm.middleware.SubscriptionMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
