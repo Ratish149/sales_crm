@@ -39,12 +39,12 @@ WHITELISTED_IPS = {
 
 
 class RateLimitMiddleware(MiddlewareMixin):
-    RATE_LIMIT = 200
+    RATE_LIMIT = 1000
     WINDOW = 60
-    BLOCK_TIME = 3600
+    BLOCK_TIME = 300
 
     def process_request(self, request):
-        # ✅ FIX: Skip rate limiting for exempt paths
+        # Skip rate limiting for exempt paths
         path = request.path.lower()
         if any(path.startswith(p) for p in EXEMPT_PATHS):
             return None
@@ -57,15 +57,18 @@ class RateLimitMiddleware(MiddlewareMixin):
         if ip in WHITELISTED_IPS:
             return None
 
-        blocked_key = f"blocked:{ip}"
+        # Scope rate limit per tenant + IP
+        tenant = getattr(request, "tenant", None)
+        tenant_schema = tenant.schema_name if tenant else "public"
+
+        blocked_key = f"blocked:{tenant_schema}:{ip}"
+        rate_key = f"ratelimit:{tenant_schema}:{ip}"
 
         if cache.get(blocked_key):
             return JsonResponse(
                 {"detail": "Too Many Requests"},
                 status=429,
             )
-
-        rate_key = f"ratelimit:{ip}"
 
         try:
             cache.add(rate_key, 0, timeout=self.WINDOW)
