@@ -858,13 +858,10 @@ def import_template_data_to_tenant(template_client, target_client):
             src_videos,
         )
 
-        target_cols = {x.slug: x.id for x in Collection.objects.all()}
-
-        col_map = {}
-
-        for c in src_cols:
-            if c.slug in target_cols:
-                col_map[c.id] = target_cols[c.slug]
+        col_map = copy_instances(
+            Collection,
+            src_cols,
+        )
 
         copy_instances(
             CollectionData,
