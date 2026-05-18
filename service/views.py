@@ -85,9 +85,14 @@ class ServiceFilterSet(django_filters.FilterSet):
 class ServiceListCreateView(generics.ListCreateAPIView):
     serializer_class = ServiceSerializer
     pagination_class = CustomPagination
-    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
     filterset_class = ServiceFilterSet
     search_fields = ["title"]
+    ordering_fields = ["created_at"]
 
     def get_queryset(self):
         if self.request.method == "GET":
