@@ -44,6 +44,11 @@ class RateLimitMiddleware(MiddlewareMixin):
     BLOCK_TIME = 3600
 
     def process_request(self, request):
+        # ✅ FIX: Skip rate limiting for exempt paths
+        path = request.path.lower()
+        if any(path.startswith(p) for p in EXEMPT_PATHS):
+            return None
+
         ip = self.get_client_ip(request)
 
         if not ip:
