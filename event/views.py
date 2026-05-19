@@ -97,6 +97,23 @@ class EventRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
     serializer_class = EventSerializer
 
+    def get_queryset(self):
+        return Event.objects.only(
+            "id",
+            "title",
+            "slug",
+            "start_date",
+            "end_date",
+            "start_time",
+            "city",
+            "country",
+            "venue_name",
+            "thumbnail",
+            "is_featured",
+            "tags",
+            "created_at",
+        )
+
     def get_authenticators(self):
         if self.request.method == "GET":
             return []
