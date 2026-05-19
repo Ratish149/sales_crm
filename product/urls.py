@@ -5,6 +5,8 @@ from .views import (
     BulkProductUploadView,
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
+    ComboOfferListCreateView,
+    ComboOfferRetrieveUpdateDestroyView,
     DownloadProductSampleTemplateView,
     PricingMetricListCreateView,
     PricingMetricRetrieveUpdateDestroyView,
@@ -14,6 +16,8 @@ from .views import (
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
     ProductListCreateView,
+    ProductOfferListCreateView,
+    ProductOfferRetrieveUpdateDestroyView,
     ProductRetrieveUpdateDestroyView,
     ProductReviewRetrieveUpdateDestroyView,
     ProductReviewView,
@@ -123,5 +127,25 @@ urlpatterns = [
         "product-composition/<int:pk>/",
         ProductCompositionRetrieveUpdateDestroyView.as_view(),
         name="product-composition-retrieve-update-destroy",
+    ),
+    path(
+        "product-offer/",
+        ProductOfferListCreateView.as_view(),
+        name="product-offer-list-create",
+    ),
+    path(
+        "product-offer/<int:pk>/",
+        ProductOfferRetrieveUpdateDestroyView.as_view(),
+        name="product-offer-retrieve-update-destroy",
+    ),
+    path(
+        "combo-offer/",
+        ComboOfferListCreateView.as_view(),
+        name="combo-offer-list-create",
+    ),
+    path(
+        "combo-offer/<int:pk>/",
+        ComboOfferRetrieveUpdateDestroyView.as_view(),
+        name="combo-offer-retrieve-update-destroy",
     ),
 ]

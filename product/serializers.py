@@ -9,6 +9,7 @@ from customer.utils import get_customer_from_request
 
 from .models import (
     Category,
+    ComboOffer,
     PricingMetric,
     Product,
     ProductComposition,
@@ -48,6 +49,37 @@ class ProductOfferSerializer(serializers.ModelSerializer):
             "end_date",
             "is_valid",
         ]
+
+
+class ProductOfferWriteSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.only("id"), many=True, required=False
+    )
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.only("id"), many=True, required=False
+    )
+    sub_categories = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategory.objects.only("id"), many=True, required=False
+    )
+
+    class Meta:
+        model = ProductOffer
+        fields = [
+            "id",
+            "name",
+            "description",
+            "offer_type",
+            "discount_value",
+            "products",
+            "categories",
+            "sub_categories",
+            "start_date",
+            "end_date",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class ProductCompositionSerializer(serializers.ModelSerializer):
@@ -844,3 +876,50 @@ class UnifiedProductListingSerializer(serializers.Serializer):
         elif isinstance(instance, Product):
             return ProductSmallSerializer(instance, context=self.context).data
         return super().to_representation(instance)
+
+
+class ComboOfferSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ComboOffer
+        fields = [
+            "id",
+            "name",
+            "description",
+            "offer_type",
+            "discount_value",
+            "bundle_price",
+            "min_quantity",
+            "start_date",
+            "end_date",
+            "is_valid",
+        ]
+
+
+class ComboOfferWriteSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.only("id"), many=True, required=False
+    )
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.only("id"), many=True, required=False
+    )
+    sub_categories = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategory.objects.only("id"), many=True, required=False
+    )
+
+    class Meta:
+        model = ComboOffer
+        fields = [
+            "id",
+            "name",
+            "description",
+            "offer_type",
+            "discount_value",
+            "bundle_price",
+            "products",
+            "categories",
+            "sub_categories",
+            "min_quantity",
+            "start_date",
+            "end_date",
+            "is_active",
+        ]

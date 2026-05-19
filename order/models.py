@@ -36,7 +36,7 @@ class Order(models.Model):
         max_length=20, unique=True, default="", null=True, blank=True
     )
     customer_name = models.CharField(max_length=100)
-    customer_email = models.EmailField(null=True, blank=True)
+    customer_email = models.EmailField(null=True, blank=True) 
     customer_phone = models.CharField(max_length=15, null=True, blank=True)
     city = models.CharField(max_length=255, null=True, blank=True)
     customer_address = models.CharField(max_length=255, null=True, blank=True)
@@ -54,6 +54,16 @@ class Order(models.Model):
     dash_tracking_code = models.CharField(max_length=255, null=True, blank=True)
     promo_code = models.ForeignKey(
         PromoCode, on_delete=models.CASCADE, null=True, blank=True
+    )
+    combo_offer = models.ForeignKey(
+        "product.ComboOffer",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders",
+    )
+    combo_discount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00, null=True, blank=True
     )
     pos_order = models.BooleanField(default=False)
     note = models.TextField(null=True, blank=True)
@@ -89,26 +99,36 @@ class Order(models.Model):
 
     def deduct_stock(self):
         from product.models import ProductVariant
+
         for item in self.items.all():
             if item.variant:
                 if item.variant.product.track_stock and item.variant.stock is not None:
                     ProductVariant.objects.filter(pk=item.variant.pk).update(
                         stock=models.F("stock") - item.quantity
                     )
-            elif item.product and item.product.track_stock and item.product.stock is not None:
+            elif (
+                item.product
+                and item.product.track_stock
+                and item.product.stock is not None
+            ):
                 Product.objects.filter(pk=item.product.pk).update(
                     stock=models.F("stock") - item.quantity
                 )
 
     def return_stock(self):
         from product.models import ProductVariant
+
         for item in self.items.all():
             if item.variant:
                 if item.variant.product.track_stock and item.variant.stock is not None:
                     ProductVariant.objects.filter(pk=item.variant.pk).update(
                         stock=models.F("stock") + item.quantity
                     )
-            elif item.product and item.product.track_stock and item.product.stock is not None:
+            elif (
+                item.product
+                and item.product.track_stock
+                and item.product.stock is not None
+            ):
                 Product.objects.filter(pk=item.product.pk).update(
                     stock=models.F("stock") + item.quantity
                 )

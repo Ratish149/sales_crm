@@ -100,6 +100,10 @@ class ProductImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"Image for {self.product.name}" if self.product else "Unassigned Product Image"
+
+
 
 class Product(models.Model):
     STATUS_CHOICES = (
@@ -190,14 +194,18 @@ class Product(models.Model):
         from django.utils import timezone
 
         now = timezone.now()
+
+        # Build filter conditions dynamically to avoid matching empty relationships on Null values
+        applicability_filter = Q(products=self)
+        if self.category_id is not None:
+            applicability_filter |= Q(categories=self.category)
+        if self.sub_category_id is not None:
+            applicability_filter |= Q(sub_categories=self.sub_category)
+
         offers = (
             ProductOffer.objects
             .filter(is_active=True, start_date__lte=now, end_date__gte=now)
-            .filter(
-                Q(products=self)
-                | Q(categories=self.category)
-                | Q(sub_categories=self.sub_category)
-            )
+            .filter(applicability_filter)
             .distinct()
         )
 
@@ -343,6 +351,68 @@ class ProductOffer(models.Model):
     )
     sub_categories = models.ManyToManyField(
         "SubCategory", related_name="subcategory_offers", blank=True
+    )
+
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_valid(self):
+        from django.utils import timezone
+
+        now = timezone.now()
+        return self.is_active and self.start_date <= now <= self.end_date
+
+
+class ComboOffer(models.Model):
+    OFFER_TYPE_CHOICES = (
+        ("percentage", "Percentage Discount"),
+        ("fixed", "Fixed Amount Discount"),
+        ("bundle_price", "Fixed Combo Price"),
+    )
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    offer_type = models.CharField(
+        max_length=20, choices=OFFER_TYPE_CHOICES, default="percentage"
+    )
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    bundle_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="The total flat price for the bundle of required products.",
+    )
+
+    # Applicability/Rules
+    products = models.ManyToManyField(
+        "Product",
+        related_name="combo_offers",
+        blank=True,
+        help_text="The specific products required to trigger this combo offer.",
+    )
+    categories = models.ManyToManyField(
+        "Category",
+        related_name="combo_offers",
+        blank=True,
+        help_text="Applicable categories for the combo.",
+    )
+    sub_categories = models.ManyToManyField(
+        "SubCategory",
+        related_name="combo_offers",
+        blank=True,
+        help_text="Applicable sub-categories for the combo.",
+    )
+    min_quantity = models.PositiveIntegerField(
+        default=1,
+        help_text="For product lists: minimum total quantity of required products. For category lists: minimum total quantity of items from those categories.",
     )
 
     start_date = models.DateTimeField()

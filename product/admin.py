@@ -3,6 +3,7 @@ from tinymce.widgets import TinyMCE
 
 from .models import (
     Category,
+    ComboOffer,
     PricingMetric,
     Product,
     ProductComposition,
@@ -108,6 +109,23 @@ class ProductOfferAdmin(admin.ModelAdmin):
         "name",
         "offer_type",
         "discount_value",
+        "start_date",
+        "end_date",
+        "is_active",
+    )
+    list_filter = ("offer_type", "is_active", "start_date", "end_date")
+    search_fields = ("name", "description")
+    filter_horizontal = ("products", "categories", "sub_categories")
+
+
+@admin.register(ComboOffer)
+class ComboOfferAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "offer_type",
+        "discount_value",
+        "bundle_price",
+        "min_quantity",
         "start_date",
         "end_date",
         "is_active",

@@ -21,10 +21,12 @@ from website.models import SiteConfig
 
 from .models import (
     Category,
+    ComboOffer,
     PricingMetric,
     Product,
     ProductComposition,
     ProductImage,
+    ProductOffer,
     ProductOption,
     ProductOptionValue,
     ProductReview,
@@ -35,9 +37,11 @@ from .models import (
 from .serializers import (
     BulkUploadSerializer,
     CategorySerializer,
+    ComboOfferWriteSerializer,
     PricingMetricSerializer,
     ProductCompositionSerializer,
     ProductImageSerializer,
+    ProductOfferWriteSerializer,
     ProductReviewDetailSerializer,
     ProductReviewSerializer,
     ProductSerializer,
@@ -609,7 +613,9 @@ class ProductExcelExportView(generics.ListAPIView):
                 "TRUE" if product.is_featured else "FALSE",
                 product.status,
                 "TRUE" if product.use_dynamic_pricing else "FALSE",
-                float(product.base_making_charge) if product.base_making_charge else 0.0,
+                float(product.base_making_charge)
+                if product.base_making_charge
+                else 0.0,
             ]
 
             compositions = list(product.compositions.all())
@@ -1505,3 +1511,46 @@ class BulkProductUploadView(APIView):
                 variant.option_values.add(option_value)
 
         return variant
+
+
+# ─── Product Offer ────────────────────────────────────────────────────────────
+
+
+PRODUCT_OFFER_QS = ProductOffer.objects.prefetch_related(
+    "products", "categories", "sub_categories"
+).order_by("-created_at")
+
+
+class ProductOfferListCreateView(generics.ListCreateAPIView):
+    queryset = PRODUCT_OFFER_QS
+    serializer_class = ProductOfferWriteSerializer
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]
+    pagination_class = CustomPagination
+
+
+class ProductOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PRODUCT_OFFER_QS
+    serializer_class = ProductOfferWriteSerializer
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]
+
+
+COMBO_OFFER_QS = ComboOffer.objects.prefetch_related(
+    "products", "categories", "sub_categories"
+).order_by("-created_at")
+
+
+class ComboOfferListCreateView(generics.ListCreateAPIView):
+    queryset = COMBO_OFFER_QS
+    serializer_class = ComboOfferWriteSerializer
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]
+    pagination_class = CustomPagination
+
+
+class ComboOfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = COMBO_OFFER_QS
+    serializer_class = ComboOfferWriteSerializer
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]

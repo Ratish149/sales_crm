@@ -9,7 +9,8 @@ from customer.models import Customer
 from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
-from product.serializers import ProductOnlySerializer
+from product.serializers import ComboOfferSerializer, ProductOnlySerializer
+from product.services import evaluate_combo_offers
 from promo_code.models import PromoCode
 from sms.utils import send_sms_test
 
@@ -153,6 +154,7 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    combo_offer_details = ComboOfferSerializer(source="combo_offer", read_only=True)
 
     class Meta:
         model = Order
@@ -176,6 +178,9 @@ class OrderSerializer(serializers.ModelSerializer):
             "is_paid",
             "is_manual",
             "promo_code",
+            "combo_offer",
+            "combo_offer_details",
+            "combo_discount",
             "note",
             "pos_order",
             "latitude",
@@ -184,9 +189,75 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "order_items",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = [
+            "order_number",
+            "created_at",
+            "updated_at",
+            "combo_offer",
+            "combo_discount",
+        ]
+
+    def validate(self, attrs):
+        from decimal import Decimal
+
+        items = attrs.get("items", [])
+        delivery_charge = attrs.get("delivery_charge") or Decimal("0.00")
+        promo_code = attrs.get("promo_code")
+
+        # Calculate subtotal of items
+        subtotal = Decimal("0.00")
+        items_list = []
+
+        for item in items:
+            qty = item.get("quantity", 0)
+            price = item.get("price", Decimal("0.00"))
+            subtotal += price * qty
+
+            variant = item.get("variant")
+            product = variant.product if variant else item.get("product")
+
+            if product:
+                items_list.append({
+                    "product_id": product.id,
+                    "category_id": product.category.id if product.category else None,
+                    "sub_category_id": product.sub_category.id
+                    if product.sub_category
+                    else None,
+                    "quantity": qty,
+                    "price": price,
+                })
+
+        # Evaluate combo offers
+        combo_offer, combo_discount = evaluate_combo_offers(items_list)
+
+        # Set evaluated combo offer and discount directly on validated attributes
+        attrs["combo_offer"] = combo_offer
+        attrs["combo_discount"] = combo_discount
+
+        # Calculate promo discount if any
+        promo_discount = Decimal("0.00")
+        if promo_code:
+            is_valid, msg = promo_code.is_valid()
+            if not is_valid:
+                raise serializers.ValidationError({"promo_code": [msg]})
+
+            eligible_amount = max(Decimal("0.00"), subtotal - combo_discount)
+            promo_discount = eligible_amount * (
+                promo_code.discount_percentage / Decimal("100.00")
+            )
+
+        expected_total = max(
+            Decimal("0.00"),
+            subtotal - combo_discount - promo_discount + Decimal(str(delivery_charge)),
+        )
+
+        # Force the total_amount to match the correct server-side calculation
+        attrs["total_amount"] = expected_total
+
+        return attrs
 
     def create(self, validated_data):
+
         request = self.context.get("request")
         items_data = validated_data.pop("items", [])
 
@@ -362,6 +433,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    combo_offer_details = ComboOfferSerializer(source="combo_offer", read_only=True)
 
     class Meta:
         model = Order
@@ -385,6 +457,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "is_paid",
             "is_manual",
             "promo_code",
+            "combo_offer",
+            "combo_offer_details",
+            "combo_discount",
             "note",
             "pos_order",
             "latitude",
@@ -393,9 +468,19 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "items",
             "order_items",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = [
+            "order_number",
+            "created_at",
+            "updated_at",
+            "combo_offer",
+            "combo_discount",
+        ]
+
+    # Reuse OrderSerializer's validate logic
+    validate = OrderSerializer.validate
 
     def create(self, validated_data):
+
         items_data = validated_data.pop("items", [])
 
         with transaction.atomic():
@@ -427,6 +512,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 class OrderListSerializer(serializers.ModelSerializer):
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    combo_offer_details = ComboOfferSerializer(source="combo_offer", read_only=True)
 
     class Meta:
         model = Order
@@ -452,4 +538,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "is_manual",
             "delivery_charge",
             "payment_type",
+            "combo_offer",
+            "combo_offer_details",
+            "combo_discount",
         ]
