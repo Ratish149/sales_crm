@@ -29,9 +29,16 @@ class ClientAdmin(admin.ModelAdmin):
         "created_on",
         "is_template_account",
     ]
+    # ✅ Fix: Force explicit click targets to prevent Jazzmin from guessing HTML structures
+    list_display_links = ("name",)
+
     search_fields = ["name", "schema_name", "owner__email"]
     list_filter = ["is_template_account", "created_on"]
     readonly_fields = ["schema_name", "created_on"]
+
+    # ✅ Fix: Defuse the strict Django 6.0 / Jazzmin Paginator template clash
+    show_full_result_count = False
+    list_per_page = 200
 
     def get_queryset(self, request):
         """Force query to run in public schema"""
