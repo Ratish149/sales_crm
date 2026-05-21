@@ -205,7 +205,6 @@ CACHES = {
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-
 """ DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants

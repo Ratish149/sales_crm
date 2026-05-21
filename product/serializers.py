@@ -1,11 +1,10 @@
 import json
 
+from customer.serializers import CustomerSerializer
+from customer.utils import get_customer_from_request
 from django.core.files.base import File
 from django.db import models
 from rest_framework import serializers
-
-from customer.serializers import CustomerSerializer
-from customer.utils import get_customer_from_request
 
 from .models import (
     Category,
@@ -85,6 +84,28 @@ class OfferWriteSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def to_internal_value(self, data):
+        if hasattr(data, "_mutable"):
+            data._mutable = True
+        if hasattr(data, "copy"):
+            data = data.copy()
+
+        # Clean up empty strings from list fields so they are treated as empty lists
+        for field in ["products", "categories", "sub_categories"]:
+            if field in data:
+                if hasattr(data, "getlist"):
+                    values = data.getlist(field)
+                    cleaned_values = [v for v in values if v != ""]
+                    data.setlist(field, cleaned_values)
+                else:
+                    value = data.get(field)
+                    if value == "":
+                        data[field] = []
+                    elif isinstance(value, list):
+                        data[field] = [v for v in value if v != ""]
+
+        return super().to_internal_value(data)
 
 
 class ProductCompositionSerializer(serializers.ModelSerializer):
