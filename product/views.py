@@ -65,6 +65,21 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
+class ProductPagination(CustomPagination):
+    def get_paginated_response(self, data):
+        from collections import OrderedDict
+
+        return Response(
+            OrderedDict([
+                ("count", self.page.paginator.count),
+                ("next", self.get_next_link()),
+                ("previous", self.get_previous_link()),
+                ("max_price", getattr(self, "max_price", 0.0)),
+                ("results", data),
+            ])
+        )
+
+
 # ─── Shared optimized queryset ────────────────────────────────────────────────
 
 PRODUCT_LIST_QS = (
@@ -397,7 +412,7 @@ class ProductVariantFilterSet(django_filters.FilterSet):
 class ProductListCreateView(generics.ListCreateAPIView):
     queryset = PRODUCT_LIST_QS
     serializer_class = ProductSerializer
-    pagination_class = CustomPagination
+    pagination_class = ProductPagination
     filter_backends = [
         django_filters.DjangoFilterBackend,
         filters.SearchFilter,
@@ -434,7 +449,22 @@ class ProductListCreateView(generics.ListCreateAPIView):
         site_config = SiteConfig.get_solo()
 
         if not site_config.use_product_variant:
-            return super().list(request, *args, **kwargs)
+            queryset = self.filter_queryset(self.get_queryset())
+
+            from django.db.models import Max
+
+            max_price = queryset.aggregate(max_price=Max("price"))["max_price"] or 0.0
+            max_price = float(max_price)
+
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                if self.paginator is not None:
+                    self.paginator.max_price = max_price
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
 
         self.filter_backends = []
 
@@ -507,8 +537,22 @@ class ProductListCreateView(generics.ListCreateAPIView):
             reverse=True,
         )
 
+        # Calculate max_price of all products in this filtered combined list
+        max_price = 0.0
+        for item in combined:
+            if isinstance(item, ProductVariant):
+                price = (
+                    item.price if item.price is not None else item.product.final_price
+                )
+            else:
+                price = item.final_price
+            if price is not None:
+                max_price = max(max_price, float(price))
+
         page = self.paginate_queryset(combined)
         if page is not None:
+            if self.paginator is not None:
+                self.paginator.max_price = max_price
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
