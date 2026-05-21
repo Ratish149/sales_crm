@@ -6,6 +6,8 @@ from .views import (
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
     DownloadProductSampleTemplateView,
+    OfferListCreateView,
+    OfferRetrieveUpdateDestroyView,
     PricingMetricListCreateView,
     PricingMetricRetrieveUpdateDestroyView,
     ProductCompositionListCreateView,
@@ -123,5 +125,15 @@ urlpatterns = [
         "product-composition/<int:pk>/",
         ProductCompositionRetrieveUpdateDestroyView.as_view(),
         name="product-composition-retrieve-update-destroy",
+    ),
+    path(
+        "offer/",
+        OfferListCreateView.as_view(),
+        name="offer-list-create",
+    ),
+    path(
+        "offer/<int:pk>/",
+        OfferRetrieveUpdateDestroyView.as_view(),
+        name="offer-retrieve-update-destroy",
     ),
 ]

@@ -1,4 +1,5 @@
 import os
+from decimal import Decimal
 
 import resend
 from django.db import connection, models, transaction
@@ -9,7 +10,7 @@ from customer.models import Customer
 from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
 from product.models import Product, ProductVariant
-from product.serializers import ProductOnlySerializer
+from product.serializers import OfferSerializer, ProductOnlySerializer
 from promo_code.models import PromoCode
 from sms.utils import send_sms_test
 
@@ -24,7 +25,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product_id", "variant_id", "quantity", "price"]
+        fields = [
+            "id",
+            "product_id",
+            "variant_id",
+            "quantity",
+            "price",
+            "offer",
+            "offer_discount",
+        ]
 
     def validate(self, data):
         product_id = data.get("product_id")
@@ -107,10 +116,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderItemDetailSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
+    offer_details = OfferSerializer(source="offer", read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "quantity", "price"]
+        fields = [
+            "id",
+            "product",
+            "quantity",
+            "price",
+            "offer_details",
+            "offer_discount",
+        ]
 
     def get_product(self, obj):
         if obj.variant:
@@ -153,6 +170,9 @@ class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    offer_details = OfferSerializer(source="offer", read_only=True)
+    promo_code_details = serializers.SerializerMethodField()
+    promo_discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -176,6 +196,11 @@ class OrderSerializer(serializers.ModelSerializer):
             "is_paid",
             "is_manual",
             "promo_code",
+            "promo_code_details",
+            "promo_discount",
+            "offer",
+            "offer_details",
+            "offer_discount",
             "note",
             "pos_order",
             "latitude",
@@ -184,7 +209,116 @@ class OrderSerializer(serializers.ModelSerializer):
             "items",
             "order_items",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = [
+            "order_number",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_promo_code_details(self, obj):
+        if obj.promo_code:
+            return {
+                "id": obj.promo_code.id,
+                "code": obj.promo_code.code,
+                "discount_percentage": obj.promo_code.discount_percentage,
+            }
+        return None
+
+    def get_promo_discount(self, obj):
+        if obj.promo_code:
+            subtotal = sum(item.price * item.quantity for item in obj.items.all())
+            return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
+        return Decimal("0.00")
+
+    def validate(self, attrs):
+
+        items = attrs.get("items", [])
+        delivery_charge = attrs.get("delivery_charge") or Decimal("0.00")
+        promo_code = attrs.get("promo_code")
+
+        base_subtotal = Decimal("0.00")
+        calculated_offer_discount = Decimal("0.00")
+        offer_contributions = {}
+
+        for item in items:
+            product = item.get("product")
+            variant = item.get("variant")
+            qty = Decimal(str(item.get("quantity", 0)))
+
+            # Base price of the product/variant
+            if variant:
+                base_price = (
+                    variant.price
+                    if variant.price is not None
+                    else (product.final_price if product else Decimal("0.00"))
+                )
+                discounted_price = variant.discounted_price
+                active_offer = variant.active_offer
+            elif product:
+                base_price = product.final_price
+                discounted_price = product.discounted_price
+                active_offer = product.active_offer
+            else:
+                base_price = Decimal("0.00")
+                discounted_price = Decimal("0.00")
+                active_offer = None
+
+            item_subtotal = base_price * qty
+            item_discount = max(Decimal("0.00"), (base_price - discounted_price) * qty)
+
+            base_subtotal += item_subtotal
+            calculated_offer_discount += item_discount
+
+            if active_offer and item_discount > 0:
+                offer_contributions[active_offer] = (
+                    offer_contributions.get(active_offer, Decimal("0.00"))
+                    + item_discount
+                )
+                item["offer"] = active_offer
+                item["offer_discount"] = item_discount
+            else:
+                item["offer"] = None
+                item["offer_discount"] = Decimal("0.00")
+
+        # Determine the primary active offer for the order
+        selected_offer = None
+        if offer_contributions:
+            selected_offer = max(offer_contributions, key=offer_contributions.get)
+
+        # Set the calculated offer and offer_discount
+        attrs["offer"] = selected_offer
+        attrs["offer_discount"] = calculated_offer_discount
+
+        # Calculate promo discount if any
+        promo_discount = Decimal("0.00")
+        if promo_code:
+            is_valid, msg = promo_code.is_valid()
+            if not is_valid:
+                raise serializers.ValidationError({"promo_code": [msg]})
+
+            # Eligible amount for promo code is the subtotal after item-level offer discounts
+            eligible_amount = max(
+                Decimal("0.00"), base_subtotal - calculated_offer_discount
+            )
+            promo_discount = eligible_amount * (
+                promo_code.discount_percentage / Decimal("100.00")
+            )
+
+        # We do not store the promo discount amount in a db field since the model
+        # doesn't have a discount_amount column. Instead, it is calculated dynamically.
+
+        expected_total = max(
+            Decimal("0.00"),
+            base_subtotal
+            - calculated_offer_discount
+            - promo_discount
+            + Decimal(str(delivery_charge)),
+        )
+
+        # Force the total_amount to match the correct server-side calculation
+        attrs["total_amount"] = expected_total
+
+        return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")
@@ -194,7 +328,8 @@ class OrderSerializer(serializers.ModelSerializer):
         if customer:
             validated_data["customer"] = customer
         elif (
-            request.user
+            request
+            and request.user
             and request.user.is_authenticated
             and isinstance(request.user, Customer)
         ):
@@ -362,6 +497,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    offer_details = OfferSerializer(source="offer", read_only=True)
+    promo_code_details = serializers.SerializerMethodField()
+    promo_discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -385,6 +523,11 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "is_paid",
             "is_manual",
             "promo_code",
+            "promo_code_details",
+            "promo_discount",
+            "offer",
+            "offer_details",
+            "offer_discount",
             "note",
             "pos_order",
             "latitude",
@@ -393,7 +536,29 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "items",
             "order_items",
         ]
-        read_only_fields = ["order_number", "created_at", "updated_at"]
+        read_only_fields = [
+            "order_number",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_promo_code_details(self, obj):
+        if obj.promo_code:
+            return {
+                "id": obj.promo_code.id,
+                "code": obj.promo_code.code,
+                "discount_percentage": obj.promo_code.discount_percentage,
+            }
+        return None
+
+    def get_promo_discount(self, obj):
+        if obj.promo_code:
+            subtotal = sum(item.price * item.quantity for item in obj.items.all())
+            return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
+        return Decimal("0.00")
+
+    # Reuse OrderSerializer's validate logic
+    validate = OrderSerializer.validate
 
     def create(self, validated_data):
         items_data = validated_data.pop("items", [])
@@ -427,6 +592,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 class OrderListSerializer(serializers.ModelSerializer):
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
+    offer_details = OfferSerializer(source="offer", read_only=True)
+    promo_code_details = serializers.SerializerMethodField()
+    promo_discount = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -452,4 +620,25 @@ class OrderListSerializer(serializers.ModelSerializer):
             "is_manual",
             "delivery_charge",
             "payment_type",
+            "promo_code",
+            "promo_code_details",
+            "promo_discount",
+            "offer",
+            "offer_details",
+            "offer_discount",
         ]
+
+    def get_promo_code_details(self, obj):
+        if obj.promo_code:
+            return {
+                "id": obj.promo_code.id,
+                "code": obj.promo_code.code,
+                "discount_percentage": obj.promo_code.discount_percentage,
+            }
+        return None
+
+    def get_promo_discount(self, obj):
+        if obj.promo_code:
+            subtotal = sum(item.price * item.quantity for item in obj.items.all())
+            return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
+        return Decimal("0.00")

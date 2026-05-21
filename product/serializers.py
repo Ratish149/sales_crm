@@ -9,11 +9,11 @@ from customer.utils import get_customer_from_request
 
 from .models import (
     Category,
+    Offer,
     PricingMetric,
     Product,
     ProductComposition,
     ProductImage,
-    ProductOffer,
     ProductOption,
     ProductOptionValue,
     ProductReview,
@@ -35,19 +35,56 @@ class PricingMetricSerializer(serializers.ModelSerializer):
         ]  # explicit, was __all__
 
 
-class ProductOfferSerializer(serializers.ModelSerializer):
+class OfferSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ProductOffer
+        model = Offer
         fields = [
             "id",
             "name",
             "description",
             "offer_type",
             "discount_value",
+            "thumbnail",
+            "products",
+            "categories",
+            "sub_categories",
             "start_date",
             "end_date",
             "is_valid",
+            "is_active",
         ]
+
+
+class OfferWriteSerializer(serializers.ModelSerializer):
+    products = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.only("id"), many=True, required=False
+    )
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.only("id"), many=True, required=False
+    )
+    sub_categories = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategory.objects.only("id"), many=True, required=False
+    )
+
+    class Meta:
+        model = Offer
+        fields = [
+            "id",
+            "name",
+            "description",
+            "offer_type",
+            "discount_value",
+            "thumbnail",
+            "products",
+            "categories",
+            "sub_categories",
+            "start_date",
+            "end_date",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at"]
 
 
 class ProductCompositionSerializer(serializers.ModelSerializer):
@@ -159,7 +196,7 @@ class ProductVariantWriteSerializer(serializers.Serializer):
 
 class ProductVariantReadSerializer(serializers.ModelSerializer):
     option_values = serializers.SerializerMethodField()
-    active_offer = ProductOfferSerializer(read_only=True)
+    active_offer = OfferSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -228,7 +265,7 @@ class ProductSerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = ProductOfferSerializer(read_only=True)
+    active_offer = OfferSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -569,7 +606,7 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = ProductOfferSerializer(read_only=True)
+    active_offer = OfferSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -631,7 +668,7 @@ class ProductOnlySerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = ProductOfferSerializer(read_only=True)
+    active_offer = OfferSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -752,7 +789,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     variants_read = ProductVariantReadSerializer(
         source="product.variants", many=True, read_only=True
     )
-    active_offer = ProductOfferSerializer(source="product.active_offer", read_only=True)
+    active_offer = OfferSerializer(source="product.active_offer", read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )

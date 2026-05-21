@@ -100,6 +100,13 @@ class ProductImage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return (
+            f"Image for {self.product.name}"
+            if self.product
+            else "Unassigned Product Image"
+        )
+
 
 class Product(models.Model):
     STATUS_CHOICES = (
@@ -191,7 +198,7 @@ class Product(models.Model):
 
         now = timezone.now()
         offers = (
-            ProductOffer.objects
+            Offer.objects
             .filter(is_active=True, start_date__lte=now, end_date__gte=now)
             .filter(
                 Q(products=self)
@@ -322,7 +329,7 @@ class Wishlist(models.Model):
         return f"{self.user} - {self.product.name}"
 
 
-class ProductOffer(models.Model):
+class Offer(models.Model):
     OFFER_TYPE_CHOICES = (
         ("percentage", "Percentage Discount"),
         ("fixed", "Fixed Amount Discount"),
@@ -332,17 +339,33 @@ class ProductOffer(models.Model):
     offer_type = models.CharField(
         max_length=20, choices=OFFER_TYPE_CHOICES, default="percentage"
     )
-    discount_value = models.DecimalField(max_digits=10, decimal_places=2)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    thumbnail = models.FileField(
+        upload_to="offer_images",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
+    )
 
-    # Applicability
+    # Applicability/Rules
     products = models.ManyToManyField(
-        "Product", related_name="product_offers", blank=True
+        "Product",
+        related_name="offers",
+        blank=True,
+        help_text="The specific products required or applicable for this offer.",
     )
     categories = models.ManyToManyField(
-        "Category", related_name="category_offers", blank=True
+        "Category",
+        related_name="offers",
+        blank=True,
+        help_text="Applicable categories for the offer.",
     )
     sub_categories = models.ManyToManyField(
-        "SubCategory", related_name="subcategory_offers", blank=True
+        "SubCategory",
+        related_name="offers",
+        blank=True,
+        help_text="Applicable sub-categories for the offer.",
     )
 
     start_date = models.DateTimeField()

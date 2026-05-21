@@ -3,11 +3,11 @@ from tinymce.widgets import TinyMCE
 
 from .models import (
     Category,
+    Offer,
     PricingMetric,
     Product,
     ProductComposition,
     ProductImage,
-    ProductOffer,
     ProductOption,
     ProductOptionValue,
     ProductReview,
@@ -102,8 +102,8 @@ class PricingMetricAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
-@admin.register(ProductOffer)
-class ProductOfferAdmin(admin.ModelAdmin):
+@admin.register(Offer)
+class OfferAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "offer_type",

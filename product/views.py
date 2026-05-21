@@ -21,6 +21,7 @@ from website.models import SiteConfig
 
 from .models import (
     Category,
+    Offer,
     PricingMetric,
     Product,
     ProductComposition,
@@ -35,6 +36,8 @@ from .models import (
 from .serializers import (
     BulkUploadSerializer,
     CategorySerializer,
+    OfferSerializer,
+    OfferWriteSerializer,
     PricingMetricSerializer,
     ProductCompositionSerializer,
     ProductImageSerializer,
@@ -319,6 +322,7 @@ class ProductFilterSet(django_filters.FilterSet):
     max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
     is_popular = django_filters.BooleanFilter(field_name="is_popular")
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
+    offer = django_filters.NumberFilter(method="filter_by_offer")
 
     class Meta:
         model = Product
@@ -329,7 +333,38 @@ class ProductFilterSet(django_filters.FilterSet):
             "max_price",
             "is_popular",
             "is_featured",
+            "offer",
         ]
+
+    def filter_by_offer(self, queryset, name, value):
+        if not value:
+            return queryset
+        try:
+            offer = Offer.objects.get(id=value)
+        except Offer.DoesNotExist:
+            return queryset.none()
+
+        from django.db.models import Q
+
+        q_objects = Q()
+        has_conditions = False
+
+        if offer.products.exists():
+            q_objects |= Q(id__in=offer.products.values_list("id", flat=True))
+            has_conditions = True
+
+        if offer.categories.exists():
+            q_objects |= Q(category__in=offer.categories.all())
+            has_conditions = True
+
+        if offer.sub_categories.exists():
+            q_objects |= Q(sub_category__in=offer.sub_categories.all())
+            has_conditions = True
+
+        if not has_conditions:
+            return queryset.none()
+
+        return queryset.filter(q_objects).distinct()
 
 
 class ProductVariantFilterSet(django_filters.FilterSet):
@@ -609,7 +644,9 @@ class ProductExcelExportView(generics.ListAPIView):
                 "TRUE" if product.is_featured else "FALSE",
                 product.status,
                 "TRUE" if product.use_dynamic_pricing else "FALSE",
-                float(product.base_making_charge) if product.base_making_charge else 0.0,
+                float(product.base_making_charge)
+                if product.base_making_charge
+                else 0.0,
             ]
 
             compositions = list(product.compositions.all())
@@ -1505,3 +1542,34 @@ class BulkProductUploadView(APIView):
                 variant.option_values.add(option_value)
 
         return variant
+
+
+# ─── Offer ────────────────────────────────────────────────────────────────────
+
+
+OFFER_QS = Offer.objects.prefetch_related(
+    "products", "categories", "sub_categories"
+).order_by("-created_at")
+
+
+class OfferListCreateView(generics.ListCreateAPIView):
+    queryset = OFFER_QS
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]
+    pagination_class = CustomPagination
+
+    def get_serializer_class(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return OfferSerializer
+        return OfferWriteSerializer
+
+
+class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = OFFER_QS
+    # permission_classes = [IsAuthenticated]
+    # authentication_classes = [TenantJWTAuthentication]
+
+    def get_serializer_class(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return OfferSerializer
+        return OfferWriteSerializer
