@@ -9,8 +9,6 @@ from .models import (
     TemplateSubCategory,
 )
 
-# from unfold.admin import ModelAdmin
-
 
 @admin.register(TemplateCategory)
 class TemplateCategoryAdmin(admin.ModelAdmin):
@@ -64,9 +62,24 @@ class ClientAdmin(admin.ModelAdmin):
 
 @admin.register(Domain)
 class DomainAdmin(admin.ModelAdmin):
-    list_display = ("domain", "tenant")
+    # Explicitly define flat text fields to bypass Jazzmin's parsing links
+    list_display = ("domain", "tenant", "is_primary")
+    list_display_links = ("domain",)
+
+    # Force the schema connection to public just like the Client admin does
+    def get_queryset(self, request):
+        connection.set_schema_to_public()
+        return super().get_queryset(request)
+
+    # Disable the complex full count query that triggers the paginator layout tag
+    show_full_result_count = False
+    list_per_page = 200
 
 
 @admin.register(FacebookPageTenantMap)
 class FacebookPageTenantMapAdmin(admin.ModelAdmin):
     list_display = ("page_name", "page_id", "tenant")
+
+    def get_queryset(self, request):
+        connection.set_schema_to_public()
+        return super().get_queryset(request)
