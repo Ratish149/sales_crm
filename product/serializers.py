@@ -1,10 +1,11 @@
 import json
 
-from customer.serializers import CustomerSerializer
-from customer.utils import get_customer_from_request
 from django.core.files.base import File
 from django.db import models
 from rest_framework import serializers
+
+from customer.serializers import CustomerSerializer
+from customer.utils import get_customer_from_request
 
 from .models import (
     Category,
@@ -34,7 +35,52 @@ class PricingMetricSerializer(serializers.ModelSerializer):
         ]  # explicit, was __all__
 
 
+class OfferProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "price",
+            "market_price",
+            "thumbnail_image",
+            "thumbnail_alt_description",
+        ]
+
+
+class OfferCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "image",
+        ]
+
+
+class OfferSubCategorySerializer(serializers.ModelSerializer):
+    category = OfferCategorySerializer(read_only=True)
+
+    class Meta:
+        model = SubCategory
+        fields = [
+            "id",
+            "category",
+            "name",
+            "slug",
+            "description",
+            "image",
+        ]
+
+
 class OfferSerializer(serializers.ModelSerializer):
+    products = OfferProductSerializer(many=True, read_only=True)
+    categories = OfferCategorySerializer(many=True, read_only=True)
+    sub_categories = OfferSubCategorySerializer(many=True, read_only=True)
+
     class Meta:
         model = Offer
         fields = [
