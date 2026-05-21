@@ -223,14 +223,14 @@ CACHES = {
 DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "NAME": os.getenv("DB_NAME", "nepdora_db"),
+        "USER": os.getenv("DB_USER", "ratish"),
+        "PASSWORD": os.getenv("DB_PASSWORD", "ratish123"),
         "HOST": "127.0.0.1",
         "PORT": "6432",
         "OPTIONS": {},
         "CONN_MAX_AGE": 0,
-        "DISABLE_SERVER_SIDE_CURSORS": True,
+        "DISABLE_SERVER_SIDE_CURSORS": True,  # This is perfect for PgBouncer!
     }
 }
 
@@ -245,7 +245,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://costume-infrared-literacy-pre.trycloudflare.com",
+    "https://phrases-segments-scenario-apartments.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -254,7 +254,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://costume-infrared-literacy-pre.trycloudflare.com",
+    "https://phrases-segments-scenario-apartments.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

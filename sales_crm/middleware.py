@@ -1,6 +1,8 @@
+import asyncio
 from datetime import date
 from urllib.parse import urlparse
 
+from asgiref.sync import sync_to_async
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import connection
@@ -44,7 +46,6 @@ class RateLimitMiddleware(MiddlewareMixin):
     BLOCK_TIME = 300
 
     def process_request(self, request):
-        # Skip rate limiting for exempt paths
         path = request.path.lower()
         if any(path.startswith(p) for p in EXEMPT_PATHS):
             return None
@@ -57,7 +58,6 @@ class RateLimitMiddleware(MiddlewareMixin):
         if ip in WHITELISTED_IPS:
             return None
 
-        # Scope rate limit per tenant + IP
         tenant = getattr(request, "tenant", None)
         tenant_schema = tenant.schema_name if tenant else "public"
 
@@ -77,7 +77,6 @@ class RateLimitMiddleware(MiddlewareMixin):
             cache.set(rate_key, 1, timeout=self.WINDOW)
             count = 1
         except Exception:
-            # Never break request if Redis fails
             return None
 
         if count > self.RATE_LIMIT:
@@ -86,7 +85,6 @@ class RateLimitMiddleware(MiddlewareMixin):
                 True,
                 timeout=self.BLOCK_TIME,
             )
-
             return JsonResponse(
                 {"detail": "Too Many Requests"},
                 status=429,
@@ -96,10 +94,8 @@ class RateLimitMiddleware(MiddlewareMixin):
 
     def get_client_ip(self, request):
         xff = request.META.get("HTTP_X_FORWARDED_FOR")
-
         if xff:
             return xff.split(",")[0].strip()
-
         return request.META.get("REMOTE_ADDR")
 
 
@@ -120,35 +116,38 @@ class CustomDomainTenantMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
+        # Mark as async-capable so Django routes ASGI requests here correctly
+        if asyncio.iscoroutinefunction(self.get_response):
+            self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
-        # Always reset to public schema FIRST — before any DB query.
-        # If this connection was recycled from a previous tenant request,
-        # any query (including the domain lookup below) would otherwise
-        # run against the wrong tenant schema.
-        connection.set_schema_to_public()
+        # Route to async handler when running under Daphne/ASGI,
+        # fall back to sync when running under Gunicorn/WSGI.
+        if asyncio.iscoroutinefunction(self.get_response):
+            return self.__acall__(request)
+        return self._sync_call(request)
+
+    # --------------------------------------------------
+    # ASYNC PATH  (Daphne / ASGI)
+    # All DB/ORM calls are wrapped in sync_to_async so
+    # they run in a thread pool and never block the event loop.
+    # --------------------------------------------------
+
+    async def __acall__(self, request):
+        await sync_to_async(connection.set_schema_to_public)()
 
         path = request.path.lower()
 
-        # Skip static/media
         if path.startswith(("/static", "/media")):
-            self.set_public_tenant(request)
-            return self.get_response(request)
+            await sync_to_async(self.set_public_tenant)(request)
+            return await self.get_response(request)
 
         try:
-            tenant = self.resolve_tenant(request)
-
-            # Switch both Django's tenant state and PostgreSQL's real
-            # search_path for the actual request.
-            self.set_tenant_schema(tenant)
+            tenant = await sync_to_async(self.resolve_tenant)(request)
+            await sync_to_async(connection.set_tenant)(tenant)
             request.tenant = tenant
-
-        except (
-            ObjectDoesNotExist,
-            Client.DoesNotExist,
-        ):
-            self.set_public_tenant(request)
-
+        except (ObjectDoesNotExist, Client.DoesNotExist):
+            await sync_to_async(self.set_public_tenant)(request)
             if self.requires_tenant(path):
                 return JsonResponse(
                     {
@@ -159,19 +158,52 @@ class CustomDomainTenantMiddleware:
                 )
 
         try:
-            tenant = getattr(request, "tenant", None)
-            if tenant and tenant.schema_name != get_public_schema_name():
-                self.set_tenant_schema(tenant)
-
-            response = self.get_response(request)
+            response = await self.get_response(request)
         finally:
-            # Reset back to public after the response so the connection returns
-            # to the pool in a clean state — prevents the next request from
-            # inheriting this tenant schema, even if the view raises an error.
-            connection.set_schema_to_public()
-            self.set_database_search_path(get_public_schema_name())
+            await sync_to_async(connection.set_schema_to_public)()
 
         return response
+
+    # --------------------------------------------------
+    # SYNC PATH  (Gunicorn / WSGI fallback)
+    # --------------------------------------------------
+
+    def _sync_call(self, request):
+        connection.set_schema_to_public()
+
+        path = request.path.lower()
+
+        if path.startswith(("/static", "/media")):
+            self.set_public_tenant(request)
+            return self.get_response(request)
+
+        try:
+            tenant = self.resolve_tenant(request)
+            connection.set_tenant(tenant)
+            request.tenant = tenant
+        except (ObjectDoesNotExist, Client.DoesNotExist):
+            self.set_public_tenant(request)
+            if self.requires_tenant(path):
+                return JsonResponse(
+                    {
+                        "detail": "Tenant could not be resolved for this API request.",
+                        "hint": "Send a valid X-Tenant-Domain header matching tenants_domain.domain.",
+                    },
+                    status=400,
+                )
+
+        try:
+            response = self.get_response(request)
+        finally:
+            connection.set_schema_to_public()
+
+        return response
+
+    # --------------------------------------------------
+    # SHARED SYNC HELPERS
+    # Called directly in sync path, wrapped with
+    # sync_to_async in async path.
+    # --------------------------------------------------
 
     def resolve_tenant(self, request):
         DomainModel = get_tenant_domain_model()
@@ -188,7 +220,6 @@ class CustomDomainTenantMiddleware:
                         .only("tenant__id")
                         .get(domain=hostname)
                     )
-
                     tenant_id = domain_obj.tenant_id
                     cache.set(cache_key, tenant_id, timeout=self.CACHE_TIMEOUT)
 
@@ -198,6 +229,13 @@ class CustomDomainTenantMiddleware:
                 continue
 
         raise Client.DoesNotExist
+
+    def set_public_tenant(self, request):
+        connection.set_schema_to_public()
+        try:
+            request.tenant = Client.objects.get(schema_name=get_public_schema_name())
+        except Client.DoesNotExist:
+            request.tenant = None
 
     def tenant_host_candidates(self, request):
         values = [
@@ -217,34 +255,15 @@ class CustomDomainTenantMiddleware:
     def clean_hostname(self, value):
         if not value:
             return None
-
         value = value.strip()
         parsed = urlparse(value if "://" in value else f"//{value}")
         hostname = parsed.hostname or value.split("/")[0].split(":")[0]
         return hostname.replace("www.", "").strip().lower() if hostname else None
 
-    def set_tenant_schema(self, tenant):
-        connection.set_tenant(tenant)
-        self.set_database_search_path(tenant.schema_name)
-
-    def set_database_search_path(self, schema_name):
-        quoted_schema = connection.ops.quote_name(schema_name)
-
-        with connection.cursor() as cursor:
-            cursor.execute(f"SET search_path = {quoted_schema}, public")
-
     def requires_tenant(self, path):
         if not path.startswith(self.TENANT_REQUIRED_PATHS):
             return False
         return not path.startswith(self.PUBLIC_API_PATHS)
-
-    def set_public_tenant(self, request):
-        connection.set_schema_to_public()
-
-        try:
-            request.tenant = Client.objects.get(schema_name=get_public_schema_name())
-        except Client.DoesNotExist:
-            request.tenant = None
 
 
 # =====================================================
@@ -252,14 +271,37 @@ class CustomDomainTenantMiddleware:
 # =====================================================
 
 
-class SubscriptionMiddleware(MiddlewareMixin):
-    def process_view(
-        self,
-        request,
-        view_func,
-        view_args,
-        view_kwargs,
-    ):
+class SubscriptionMiddleware:
+    """
+    Async-safe subscription gate.
+    Replaces the old MiddlewareMixin version which blocked under ASGI.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+        if asyncio.iscoroutinefunction(self.get_response):
+            self._is_coroutine = asyncio.coroutines._is_coroutine
+
+    def __call__(self, request):
+        if asyncio.iscoroutinefunction(self.get_response):
+            return self.__acall__(request)
+        return self._sync_call(request)
+
+    async def __acall__(self, request):
+        # _check_subscription only touches cache + tenant attrs — no extra DB call.
+        blocked = await sync_to_async(self._check_subscription)(request)
+        if blocked:
+            return blocked
+        return await self.get_response(request)
+
+    def _sync_call(self, request):
+        blocked = self._check_subscription(request)
+        if blocked:
+            return blocked
+        return self.get_response(request)
+
+    def _check_subscription(self, request):
+        """Returns a JsonResponse to block, or None to allow."""
         path = request.path.lower()
 
         if any(p in path for p in EXEMPT_PATHS):
@@ -273,30 +315,22 @@ class SubscriptionMiddleware(MiddlewareMixin):
         if tenant.schema_name == get_public_schema_name():
             return None
 
-        if getattr(
-            view_func,
-            "allow_inactive_subscription",
-            False,
-        ):
-            return None
-
-        view_class = getattr(view_func, "cls", None)
-
-        if view_class and getattr(
-            view_class,
-            "allow_inactive_subscription",
-            False,
-        ):
-            return None
+        # Support both function-based and class-based views
+        view_func = getattr(request, "_view_func", None)
+        if view_func:
+            if getattr(view_func, "allow_inactive_subscription", False):
+                return None
+            view_class = getattr(view_func, "cls", None)
+            if view_class and getattr(view_class, "allow_inactive_subscription", False):
+                return None
 
         is_active = self.is_subscription_active(tenant)
-
         request.tenant_is_active = is_active
 
         if not is_active and request.method not in SAFE_METHODS:
             return JsonResponse(
                 {
-                    "detail": ("Subscription expired. Read-only mode."),
+                    "detail": "Subscription expired. Read-only mode.",
                     "plan": (
                         tenant.pricing_plan.name if tenant.pricing_plan else "No plan"
                     ),
@@ -309,7 +343,6 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
     def is_subscription_active(self, tenant):
         cache_key = f"tenant_sub:{tenant.schema_name}"
-
         cached = cache.get(cache_key)
 
         if cached is not None:
@@ -317,19 +350,12 @@ class SubscriptionMiddleware(MiddlewareMixin):
 
         if not tenant.pricing_plan_id:
             active = False
-
         elif tenant.paid_until is None:
             active = True
-
         else:
             active = tenant.paid_until >= date.today()
 
-        cache.set(
-            cache_key,
-            active,
-            timeout=300,
-        )
-
+        cache.set(cache_key, active, timeout=300)
         return active
 
 
@@ -341,13 +367,20 @@ class SubscriptionMiddleware(MiddlewareMixin):
 class CSRFExemptForAllauthHeadless:
     def __init__(self, get_response):
         self.get_response = get_response
+        if asyncio.iscoroutinefunction(self.get_response):
+            self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
-        if request.path.startswith("/_allauth/browser/v1/"):
-            setattr(
-                request,
-                "_dont_enforce_csrf_checks",
-                True,
-            )
+        if asyncio.iscoroutinefunction(self.get_response):
+            return self.__acall__(request)
+        return self._sync_call(request)
 
+    async def __acall__(self, request):
+        if request.path.startswith("/_allauth/browser/v1/"):
+            setattr(request, "_dont_enforce_csrf_checks", True)
+        return await self.get_response(request)
+
+    def _sync_call(self, request):
+        if request.path.startswith("/_allauth/browser/v1/"):
+            setattr(request, "_dont_enforce_csrf_checks", True)
         return self.get_response(request)
