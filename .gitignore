@@ -3,3 +3,5 @@
 media/
 docs/
 PRODUCTION_READINESS.md
+__pycache__/
+
