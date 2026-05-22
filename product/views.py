@@ -337,7 +337,7 @@ class ProductFilterSet(django_filters.FilterSet):
     max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
     is_popular = django_filters.BooleanFilter(field_name="is_popular")
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
-    offer = django_filters.NumberFilter(method="filter_by_offer")
+    offer = django_filters.CharFilter(method="filter_by_offer")
 
     class Meta:
         model = Product
@@ -355,7 +355,7 @@ class ProductFilterSet(django_filters.FilterSet):
         if not value:
             return queryset
         try:
-            offer = Offer.objects.get(id=value)
+            offer = Offer.objects.get(slug=value)
         except Offer.DoesNotExist:
             return queryset.none()
 
@@ -392,6 +392,7 @@ class ProductVariantFilterSet(django_filters.FilterSet):
     )
     is_popular = django_filters.BooleanFilter(field_name="product__is_popular")
     is_featured = django_filters.BooleanFilter(field_name="product__is_featured")
+    offer = django_filters.CharFilter(method="filter_by_offer")
 
     class Meta:
         model = ProductVariant
@@ -403,7 +404,38 @@ class ProductVariantFilterSet(django_filters.FilterSet):
             "status",
             "is_popular",
             "is_featured",
+            "offer",
         ]
+
+    def filter_by_offer(self, queryset, name, value):
+        if not value:
+            return queryset
+        try:
+            offer = Offer.objects.get(slug=value)
+        except Offer.DoesNotExist:
+            return queryset.none()
+
+        from django.db.models import Q
+
+        q_objects = Q()
+        has_conditions = False
+
+        if offer.products.exists():
+            q_objects |= Q(product_id__in=offer.products.values_list("id", flat=True))
+            has_conditions = True
+
+        if offer.categories.exists():
+            q_objects |= Q(product__category__in=offer.categories.all())
+            has_conditions = True
+
+        if offer.sub_categories.exists():
+            q_objects |= Q(product__sub_category__in=offer.sub_categories.all())
+            has_conditions = True
+
+        if not has_conditions:
+            return queryset.none()
+
+        return queryset.filter(q_objects).distinct()
 
 
 # ─── Product ──────────────────────────────────────────────────────────────────

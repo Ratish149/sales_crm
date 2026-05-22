@@ -86,6 +86,7 @@ class OfferSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "slug",
             "description",
             "offer_type",
             "discount_value",
@@ -116,6 +117,7 @@ class OfferWriteSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "slug",
             "description",
             "offer_type",
             "discount_value",
