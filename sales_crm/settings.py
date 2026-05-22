@@ -296,13 +296,7 @@ STATIC_URL = "/static/"
 
 # 1. This tells Django to dump everything (including admin/Jazzmin styles) here
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
-
-# 2. DO NOT include os.path.join(BASE_DIR, "static") inside STATICFILES_DIRS.
-# If you have custom assets for individual apps, put them inside their own app folders
-# (e.g., accounts/static/, product/static/) and Django will find them automatically.
-STATICFILES_DIRS = [
-    # Leave this empty or only point to separate folders outside of the root static/ directory
-]
+STATICFILES_DIRS = []
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

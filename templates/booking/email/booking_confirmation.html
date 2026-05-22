@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:v="urn:schemas-microsoft-com:vml"
+      xmlns:o="urn:schemas-microsoft-com:office:office">
+
+<head>
+  <title>Booking Confirmation – {{ tenant_name }}</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <style type="text/css">
+    #outlook a {
+      padding: 0;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      -webkit-text-size-adjust: 100%;
+      -ms-text-size-adjust: 100%;
+      background-color: #f4f6f8;
+    }
+    table,
+    td {
+      border-collapse: collapse;
+      mso-table-lspace: 0pt;
+      mso-table-rspace: 0pt;
+    }
+    img {
+      border: 0;
+      height: auto;
+      outline: none;
+      text-decoration: none;
+      -ms-interpolation-mode: bicubic;
+    }
+    p {
+      display: block;
+      margin: 13px 0;
+    }
+
+    @media only screen and (min-width:480px) {
+      .mj-column-per-100 {
+        width: 100% !important;
+        max-width: 100%;
+      }
+    }
+
+    @media only screen and (max-width:480px) {
+      table.mj-full-width-mobile {
+        width: 100% !important;
+      }
+      td.mj-full-width-mobile {
+        width: auto !important;
+      }
+    }
+  </style>
+</head>
+
+<body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f6f8; padding: 20px 0;">
+  <div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    Booking Confirmation – {{ tenant_name }}
+  </div>
+
+  <div style="background-color:#ffffff; max-width:600px; margin:auto; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #eef2f5;">
+
+    <!-- HEADER -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+      <tr>
+        <td style="padding: 30px 25px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td>
+                <img src="https://nepdora.baliyoventures.com/static/logo/fulllogo.png"
+                     width="160"
+                     style="display:block; filter: brightness(0) invert(1);" />
+              </td>
+              <td align="right" style="font-family: Arial, sans-serif; font-size: 14px; color: #ffffff; opacity: 0.9;">
+                Booking ID: #{{ booking_id }}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 10px 25px 30px 25px;">
+          <h1 style="font-family: Arial, sans-serif; font-size: 26px; margin: 0; color: #ffffff; font-weight: 600;">
+            Booking Confirmed!
+          </h1>
+          <p style="font-size: 15px; margin: 5px 0 0 0; color: #e1e7f0;">
+            Hi {{ customer_name }}, your booking at {{ tenant_name }} has been successfully received.
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <!-- BOOKING DETAILS -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 30px 25px; border-bottom: 1px solid #f0f4f8;">
+      <tr>
+        <td colspan="2" style="padding-bottom: 15px;">
+          <h2 style="font-family: Arial, sans-serif; font-size: 18px; color: #1a2530; margin: 0;">Booking Details</h2>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;" width="40%">Booking Name</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ booking_name }}</td>
+      </tr>
+      {% if booking_type %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Booking Type</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ booking_type }}</td>
+      </tr>
+      {% endif %}
+      {% if start_date %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Check-in / Start Date</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ start_date|date:"F d, Y" }}</td>
+      </tr>
+      {% endif %}
+      {% if end_date %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Check-out / End Date</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ end_date|date:"F d, Y" }}</td>
+      </tr>
+      {% endif %}
+      {% if duration_days %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Duration</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ duration_days }} Day(s)</td>
+      </tr>
+      {% endif %}
+      {% if guests %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Guests</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">{{ guests }} Guest(s)</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Status</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">
+          <span style="background-color: #e3f2fd; color: #0d47a1; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+            {{ status }}
+          </span>
+        </td>
+      </tr>
+    </table>
+
+    <!-- PAYMENT SUMMARY -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 30px 25px; background-color: #fcfdfe;">
+      <tr>
+        <td colspan="2" style="padding-bottom: 15px;">
+          <h2 style="font-family: Arial, sans-serif; font-size: 18px; color: #1a2530; margin: 0;">Payment Summary</h2>
+        </td>
+      </tr>
+      {% if total_amount is not None %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Total Amount</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">Rs. {{ total_amount }}</td>
+      </tr>
+      {% endif %}
+      {% if amount_paid is not None %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Amount Paid</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #2e7d32; font-weight: 500;" align="right">Rs. {{ amount_paid }}</td>
+      </tr>
+      {% endif %}
+      {% if balance_due is not None %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Balance Due</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #c62828; font-weight: 600;" align="right">Rs. {{ balance_due }}</td>
+      </tr>
+      {% endif %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Payment Status</td>
+        <td style="padding: 8px 0; font-size: 15px; color: #1a2530; font-weight: 500;" align="right">
+          <span style="background-color: #e8f5e9; color: #2e7d32; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold; text-transform: uppercase;">
+            {{ payment_status }}
+          </span>
+        </td>
+      </tr>
+    </table>
+
+    {% if notes %}
+    <!-- NOTES -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 20px 25px; border-top: 1px solid #f0f4f8;">
+      <tr>
+        <td>
+          <strong style="font-size: 14px; color: #1a2530;">Notes:</strong>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #606f7b; line-height: 1.5; font-style: italic;">
+            "{{ notes|linebreaksbr }}"
+          </p>
+        </td>
+      </tr>
+    </table>
+    {% endif %}
+
+    <!-- FOOTER / SIGNATURE -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 30px 25px; border-top: 1px solid #f0f4f8; background-color: #fafbfc; text-align: center;">
+      <tr>
+        <td align="center" style="font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #333333; padding-bottom: 10px;">
+          Team {{ tenant_name }}
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="padding-bottom: 20px;">
+          <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="display:inline-table;">
+            <tr>
+              <td style="padding:4px;">
+                <a href="https://www.facebook.com/NepdoraWebBuilder" target="_blank" style="text-decoration: none;">
+                  <img alt="facebook" height="24" src="https://nepdora.baliyoventures.com/static/social/facebook-logo.png" style="display:block;" width="24" />
+                </a>
+              </td>
+              <td style="padding:4px;">
+                <a href="https://www.instagram.com/nep_dora/" target="_blank" style="text-decoration: none;">
+                  <img alt="instagram" height="24" src="https://nepdora.baliyoventures.com/static/social/instagram-logo.png" style="display:block;" width="24" />
+                </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td align="center" style="font-size: 12px; color: #999999;">
+          © 2026 {{ tenant_name }} – All rights reserved.
+        </td>
+      </tr>
+    </table>
+
+  </div>
+</body>
+</html>

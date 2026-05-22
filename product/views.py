@@ -447,14 +447,15 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def list(self, request, *args, **kwargs):
         site_config = SiteConfig.get_solo()
+        from django.db.models import Max
 
         if not site_config.use_product_variant:
             queryset = self.filter_queryset(self.get_queryset())
 
-            from django.db.models import Max
-
-            max_price = queryset.aggregate(max_price=Max("price"))["max_price"] or 0.0
-            max_price = float(max_price)
+            # Global max_price across ALL products, unaffected by filters
+            max_price = float(
+                Product.objects.aggregate(max_price=Max("price"))["max_price"] or 0.0
+            )
 
             page = self.paginate_queryset(queryset)
             if page is not None:
@@ -466,6 +467,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
 
+        # ── variant mode ────────────────────────────────────────────────────────
         self.filter_backends = []
 
         params = request.GET.copy()
@@ -537,17 +539,24 @@ class ProductListCreateView(generics.ListCreateAPIView):
             reverse=True,
         )
 
-        # Calculate max_price of all products in this filtered combined list
-        max_price = 0.0
-        for item in combined:
-            if isinstance(item, ProductVariant):
-                price = (
-                    item.price if item.price is not None else item.product.final_price
-                )
-            else:
-                price = item.final_price
-            if price is not None:
-                max_price = max(max_price, float(price))
+        # Global max_price across ALL variants and ALL standalone products,
+        # unaffected by filters or pagination
+        variant_max = float(
+            ProductVariant.objects.aggregate(m=Max("price"))["m"] or 0.0
+        )
+        standalone_product_max = float(
+            Product.objects.filter(variants__isnull=True).aggregate(m=Max("price"))["m"]
+            or 0.0
+        )
+        # Also account for variants with no price, which fall back to product.price
+        fallback_max = float(
+            Product.objects.filter(
+                variants__isnull=False,
+                variants__price__isnull=True,
+            ).aggregate(m=Max("price"))["m"]
+            or 0.0
+        )
+        max_price = max(variant_max, standalone_product_max, fallback_max)
 
         page = self.paginate_queryset(combined)
         if page is not None:
