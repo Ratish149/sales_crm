@@ -26,6 +26,7 @@ class SiteConfig(SingletonModel):
     tiktok_url = models.URLField(null=True, blank=True)
     use_product_variant = models.BooleanField(default=False)
     map_link = models.TextField(blank=True, null=True)
+    tour = models.BooleanField(default=False)
 
 
 class Theme(models.Model):

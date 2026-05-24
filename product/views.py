@@ -3,7 +3,19 @@ import re
 from itertools import chain
 
 import pandas as pd
-from django.db.models import Avg, Prefetch
+from django.db.models import (
+    Avg,
+    Case,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Max,
+    OuterRef,
+    Prefetch,
+    Subquery,
+    Sum,
+    When,
+)
 from django.http import FileResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
@@ -80,6 +92,42 @@ class ProductPagination(CustomPagination):
         )
 
 
+# ─── final_price annotation helpers ──────────────────────────────────────────
+#
+# Mirrors the Product.final_price model property at the DB level so we can
+# ORDER BY it and compute a correct max_price for the price-range slider.
+#
+#   use_dynamic_pricing=True  → SUM(metric.price_per_unit × composition.quantity)
+#   use_dynamic_pricing=False → product.price
+
+_dynamic_price_sq = (
+    ProductComposition.objects
+    .filter(product=OuterRef("pk"))
+    .values("product")
+    .annotate(
+        total=Sum(
+            ExpressionWrapper(
+                F("metric__price_per_unit") * F("quantity"),
+                output_field=DecimalField(max_digits=20, decimal_places=2),
+            )
+        )
+    )
+    .values("total")[:1]
+)
+
+FINAL_PRICE_ANNOTATION = Case(
+    When(
+        use_dynamic_pricing=True,
+        then=Subquery(
+            _dynamic_price_sq,
+            output_field=DecimalField(max_digits=20, decimal_places=2),
+        ),
+    ),
+    default=F("price"),
+    output_field=DecimalField(max_digits=20, decimal_places=2),
+)
+
+
 # ─── Shared optimized queryset ────────────────────────────────────────────────
 
 PRODUCT_LIST_QS = (
@@ -123,7 +171,10 @@ PRODUCT_LIST_QS = (
             ).select_related("metric"),
         ),
     )
-    .annotate(average_rating=Avg("productreview__rating"))
+    .annotate(
+        average_rating=Avg("productreview__rating"),
+        computed_final_price=FINAL_PRICE_ANNOTATION,
+    )
     .only(
         "id",
         "name",
@@ -477,16 +528,32 @@ class ProductListCreateView(generics.ListCreateAPIView):
             return PRODUCT_LIST_QS
         return Product.objects.all()
 
+    def filter_queryset(self, queryset):
+        """
+        Intercept ordering=price / ordering=-price and redirect to the
+        computed_final_price annotation so dynamic-priced products sort
+        correctly.  All other filters/ordering pass through unchanged.
+        """
+        queryset = super().filter_queryset(queryset)
+        ordering = self.request.query_params.get("ordering", "")
+        if ordering.lstrip("-") == "price":
+            direction = "-" if ordering.startswith("-") else ""
+            queryset = queryset.order_by(f"{direction}computed_final_price")
+        return queryset
+
     def list(self, request, *args, **kwargs):
         site_config = SiteConfig.get_solo()
-        from django.db.models import Max
 
         if not site_config.use_product_variant:
             queryset = self.filter_queryset(self.get_queryset())
 
-            # Global max_price across ALL products, unaffected by filters
+            # Global max_price across ALL products using real final prices,
+            # unaffected by filters or pagination
             max_price = float(
-                Product.objects.aggregate(max_price=Max("price"))["max_price"] or 0.0
+                Product.objects.annotate(
+                    computed_final_price=FINAL_PRICE_ANNOTATION
+                ).aggregate(m=Max("computed_final_price"))["m"]
+                or 0.0
             )
 
             page = self.paginate_queryset(queryset)
@@ -537,7 +604,10 @@ class ProductListCreateView(generics.ListCreateAPIView):
                     queryset=ProductImage.objects.only("id", "product_id", "image"),
                 ),
             )
-            .annotate(average_rating=Avg("productreview__rating"))
+            .annotate(
+                average_rating=Avg("productreview__rating"),
+                computed_final_price=FINAL_PRICE_ANNOTATION,
+            )
             .only(
                 "id",
                 "name",
@@ -565,10 +635,38 @@ class ProductListCreateView(generics.ListCreateAPIView):
         product_qs = search_filter.filter_queryset(request, product_qs, self)
         product_qs = ordering_filter.filter_queryset(request, product_qs, self)
 
+        # ── ordering-aware Python sort for the combined list ──────────────────
+        ordering = request.query_params.get("ordering", "-created_at")
+        sort_field = ordering.lstrip("-")
+        sort_reverse = ordering.startswith("-")
+
+        def _sort_key(obj):
+            if sort_field == "price":
+                if isinstance(obj, ProductVariant):
+                    # Variants use their own price (no dynamic pricing on variants)
+                    return float(obj.price or 0)
+                # Products: use the annotated computed_final_price if available,
+                # otherwise fall back to the model property
+                if (
+                    hasattr(obj, "computed_final_price")
+                    and obj.computed_final_price is not None
+                ):
+                    return float(obj.computed_final_price)
+                return float(obj.final_price or 0)
+            if sort_field == "average_rating":
+                return float(getattr(obj, "average_rating", None) or 0)
+            if sort_field == "is_popular":
+                val = getattr(obj, "is_popular", False)
+                if isinstance(obj, ProductVariant):
+                    val = getattr(obj.product, "is_popular", False)
+                return 0 if val else 1  # True sorts first when reverse=True
+            # Default / created_at
+            return getattr(obj, "created_at", None) or 0
+
         combined = sorted(
             chain(variant_qs, product_qs),
-            key=lambda x: x.created_at,
-            reverse=True,
+            key=_sort_key,
+            reverse=sort_reverse,
         )
 
         # Global max_price across ALL variants and ALL standalone products,
@@ -577,7 +675,10 @@ class ProductListCreateView(generics.ListCreateAPIView):
             ProductVariant.objects.aggregate(m=Max("price"))["m"] or 0.0
         )
         standalone_product_max = float(
-            Product.objects.filter(variants__isnull=True).aggregate(m=Max("price"))["m"]
+            Product.objects
+            .filter(variants__isnull=True)
+            .annotate(computed_final_price=FINAL_PRICE_ANNOTATION)
+            .aggregate(m=Max("computed_final_price"))["m"]
             or 0.0
         )
         # Also account for variants with no price, which fall back to product.price
@@ -634,6 +735,14 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
             return PRODUCT_LIST_QS
         return Product.objects.all()
 
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        ordering = self.request.query_params.get("ordering", "")
+        if ordering.lstrip("-") == "price":
+            direction = "-" if ordering.startswith("-") else ""
+            queryset = queryset.order_by(f"{direction}computed_final_price")
+        return queryset
+
 
 class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PRODUCT_LIST_QS
@@ -654,6 +763,30 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == "GET":
             return PRODUCT_LIST_QS
         return Product.objects.all()
+
+
+class RelatedProductList(generics.ListAPIView):
+    queryset = PRODUCT_LIST_QS
+    serializer_class = ProductSmallSerializer
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductFilterSet
+    ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
+    search_fields = ["name"]
+
+    def get_queryset(self):
+        try:
+            product_slug = self.kwargs["slug"]
+            product = Product.objects.get(slug=product_slug)
+        except Product.DoesNotExist:
+            return Product.objects.none()
+
+        return Product.objects.filter(
+            category=product.category,
+        ).exclude(id=product.id)[:4]
 
 
 class ProductExcelExportView(generics.ListAPIView):
@@ -712,7 +845,6 @@ class ProductExcelExportView(generics.ListAPIView):
 
         current_row = 2
         for product in queryset:
-            # Prepare base product data
             base_data = [
                 product.name,
                 product.description,
@@ -738,12 +870,10 @@ class ProductExcelExportView(generics.ListAPIView):
             variants = list(product.variants.all())
             options = list(product.productoption_set.all())
 
-            # Fill options headers for the first row
             option_headers = ["", "", "", "", "", ""]
             for i, opt in enumerate(options[:3]):
                 option_headers[i * 2] = opt.name
 
-            # Initial full row data
             row_data = (
                 base_data
                 + ["", ""]
@@ -751,7 +881,6 @@ class ProductExcelExportView(generics.ListAPIView):
                 + ["", "", "", product.meta_title, product.meta_description]
             )
 
-            # Add first composition and first variant to the first row
             if compositions:
                 comp = compositions[0]
                 row_data[16] = (
@@ -770,12 +899,10 @@ class ProductExcelExportView(generics.ListAPIView):
                 row_data[25] = var.stock
                 row_data[26] = var.image.url if var.image else ""
 
-            # Write first row
             for col, value in enumerate(row_data, 1):
                 ws.cell(row=current_row, column=col, value=value)
             current_row += 1
 
-            # Additional rows for remaining compositions and variants
             max_remaining = max(len(compositions), len(variants))
             for i in range(1, max_remaining):
                 extra_row = [""] * len(headers)
@@ -801,7 +928,6 @@ class ProductExcelExportView(generics.ListAPIView):
                     ws.cell(row=current_row, column=col, value=value)
                 current_row += 1
 
-        # Adjust column widths
         column_widths = {
             "A": 15,
             "B": 20,
@@ -1355,7 +1481,6 @@ class BulkProductUploadView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # batch-load all metrics once
         all_metrics = list(
             PricingMetric.objects.only("id", "name", "price_per_unit", "unit")
         )
@@ -1364,7 +1489,6 @@ class BulkProductUploadView(APIView):
             for m in all_metrics
         }
 
-        # batch-load all categories and subcategories once
         all_categories = {
             c.name.lower(): c for c in Category.objects.only("id", "name")
         }
@@ -1398,7 +1522,6 @@ class BulkProductUploadView(APIView):
                     category_name = safe_value(row.get("category"))
                     sub_category_name = safe_value(row.get("subcategory"))
 
-                    # use pre-loaded dicts — no per-row DB query
                     category = (
                         all_categories.get(category_name.lower())
                         if category_name
@@ -1639,8 +1762,6 @@ OFFER_QS = Offer.objects.prefetch_related(
 
 class OfferListCreateView(generics.ListCreateAPIView):
     queryset = OFFER_QS
-    # permission_classes = [IsAuthenticated]
-    # authentication_classes = [TenantJWTAuthentication]
     pagination_class = CustomPagination
 
     def get_serializer_class(self):
@@ -1651,8 +1772,6 @@ class OfferListCreateView(generics.ListCreateAPIView):
 
 class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = OFFER_QS
-    # permission_classes = [IsAuthenticated]
-    # authentication_classes = [TenantJWTAuthentication]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:

@@ -21,6 +21,7 @@ from .views import (
     ProductReviewView,
     ProductVariantListCreateView,
     ProductVariantRetrieveUpdateDestroyView,
+    RelatedProductList,
     SubCategoryListCreateView,
     SubCategoryRetrieveUpdateDestroyView,
     WishlistListCreateView,
@@ -43,6 +44,11 @@ urlpatterns = [
         "product/<slug:slug>/",
         ProductRetrieveUpdateDestroyView.as_view(),
         name="product-retrieve-update-destroy",
+    ),
+    path(
+        "product/<slug:slug>/related/",
+        RelatedProductList.as_view(),
+        name="related-product-list",
     ),
     path(
         "sub-category/",
