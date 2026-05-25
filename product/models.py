@@ -197,18 +197,22 @@ class Product(models.Model):
         from django.utils import timezone
 
         now = timezone.now()
+
+        q = Q(products=self)  # always check direct product assignment
+
+        if self.category_id is not None:
+            q |= Q(categories=self.category)
+
+        if self.sub_category_id is not None:
+            q |= Q(sub_categories=self.sub_category)
+
         offers = (
             Offer.objects
             .filter(is_active=True, start_date__lte=now, end_date__gte=now)
-            .filter(
-                Q(products=self)
-                | Q(categories=self.category)
-                | Q(sub_categories=self.sub_category)
-            )
+            .filter(q)
             .distinct()
         )
 
-        # Pick the best offer (highest discount value)
         return offers.order_by("-discount_value").first()
 
     @property

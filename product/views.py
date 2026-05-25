@@ -389,6 +389,7 @@ class ProductFilterSet(django_filters.FilterSet):
     is_popular = django_filters.BooleanFilter(field_name="is_popular")
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
     offer = django_filters.CharFilter(method="filter_by_offer")
+    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")  # ← add
 
     class Meta:
         model = Product
@@ -400,7 +401,46 @@ class ProductFilterSet(django_filters.FilterSet):
             "is_popular",
             "is_featured",
             "offer",
+            "flash_sales",  # ← add
         ]
+
+    def filter_flash_sales(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        from django.db.models import Q
+        from django.utils import timezone
+
+        now = timezone.now()
+        active_offers = Offer.objects.filter(
+            is_active=True, start_date__lte=now, end_date__gte=now
+        )
+
+        if not active_offers.exists():
+            return queryset  # no active offers → return all products
+
+        category_ids = list(
+            filter(None, active_offers.values_list("categories", flat=True))
+        )
+        sub_category_ids = list(
+            filter(None, active_offers.values_list("sub_categories", flat=True))
+        )
+        product_ids = list(
+            filter(None, active_offers.values_list("products", flat=True))
+        )
+
+        q = Q()
+        if category_ids:
+            q |= Q(category_id__in=category_ids)
+        if sub_category_ids:
+            q |= Q(sub_category_id__in=sub_category_ids)
+        if product_ids:
+            q |= Q(id__in=product_ids)
+
+        if not q:
+            return queryset  # offers exist but have no rules → return all
+
+        return queryset.filter(q).distinct()
 
     def filter_by_offer(self, queryset, name, value):
         if not value:
@@ -444,6 +484,7 @@ class ProductVariantFilterSet(django_filters.FilterSet):
     is_popular = django_filters.BooleanFilter(field_name="product__is_popular")
     is_featured = django_filters.BooleanFilter(field_name="product__is_featured")
     offer = django_filters.CharFilter(method="filter_by_offer")
+    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")  # ← add
 
     class Meta:
         model = ProductVariant
@@ -456,7 +497,46 @@ class ProductVariantFilterSet(django_filters.FilterSet):
             "is_popular",
             "is_featured",
             "offer",
+            "flash_sales",  # ← add
         ]
+
+    def filter_flash_sales(self, queryset, name, value):
+        if not value:
+            return queryset
+
+        from django.db.models import Q
+        from django.utils import timezone
+
+        now = timezone.now()
+        active_offers = Offer.objects.filter(
+            is_active=True, start_date__lte=now, end_date__gte=now
+        )
+
+        if not active_offers.exists():
+            return queryset  # no active offers → return all variants
+
+        category_ids = list(
+            filter(None, active_offers.values_list("categories", flat=True))
+        )
+        sub_category_ids = list(
+            filter(None, active_offers.values_list("sub_categories", flat=True))
+        )
+        product_ids = list(
+            filter(None, active_offers.values_list("products", flat=True))
+        )
+
+        q = Q()
+        if category_ids:
+            q |= Q(product__category_id__in=category_ids)
+        if sub_category_ids:
+            q |= Q(product__sub_category_id__in=sub_category_ids)
+        if product_ids:
+            q |= Q(product_id__in=product_ids)
+
+        if not q:
+            return queryset
+
+        return queryset.filter(q).distinct()
 
     def filter_by_offer(self, queryset, name, value):
         if not value:
@@ -1777,3 +1857,255 @@ class OfferRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in permissions.SAFE_METHODS:
             return OfferSerializer
         return OfferWriteSerializer
+
+
+class OfferProductListView(generics.ListAPIView):
+    queryset = PRODUCT_LIST_QS
+    serializer_class = ProductSerializer
+    pagination_class = ProductPagination
+    filter_backends = [
+        django_filters.DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter,
+    ]
+    filterset_class = ProductFilterSet
+    ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
+    search_fields = ["name"]
+
+    def get_serializer_class(self):
+        site_config = SiteConfig.get_solo()
+        if site_config.use_product_variant:
+            return UnifiedProductListingSerializer
+        return ProductSmallSerializer
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        ordering = self.request.query_params.get("ordering", "")
+        if ordering.lstrip("-") == "price":
+            direction = "-" if ordering.startswith("-") else ""
+            queryset = queryset.order_by(f"{direction}computed_final_price")
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        site_config = SiteConfig.get_solo()
+
+        from django.db.models import Q
+        from django.utils import timezone
+
+        now = timezone.now()
+        active_offers = Offer.objects.filter(
+            is_active=True, start_date__lte=now, end_date__gte=now
+        )
+
+        has_offer_products = False
+        q_prod = Q()
+        q_var = Q()
+        if active_offers.exists():
+            category_ids = list(
+                filter(None, active_offers.values_list("categories", flat=True))
+            )
+            sub_category_ids = list(
+                filter(None, active_offers.values_list("sub_categories", flat=True))
+            )
+            product_ids = list(
+                filter(None, active_offers.values_list("products", flat=True))
+            )
+
+            if category_ids:
+                q_prod |= Q(category_id__in=category_ids)
+                q_var |= Q(product__category_id__in=category_ids)
+            if sub_category_ids:
+                q_prod |= Q(sub_category_id__in=sub_category_ids)
+                q_var |= Q(product__sub_category_id__in=sub_category_ids)
+            if product_ids:
+                q_prod |= Q(id__in=product_ids)
+                q_var |= Q(product_id__in=product_ids)
+
+            if (category_ids or sub_category_ids or product_ids) and Product.objects.filter(q_prod).exists():
+                has_offer_products = True
+
+        if not site_config.use_product_variant:
+            queryset = self.get_queryset()
+            if has_offer_products:
+                queryset = queryset.filter(q_prod).distinct()
+
+            queryset = self.filter_queryset(queryset)
+
+            if has_offer_products:
+                max_price = float(
+                    Product.objects.filter(q_prod).annotate(
+                        computed_final_price=FINAL_PRICE_ANNOTATION
+                    ).aggregate(m=Max("computed_final_price"))["m"]
+                    or 0.0
+                )
+            else:
+                max_price = float(
+                    Product.objects.annotate(
+                        computed_final_price=FINAL_PRICE_ANNOTATION
+                    ).aggregate(m=Max("computed_final_price"))["m"]
+                    or 0.0
+                )
+
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                if self.paginator is not None:
+                    self.paginator.max_price = max_price
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+
+        # ── variant mode ────────────────────────────────────────────────────────
+        self.filter_backends = []
+
+        params = request.GET.copy()
+
+        from distutils.util import strtobool
+
+        if "is_popular" in params:
+            try:
+                params["is_popular"] = strtobool(str(params["is_popular"]))
+            except ValueError:
+                params.pop("is_popular")
+
+        variant_qs = PRODUCT_VARIANT_QS
+        if has_offer_products:
+            variant_qs = variant_qs.filter(q_var).distinct()
+
+        variant_filter = ProductVariantFilterSet(params, queryset=variant_qs)
+        variant_qs = variant_filter.qs
+
+        search_filter = filters.SearchFilter()
+        ordering_filter = filters.OrderingFilter()
+
+        orig_search_fields = self.search_fields
+        self.search_fields = ["product__name", "option_values__value"]
+
+        variant_qs = search_filter.filter_queryset(request, variant_qs, self)
+        variant_qs = ordering_filter.filter_queryset(request, variant_qs, self)
+
+        self.search_fields = orig_search_fields
+
+        product_qs = (
+            Product.objects
+            .filter(variants__isnull=True)
+            .select_related("category", "sub_category")
+            .prefetch_related(
+                Prefetch(
+                    "images",
+                    queryset=ProductImage.objects.only("id", "product_id", "image"),
+                ),
+            )
+            .annotate(
+                average_rating=Avg("productreview__rating"),
+                computed_final_price=FINAL_PRICE_ANNOTATION,
+            )
+            .only(
+                "id",
+                "name",
+                "slug",
+                "price",
+                "market_price",
+                "stock",
+                "thumbnail_image",
+                "thumbnail_alt_description",
+                "category_id",
+                "sub_category_id",
+                "is_popular",
+                "is_featured",
+                "fast_shipping",
+                "warranty",
+                "use_dynamic_pricing",
+                "base_making_charge",
+                "created_at",
+                "updated_at",
+            )
+        )
+        if has_offer_products:
+            product_qs = product_qs.filter(q_prod).distinct()
+
+        product_filter = ProductFilterSet(params, queryset=product_qs)
+        product_qs = product_filter.qs
+        product_qs = search_filter.filter_queryset(request, product_qs, self)
+        product_qs = ordering_filter.filter_queryset(request, product_qs, self)
+
+        # ── ordering-aware Python sort for the combined list ──────────────────
+        ordering = request.query_params.get("ordering", "-created_at")
+        sort_field = ordering.lstrip("-")
+        sort_reverse = ordering.startswith("-")
+
+        def _sort_key(obj):
+            if sort_field == "price":
+                if isinstance(obj, ProductVariant):
+                    return float(obj.price or 0)
+                if (
+                    hasattr(obj, "computed_final_price")
+                    and obj.computed_final_price is not None
+                ):
+                    return float(obj.computed_final_price)
+                return float(obj.final_price or 0)
+            if sort_field == "average_rating":
+                return float(getattr(obj, "average_rating", None) or 0)
+            if sort_field == "is_popular":
+                val = getattr(obj, "is_popular", False)
+                if isinstance(obj, ProductVariant):
+                    val = getattr(obj.product, "is_popular", False)
+                return 0 if val else 1
+            return getattr(obj, "created_at", None) or 0
+
+        combined = sorted(
+            chain(variant_qs, product_qs),
+            key=_sort_key,
+            reverse=sort_reverse,
+        )
+
+        if has_offer_products:
+            variant_max = float(
+                ProductVariant.objects.filter(q_var).aggregate(m=Max("price"))["m"] or 0.0
+            )
+            standalone_product_max = float(
+                Product.objects
+                .filter(q_prod, variants__isnull=True)
+                .annotate(computed_final_price=FINAL_PRICE_ANNOTATION)
+                .aggregate(m=Max("computed_final_price"))["m"]
+                or 0.0
+            )
+            fallback_max = float(
+                Product.objects.filter(
+                    q_prod,
+                    variants__isnull=False,
+                    variants__price__isnull=True,
+                ).aggregate(m=Max("price"))["m"]
+                or 0.0
+            )
+        else:
+            variant_max = float(
+                ProductVariant.objects.aggregate(m=Max("price"))["m"] or 0.0
+            )
+            standalone_product_max = float(
+                Product.objects
+                .filter(variants__isnull=True)
+                .annotate(computed_final_price=FINAL_PRICE_ANNOTATION)
+                .aggregate(m=Max("computed_final_price"))["m"]
+                or 0.0
+            )
+            fallback_max = float(
+                Product.objects.filter(
+                    variants__isnull=False,
+                    variants__price__isnull=True,
+                ).aggregate(m=Max("price"))["m"]
+                or 0.0
+            )
+        max_price = max(variant_max, standalone_product_max, fallback_max)
+
+        page = self.paginate_queryset(combined)
+        if page is not None:
+            if self.paginator is not None:
+                self.paginator.max_price = max_price
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(combined, many=True)
+        return Response(serializer.data)
+
