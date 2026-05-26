@@ -339,11 +339,13 @@ class DashboardStatsView(APIView):
     def get(self, request):
         now = timezone.now()
 
+        # --- Base Order Counts ---
         total_orders = Order.objects.count()
         total_orders_this_month = Order.objects.filter(
             created_at__year=now.year, created_at__month=now.month
         ).count()
 
+        # --- Base Revenue Metrics (All orders) ---
         total_revenue = (
             Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
         )
@@ -355,11 +357,36 @@ class DashboardStatsView(APIView):
             or 0
         )
 
+        # --- Cancelled Orders Querysets ---
+        cancelled_orders_qs = Order.objects.filter(status="cancelled")
+        cancelled_this_month_qs = cancelled_orders_qs.filter(
+            created_at__year=now.year, created_at__month=now.month
+        )
+
+        # --- Cancelled Counts ---
+        total_cancelled_orders = cancelled_orders_qs.count()
+        cancelled_orders_this_month = cancelled_this_month_qs.count()
+
+        # --- Cancelled Financial Amounts ---
+        total_cancelled_amount = (
+            cancelled_orders_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        )
+
+        cancelled_amount_this_month = (
+            cancelled_this_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"]
+            or 0
+        )
+
         return Response({
             "total_orders": total_orders,
             "total_orders_this_month": total_orders_this_month,
             "total_revenue": total_revenue,
             "revenue_this_month": revenue_this_month,
+            # New Cancelled Fields
+            "total_cancelled_orders": total_cancelled_orders,
+            "cancelled_orders_this_month": cancelled_orders_this_month,
+            "total_cancelled_amount": total_cancelled_amount,
+            "cancelled_amount_this_month": cancelled_amount_this_month,
         })
 
 
