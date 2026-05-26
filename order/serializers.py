@@ -167,7 +167,9 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True, write_only=True)
+    items = OrderItemSerializer(
+        many=True, required=False, write_only=True
+    )  # Set required=False for updates
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
     offer_details = OfferSerializer(source="offer", read_only=True)
@@ -231,100 +233,89 @@ class OrderSerializer(serializers.ModelSerializer):
         return Decimal("0.00")
 
     def validate(self, attrs):
+        # Determine if this is a creation request or an instance update request
+        is_update = self.instance is not None
 
-        items = attrs.get("items", [])
-        delivery_charge = attrs.get("delivery_charge") or Decimal("0.00")
-        promo_code = attrs.get("promo_code")
+        # 1. FIX: Fallback to existing total if updating status, instead of defaulting to 0.00
+        if "total_amount" in attrs:
+            frontend_total = attrs["total_amount"]
+        elif is_update:
+            frontend_total = self.instance.total_amount
+        else:
+            frontend_total = Decimal("0.00")
 
-        base_subtotal = Decimal("0.00")
-        calculated_offer_discount = Decimal("0.00")
-        offer_contributions = {}
+        # 2. Only run full item breakdown validation if items are being modified/passed
+        if "items" in attrs or not is_update:
+            items = attrs.get("items", [])
+            base_subtotal = Decimal("0.00")
+            calculated_offer_discount = Decimal("0.00")
+            offer_contributions = {}
 
-        for item in items:
-            product = item.get("product")
-            variant = item.get("variant")
-            qty = Decimal(str(item.get("quantity", 0)))
+            for item in items:
+                product = item.get("product")
+                variant = item.get("variant")
+                qty = Decimal(str(item.get("quantity", 0)))
 
-            # Base price of the product/variant
-            if variant:
-                base_price = (
-                    variant.price
-                    if variant.price is not None
-                    else (product.final_price if product else Decimal("0.00"))
+                if variant:
+                    base_price = (
+                        variant.price
+                        if variant.price is not None
+                        else (product.final_price if product else Decimal("0.00"))
+                    )
+                    discounted_price = variant.discounted_price
+                    active_offer = variant.active_offer
+                elif product:
+                    base_price = product.final_price
+                    discounted_price = product.discounted_price
+                    active_offer = product.active_offer
+                else:
+                    base_price = Decimal("0.00")
+                    discounted_price = Decimal("0.00")
+                    active_offer = None
+
+                item_subtotal = base_price * qty
+                item_discount = max(
+                    Decimal("0.00"), (base_price - discounted_price) * qty
                 )
-                discounted_price = variant.discounted_price
-                active_offer = variant.active_offer
-            elif product:
-                base_price = product.final_price
-                discounted_price = product.discounted_price
-                active_offer = product.active_offer
-            else:
-                base_price = Decimal("0.00")
-                discounted_price = Decimal("0.00")
-                active_offer = None
+                base_subtotal += item_subtotal
+                calculated_offer_discount += item_discount
 
-            item_subtotal = base_price * qty
-            item_discount = max(Decimal("0.00"), (base_price - discounted_price) * qty)
+                if active_offer and item_discount > 0:
+                    offer_contributions[active_offer] = (
+                        offer_contributions.get(active_offer, Decimal("0.00"))
+                        + item_discount
+                    )
+                    item["offer"] = active_offer
+                    item["offer_discount"] = item_discount
+                else:
+                    item["offer"] = None
+                    item["offer_discount"] = Decimal("0.00")
 
-            base_subtotal += item_subtotal
-            calculated_offer_discount += item_discount
+            selected_offer = None
+            if offer_contributions:
+                selected_offer = max(offer_contributions, key=offer_contributions.get)
 
-            if active_offer and item_discount > 0:
-                offer_contributions[active_offer] = (
-                    offer_contributions.get(active_offer, Decimal("0.00"))
-                    + item_discount
-                )
-                item["offer"] = active_offer
-                item["offer_discount"] = item_discount
-            else:
-                item["offer"] = None
-                item["offer_discount"] = Decimal("0.00")
+            attrs["offer"] = selected_offer
+            attrs["offer_discount"] = calculated_offer_discount
 
-        # Determine the primary active offer for the order
-        selected_offer = None
-        if offer_contributions:
-            selected_offer = max(offer_contributions, key=offer_contributions.get)
+        # 3. Validate promo code eligibility criteria if explicitly passed
+        if "promo_code" in attrs:
+            promo_code = attrs.get("promo_code")
+            if promo_code:
+                is_valid, msg = promo_code.is_valid()
+                if not is_valid:
+                    raise serializers.ValidationError({"promo_code": [msg]})
 
-        # Set the calculated offer and offer_discount
-        attrs["offer"] = selected_offer
-        attrs["offer_discount"] = calculated_offer_discount
-
-        # Calculate promo discount if any
-        promo_discount = Decimal("0.00")
-        if promo_code:
-            is_valid, msg = promo_code.is_valid()
-            if not is_valid:
-                raise serializers.ValidationError({"promo_code": [msg]})
-
-            # Eligible amount for promo code is the subtotal after item-level offer discounts
-            eligible_amount = max(
-                Decimal("0.00"), base_subtotal - calculated_offer_discount
-            )
-            promo_discount = eligible_amount * (
-                promo_code.discount_percentage / Decimal("100.00")
-            )
-
-        # We do not store the promo discount amount in a db field since the model
-        # doesn't have a discount_amount column. Instead, it is calculated dynamically.
-
-        expected_total = max(
-            Decimal("0.00"),
-            base_subtotal
-            - calculated_offer_discount
-            - promo_discount
-            + Decimal(str(delivery_charge)),
-        )
-
-        # Force the total_amount to match the correct server-side calculation
-        attrs["total_amount"] = expected_total
+        # 4. Safely apply the preserved total back into validation attributes
+        attrs["total_amount"] = frontend_total
 
         return attrs
 
     def create(self, validated_data):
         request = self.context.get("request")
         items_data = validated_data.pop("items", [])
-
         customer = get_customer_from_request(request)
+
         if customer:
             validated_data["customer"] = customer
         elif (
@@ -338,6 +329,7 @@ class OrderSerializer(serializers.ModelSerializer):
         with transaction.atomic():
             order = Order.objects.create(**validated_data)
             created_items = []
+
             for item_data in items_data:
                 order_item = OrderItem.objects.create(order=order, **item_data)
                 created_items.append({
@@ -350,6 +342,7 @@ class OrderSerializer(serializers.ModelSerializer):
                 PromoCode.objects.filter(id=order.promo_code.id).update(
                     used_count=models.F("used_count") + 1
                 )
+
             if order.customer_email:
                 self.send_order_email(order, created_items)
 
@@ -446,11 +439,10 @@ class OrderSerializer(serializers.ModelSerializer):
                 )
                 return
 
-            # items already prefetched by ORDER_OPTIMIZED_QS — no extra query
             products_list = (
                 ", ".join([
                     item.product.name if item.product else str(item.variant)
-                    for item in order.items.all()  # no extra select_related needed, already prefetched
+                    for item in order.items.all()
                 ])
                 or "your items"
             )

@@ -28,9 +28,19 @@ class StatsView(APIView):
         end_date = request.query_params.get("end_date")
         month = request.query_params.get("month")
         year_param = request.query_params.get("year")
-        year = year_param if year_param else timezone.now().year
+
+        # Check if they explicitly asked for all time
+        explicit_all_time = (
+            request.query_params.get("all_time") == "true"
+            or request.query_params.get("filter") == "all"
+        )
+
+        # Determine if absolutely NO filters were passed at all
+        no_filters_provided = not any([start_date, end_date, month, year_param])
 
         filters = Q()
+        start_dt = None
+        end_dt = timezone.now()
 
         if start_date and end_date:
             try:
@@ -45,8 +55,8 @@ class StatsView(APIView):
                 )
         elif month:
             try:
+                year = year_param if year_param else timezone.now().year
                 filters &= Q(created_at__month=month, created_at__year=year)
-                # Calculate start and end for month to generate daily stats
                 start_dt = datetime(int(year), int(month), 1)
                 if int(month) == 12:
                     end_dt = datetime(int(year) + 1, 1, 1)
@@ -56,19 +66,24 @@ class StatsView(APIView):
                 return Response({"error": "Invalid month or year"}, status=400)
         elif year_param:
             try:
-                filters &= Q(created_at__year=year)
-                # Calculate start and end for year to generate daily stats
-                start_dt = datetime(int(year), 1, 1)
-                end_dt = datetime(int(year) + 1, 1, 1)
+                filters &= Q(created_at__year=year_param)
+                start_dt = datetime(int(year_param), 1, 1)
+                end_dt = datetime(int(year_param) + 1, 1, 1)
             except ValueError:
                 return Response({"error": "Invalid year"}, status=400)
-        else:
-            # Default to last 7 days
+        elif explicit_all_time or no_filters_provided:
+            # FIX: Fallback condition triggers when no query strings are attached.
+            # We don't append a date constraint to `filters`, selecting every record.
+            oldest_order = Order.objects.order_by("created_at").first()
+            if oldest_order:
+                start_dt = oldest_order.created_at.replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
+            else:
+                start_dt = timezone.now().replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
             end_dt = timezone.now()
-            start_dt = (end_dt - timezone.timedelta(days=6)).replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            filters &= Q(created_at__range=(start_dt, end_dt))
 
         # Base Orders Queryset
         orders_qs = Order.objects.filter(filters)
@@ -80,18 +95,16 @@ class StatsView(APIView):
         daily_stats = []
         current_day = start_dt
 
-        # Determine the number of days to iterate
+        # Control limits for the timeline calculation
         if month:
-            # For month filter, we stop at the last day of the month or today if it's the current month
             today = timezone.now()
             if int(year) == today.year and int(month) == today.month:
                 limit_dt = today
             else:
                 limit_dt = end_dt - timezone.timedelta(seconds=1)
         elif year_param:
-            # For year filter, we stop today if it's the current year
             today = timezone.now()
-            if int(year) == today.year:
+            if int(year_param) == today.year:
                 limit_dt = today
             else:
                 limit_dt = end_dt - timezone.timedelta(seconds=1)
@@ -112,7 +125,7 @@ class StatsView(APIView):
             })
             current_day += timezone.timedelta(days=1)
 
-        # Basic Metrics
+        # Basic Aggregates
         revenue = (
             valid_orders_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
         )
@@ -134,17 +147,15 @@ class StatsView(APIView):
             valid_orders_qs.aggregate(Avg("total_amount"))["total_amount__avg"] or 0
         )
 
-        # Distribution Channel (POS vs Online)
+        # Distributions
         channel_dist = orders_qs.values("pos_order").annotate(
             count=Count("id"), amount=Sum("total_amount")
         )
-
-        # Order Status Distribution
         status_dist = orders_qs.values("status").annotate(
             count=Count("id"), amount=Sum("total_amount")
         )
 
-        # Top 5 Cities
+        # Regional Tracking
         top_cities = (
             valid_orders_qs
             .exclude(city__isnull=True)
@@ -154,8 +165,7 @@ class StatsView(APIView):
             .order_by("-count")[:5]
         )
 
-        # Top Selling Products
-        # OrderItem relates to Order
+        # Top Products
         order_items_qs = OrderItem.objects.filter(order__in=valid_orders_qs)
 
         top_selling_products_qs = (
