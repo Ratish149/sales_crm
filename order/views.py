@@ -339,54 +339,81 @@ class DashboardStatsView(APIView):
     def get(self, request):
         now = timezone.now()
 
-        # --- Base Order Counts ---
-        total_orders = Order.objects.count()
-        total_orders_this_month = Order.objects.filter(
-            created_at__year=now.year, created_at__month=now.month
-        ).count()
+        # --- Dynamic Previous Month Calculations ---
+        # First day of current month minus a few days lands safely into the previous month
+        first_of_this_month = now.replace(day=1)
+        prev_month_date = first_of_this_month - timezone.timedelta(days=5)
 
-        # --- Base Revenue Metrics (All orders) ---
+        prev_year = prev_month_date.year
+        prev_month = prev_month_date.month
+
+        # --- Base Global Metrics ---
+        total_orders = Order.objects.count()
         total_revenue = (
             Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
         )
-
-        revenue_this_month = (
-            Order.objects.filter(
-                created_at__year=now.year, created_at__month=now.month
-            ).aggregate(Sum("total_amount"))["total_amount__sum"]
+        total_cancelled_orders = Order.objects.filter(status="cancelled").count()
+        total_cancelled_amount = (
+            Order.objects.filter(status="cancelled").aggregate(Sum("total_amount"))[
+                "total_amount__sum"
+            ]
             or 0
         )
 
-        # --- Cancelled Orders Querysets ---
-        cancelled_orders_qs = Order.objects.filter(status="cancelled")
-        cancelled_this_month_qs = cancelled_orders_qs.filter(
+        # --- Current Month Filtering Base ---
+        current_month_qs = Order.objects.filter(
             created_at__year=now.year, created_at__month=now.month
         )
 
-        # --- Cancelled Counts ---
-        total_cancelled_orders = cancelled_orders_qs.count()
-        cancelled_orders_this_month = cancelled_this_month_qs.count()
-
-        # --- Cancelled Financial Amounts ---
-        total_cancelled_amount = (
-            cancelled_orders_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        total_orders_this_month = current_month_qs.count()
+        revenue_this_month = (
+            current_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
         )
 
+        cancelled_orders_this_month = current_month_qs.filter(
+            status="cancelled"
+        ).count()
         cancelled_amount_this_month = (
-            cancelled_this_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"]
+            current_month_qs.filter(status="cancelled").aggregate(Sum("total_amount"))[
+                "total_amount__sum"
+            ]
+            or 0
+        )
+
+        # --- Previous Month Filtering Base ---
+        prev_month_qs = Order.objects.filter(
+            created_at__year=prev_year, created_at__month=prev_month
+        )
+
+        total_orders_prev_month = prev_month_qs.count()
+        revenue_prev_month = (
+            prev_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+        )
+
+        cancelled_orders_prev_month = prev_month_qs.filter(status="cancelled").count()
+        cancelled_amount_prev_month = (
+            prev_month_qs.filter(status="cancelled").aggregate(Sum("total_amount"))[
+                "total_amount__sum"
+            ]
             or 0
         )
 
         return Response({
+            # All-Time Totals
             "total_orders": total_orders,
-            "total_orders_this_month": total_orders_this_month,
             "total_revenue": total_revenue,
-            "revenue_this_month": revenue_this_month,
-            # New Cancelled Fields
             "total_cancelled_orders": total_cancelled_orders,
-            "cancelled_orders_this_month": cancelled_orders_this_month,
             "total_cancelled_amount": total_cancelled_amount,
+            # Current Month Context
+            "total_orders_this_month": total_orders_this_month,
+            "revenue_this_month": revenue_this_month,
+            "cancelled_orders_this_month": cancelled_orders_this_month,
             "cancelled_amount_this_month": cancelled_amount_this_month,
+            # Previous Month Context
+            "total_orders_prev_month": total_orders_prev_month,
+            "revenue_prev_month": revenue_prev_month,
+            "cancelled_orders_prev_month": cancelled_orders_prev_month,
+            "cancelled_amount_prev_month": cancelled_amount_prev_month,
         })
 
 
