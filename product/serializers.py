@@ -338,6 +338,9 @@ class ProductSerializer(serializers.ModelSerializer):
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
+    reviews_count = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    is_wishlist = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -376,6 +379,9 @@ class ProductSerializer(serializers.ModelSerializer):
             "final_price",
             "discounted_price",
             "active_offer",
+            "average_rating",
+            "reviews_count",
+            "is_wishlist",
             "created_at",
             "updated_at",
         ]
@@ -393,6 +399,29 @@ class ProductSerializer(serializers.ModelSerializer):
                 "values": ProductOptionValueSerializer(values, many=True).data,
             })
         return options_data
+
+    def get_reviews_count(self, obj):
+        # use annotated value if available (from queryset), else fall back to query
+        if hasattr(obj, "reviews_count_annotated"):
+            return obj.reviews_count_annotated
+        return ProductReview.objects.filter(product=obj).count()
+
+    def get_average_rating(self, obj):
+        # use annotated value if available (from queryset), else fall back to query
+        if hasattr(obj, "average_rating"):
+            return obj.average_rating or 0
+        return (
+            ProductReview.objects.filter(product=obj).aggregate(
+                avg_rating=models.Avg("rating")
+            )["avg_rating"]
+            or 0
+        )
+
+    def get_is_wishlist(self, obj):
+        user = get_customer_from_request(self.context["request"])
+        if not user:
+            return False
+        return Wishlist.objects.filter(user=user, product=obj).exists()
 
     # to_internal_value, validate_variants, create, update — all unchanged
     def to_internal_value(self, data):
