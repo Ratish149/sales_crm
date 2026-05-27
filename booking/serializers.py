@@ -65,6 +65,11 @@ class BookingSerializer(serializers.ModelSerializer):
             verified_sender = "nepdora@baliyoventures.com"
             from_email = f"{tenant_name} <{verified_sender}>"
 
+            payment_screenshot_url = (
+                booking.payment_screenshot.url if booking.payment_screenshot else None
+            )
+            attachment_url = booking.attachment.url if booking.attachment else None
+
             if booking.customer_email:
                 context = {
                     "customer_name": booking.customer_name,
@@ -83,6 +88,8 @@ class BookingSerializer(serializers.ModelSerializer):
                     "tenant_name": tenant_name,
                     "created_at": booking.created_at,
                     "notes": booking.notes,
+                    "payment_screenshot": payment_screenshot_url,
+                    "attachment": attachment_url,
                 }
                 html_content = render_to_string(
                     "booking/email/booking_confirmation.html", context
@@ -123,6 +130,8 @@ class BookingSerializer(serializers.ModelSerializer):
                     "tenant_name": tenant_name,
                     "created_at": booking.created_at,
                     "notes": booking.notes,
+                    "payment_screenshot": payment_screenshot_url,
+                    "attachment": attachment_url,
                 }
                 admin_html_content = render_to_string(
                     "booking/email/admin_new_booking.html", admin_context

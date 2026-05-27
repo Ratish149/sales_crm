@@ -1,6 +1,8 @@
 # models.py
 from django.db import models
 
+from sales_crm.utils.s3bucket import PublicMediaStorage
+
 
 class Booking(models.Model):
     STATUS_CHOICES = [
@@ -44,6 +46,21 @@ class Booking(models.Model):
         max_digits=12, decimal_places=2, blank=True, null=True
     )
     transaction_id = models.CharField(max_length=255, blank=True, null=True)
+
+    payment_screenshot = models.FileField(
+        storage=PublicMediaStorage(),
+        upload_to="bookings/payment_screenshots/",
+        blank=True,
+        null=True,
+        help_text="Upload a screenshot or photo of the payment proof",
+    )
+    attachment = models.FileField(
+        storage=PublicMediaStorage(),
+        upload_to="bookings/attachments/",
+        blank=True,
+        null=True,
+        help_text="Any supporting document related to this booking",
+    )
 
     notes = models.TextField(blank=True, null=True)
     extras = models.JSONField(

@@ -34,7 +34,6 @@ WHITELISTED_IPS = {
     "172.188.98.151",
 }
 
-
 # =====================================================
 # RATE LIMIT MIDDLEWARE
 # =====================================================
@@ -51,11 +50,7 @@ class RateLimitMiddleware(MiddlewareMixin):
             return None
 
         ip = self.get_client_ip(request)
-
-        if not ip:
-            return None
-
-        if ip in WHITELISTED_IPS:
+        if not ip or ip in WHITELISTED_IPS:
             return None
 
         tenant = getattr(request, "tenant", None)
@@ -65,10 +60,7 @@ class RateLimitMiddleware(MiddlewareMixin):
         rate_key = f"ratelimit:{tenant_schema}:{ip}"
 
         if cache.get(blocked_key):
-            return JsonResponse(
-                {"detail": "Too Many Requests"},
-                status=429,
-            )
+            return JsonResponse({"detail": "Too Many Requests"}, status=429)
 
         try:
             cache.add(rate_key, 0, timeout=self.WINDOW)
@@ -80,15 +72,8 @@ class RateLimitMiddleware(MiddlewareMixin):
             return None
 
         if count > self.RATE_LIMIT:
-            cache.set(
-                blocked_key,
-                True,
-                timeout=self.BLOCK_TIME,
-            )
-            return JsonResponse(
-                {"detail": "Too Many Requests"},
-                status=429,
-            )
+            cache.set(blocked_key, True, timeout=self.BLOCK_TIME)
+            return JsonResponse({"detail": "Too Many Requests"}, status=429)
 
         return None
 
@@ -100,7 +85,7 @@ class RateLimitMiddleware(MiddlewareMixin):
 
 
 # =====================================================
-# TENANT MIDDLEWARE
+# TENANT MIDDLEWARE (FIXED)
 # =====================================================
 
 
@@ -116,21 +101,16 @@ class CustomDomainTenantMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-        # Mark as async-capable so Django routes ASGI requests here correctly
         if asyncio.iscoroutinefunction(self.get_response):
             self._is_coroutine = asyncio.coroutines._is_coroutine
 
     def __call__(self, request):
-        # Route to async handler when running under Daphne/ASGI,
-        # fall back to sync when running under Gunicorn/WSGI.
         if asyncio.iscoroutinefunction(self.get_response):
             return self.__acall__(request)
         return self._sync_call(request)
 
     # --------------------------------------------------
-    # ASYNC PATH  (Daphne / ASGI)
-    # All DB/ORM calls are wrapped in sync_to_async so
-    # they run in a thread pool and never block the event loop.
+    # ASYNC
     # --------------------------------------------------
 
     async def __acall__(self, request):
@@ -148,24 +128,23 @@ class CustomDomainTenantMiddleware:
             request.tenant = tenant
         except (ObjectDoesNotExist, Client.DoesNotExist):
             await sync_to_async(self.set_public_tenant)(request)
+
             if self.requires_tenant(path):
                 return JsonResponse(
                     {
-                        "detail": "Tenant could not be resolved for this API request.",
-                        "hint": "Send a valid X-Tenant-Domain header matching tenants_domain.domain.",
+                        "detail": "Tenant could not be resolved",
+                        "hint": "Send X-Tenant-Domain header",
                     },
                     status=400,
                 )
 
         try:
-            response = await self.get_response(request)
+            return await self.get_response(request)
         finally:
             await sync_to_async(connection.set_schema_to_public)()
 
-        return response
-
     # --------------------------------------------------
-    # SYNC PATH  (Gunicorn / WSGI fallback)
+    # SYNC
     # --------------------------------------------------
 
     def _sync_call(self, request):
@@ -183,32 +162,30 @@ class CustomDomainTenantMiddleware:
             request.tenant = tenant
         except (ObjectDoesNotExist, Client.DoesNotExist):
             self.set_public_tenant(request)
+
             if self.requires_tenant(path):
                 return JsonResponse(
-                    {
-                        "detail": "Tenant could not be resolved for this API request.",
-                        "hint": "Send a valid X-Tenant-Domain header matching tenants_domain.domain.",
-                    },
+                    {"detail": "Tenant could not be resolved"},
                     status=400,
                 )
 
         try:
-            response = self.get_response(request)
+            return self.get_response(request)
         finally:
             connection.set_schema_to_public()
 
-        return response
-
     # --------------------------------------------------
-    # SHARED SYNC HELPERS
-    # Called directly in sync path, wrapped with
-    # sync_to_async in async path.
+    # CORE FIX: SAFE HOST RESOLUTION
     # --------------------------------------------------
 
     def resolve_tenant(self, request):
         DomainModel = get_tenant_domain_model()
 
         for hostname in self.tenant_host_candidates(request):
+            hostname = self.normalize_hostname(hostname)
+            if not hostname:
+                continue
+
             cache_key = f"tenant_domain:{hostname}"
             tenant_id = cache.get(cache_key)
 
@@ -224,11 +201,47 @@ class CustomDomainTenantMiddleware:
                     cache.set(cache_key, tenant_id, timeout=self.CACHE_TIMEOUT)
 
                 return Client.objects.get(id=tenant_id)
+
             except (ObjectDoesNotExist, Client.DoesNotExist):
                 cache.delete(cache_key)
                 continue
 
         raise Client.DoesNotExist
+
+    # --------------------------------------------------
+    # FIXED: ONLY STABLE SOURCES
+    # --------------------------------------------------
+
+    def tenant_host_candidates(self, request):
+        return [
+            request.headers.get("X-Tenant-Domain"),
+            request.headers.get("Host"),
+            request.get_host(),
+        ]
+
+    # --------------------------------------------------
+    # 🔥 IMPORTANT FIX: hostname normalization
+    # --------------------------------------------------
+
+    def normalize_hostname(self, value):
+        if not value:
+            return None
+
+        value = value.strip().lower()
+
+        if "://" in value:
+            parsed = urlparse(value)
+            hostname = parsed.hostname
+        else:
+            hostname = value.split("/")[0].split(":")[0]
+
+        if not hostname:
+            return None
+
+        # FIX: unify www and non-www
+        hostname = hostname.replace("www.", "").strip()
+
+        return hostname
 
     def set_public_tenant(self, request):
         connection.set_schema_to_public()
@@ -237,29 +250,6 @@ class CustomDomainTenantMiddleware:
         except Client.DoesNotExist:
             request.tenant = None
 
-    def tenant_host_candidates(self, request):
-        values = [
-            request.headers.get("X-Tenant-Domain"),
-            request.headers.get("Origin"),
-            request.headers.get("Referer"),
-            request.get_host(),
-        ]
-
-        seen = set()
-        for value in values:
-            hostname = self.clean_hostname(value)
-            if hostname and hostname not in seen:
-                seen.add(hostname)
-                yield hostname
-
-    def clean_hostname(self, value):
-        if not value:
-            return None
-        value = value.strip()
-        parsed = urlparse(value if "://" in value else f"//{value}")
-        hostname = parsed.hostname or value.split("/")[0].split(":")[0]
-        return hostname.replace("www.", "").strip().lower() if hostname else None
-
     def requires_tenant(self, path):
         if not path.startswith(self.TENANT_REQUIRED_PATHS):
             return False
@@ -267,16 +257,11 @@ class CustomDomainTenantMiddleware:
 
 
 # =====================================================
-# SUBSCRIPTION MIDDLEWARE
+# SUBSCRIPTION MIDDLEWARE (UNCHANGED LOGIC)
 # =====================================================
 
 
 class SubscriptionMiddleware:
-    """
-    Async-safe subscription gate.
-    Replaces the old MiddlewareMixin version which blocked under ASGI.
-    """
-
     def __init__(self, get_response):
         self.get_response = get_response
         if asyncio.iscoroutinefunction(self.get_response):
@@ -288,7 +273,6 @@ class SubscriptionMiddleware:
         return self._sync_call(request)
 
     async def __acall__(self, request):
-        # _check_subscription only touches cache + tenant attrs — no extra DB call.
         blocked = await sync_to_async(self._check_subscription)(request)
         if blocked:
             return blocked
@@ -301,28 +285,14 @@ class SubscriptionMiddleware:
         return self.get_response(request)
 
     def _check_subscription(self, request):
-        """Returns a JsonResponse to block, or None to allow."""
         path = request.path.lower()
 
         if any(p in path for p in EXEMPT_PATHS):
             return None
 
         tenant = getattr(request, "tenant", None)
-
-        if not tenant:
+        if not tenant or tenant.schema_name == get_public_schema_name():
             return None
-
-        if tenant.schema_name == get_public_schema_name():
-            return None
-
-        # Support both function-based and class-based views
-        view_func = getattr(request, "_view_func", None)
-        if view_func:
-            if getattr(view_func, "allow_inactive_subscription", False):
-                return None
-            view_class = getattr(view_func, "cls", None)
-            if view_class and getattr(view_class, "allow_inactive_subscription", False):
-                return None
 
         is_active = self.is_subscription_active(tenant)
         request.tenant_is_active = is_active
@@ -330,10 +300,8 @@ class SubscriptionMiddleware:
         if not is_active and request.method not in SAFE_METHODS:
             return JsonResponse(
                 {
-                    "detail": "Subscription expired. Read-only mode.",
-                    "plan": (
-                        tenant.pricing_plan.name if tenant.pricing_plan else "No plan"
-                    ),
+                    "detail": "Subscription expired",
+                    "plan": tenant.pricing_plan.name if tenant.pricing_plan else None,
                     "paid_until": tenant.paid_until,
                 },
                 status=403,

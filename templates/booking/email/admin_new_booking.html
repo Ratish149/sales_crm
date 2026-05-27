@@ -218,6 +218,41 @@
     </table>
     {% endif %}
 
+    {% if payment_screenshot or attachment %}
+    <!-- ATTACHMENTS -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 20px 25px; border-top: 1px solid #f0f4f8;">
+      <tr>
+        <td colspan="2" style="padding-bottom: 12px;">
+          <h2 style="font-family: Arial, sans-serif; font-size: 18px; color: #1a2530; margin: 0;">Attachments</h2>
+        </td>
+      </tr>
+      {% if payment_screenshot %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;" width="40%">Payment Screenshot</td>
+        <td style="padding: 8px 0;" align="right">
+          <a href="{{ payment_screenshot }}" target="_blank"
+             style="display: inline-block; background-color: #e3f2fd; color: #0d47a1; padding: 6px 14px;
+                    border-radius: 4px; font-size: 13px; font-weight: 600; text-decoration: none;">
+            View Screenshot
+          </a>
+        </td>
+      </tr>
+      {% endif %}
+      {% if attachment %}
+      <tr>
+        <td style="padding: 8px 0; font-size: 15px; color: #606f7b;">Supporting Document</td>
+        <td style="padding: 8px 0;" align="right">
+          <a href="{{ attachment }}" target="_blank"
+             style="display: inline-block; background-color: #f3e5f5; color: #6a1b9a; padding: 6px 14px;
+                    border-radius: 4px; font-size: 13px; font-weight: 600; text-decoration: none;">
+            View Attachment
+          </a>
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+    {% endif %}
+
     <!-- FOOTER / SIGNATURE -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" align="center" style="padding: 30px 25px; border-top: 1px solid #f0f4f8; background-color: #fafbfc; text-align: center;">
       <tr>
