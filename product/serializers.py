@@ -101,6 +101,26 @@ class OfferSerializer(serializers.ModelSerializer):
         ]
 
 
+class OfferListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Offer
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "offer_type",
+            "discount_value",
+            "thumbnail",
+            "categories",
+            "sub_categories",
+            "start_date",
+            "end_date",
+            "is_valid",
+            "is_active",
+        ]
+
+
 class OfferWriteSerializer(serializers.ModelSerializer):
     products = serializers.PrimaryKeyRelatedField(
         queryset=Product.objects.only("id"), many=True, required=False
@@ -704,7 +724,7 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = OfferSerializer(read_only=True)
+    active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
