@@ -285,7 +285,7 @@ class ProductVariantWriteSerializer(serializers.Serializer):
 
 class ProductVariantReadSerializer(serializers.ModelSerializer):
     option_values = serializers.SerializerMethodField()
-    active_offer = OfferSerializer(read_only=True)
+    active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
