@@ -354,7 +354,7 @@ class ProductSerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = OfferSerializer(read_only=True)
+    active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -786,7 +786,7 @@ class ProductOnlySerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
-    active_offer = OfferSerializer(read_only=True)
+    active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
@@ -907,7 +907,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     variants_read = ProductVariantReadSerializer(
         source="product.variants", many=True, read_only=True
     )
-    active_offer = OfferSerializer(source="product.active_offer", read_only=True)
+    active_offer = OfferListSerializer(source="product.active_offer", read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
     )
