@@ -3,5 +3,9 @@
 media/
 docs/
 PRODUCTION_READINESS.md
-__pycache__/
 
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
