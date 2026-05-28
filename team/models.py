@@ -8,6 +8,7 @@ class TeamMember(models.Model):
     order = models.IntegerField(blank=True)
     name = models.CharField(max_length=200, blank=True)
     role = models.CharField(max_length=200, blank=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
     photo = models.FileField(
         blank=True, null=True, upload_to="team", storage=PublicMediaStorage()
     )
