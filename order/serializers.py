@@ -233,6 +233,32 @@ class OrderSerializer(serializers.ModelSerializer):
             return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
         return Decimal("0.00")
 
+    def to_internal_value(self, data):
+        # If items is a string (e.g. from multipart/form-data), parse it
+        if "items" in data and isinstance(data["items"], str):
+            import json
+
+            try:
+                decoded_items = json.loads(data["items"])
+                from django.http import QueryDict
+
+                if isinstance(data, QueryDict):
+                    new_data = {}
+                    for key in data.keys():
+                        if key == "items":
+                            new_data["items"] = decoded_items
+                        else:
+                            vals = data.getlist(key)
+                            new_data[key] = vals if len(vals) > 1 else vals[0]
+                    data = new_data
+                else:
+                    if not isinstance(data, dict):
+                        data = dict(data)
+                    data["items"] = decoded_items
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return super().to_internal_value(data)
+
     def validate(self, attrs):
         # Determine if this is a creation request or an instance update request
         is_update = self.instance is not None
@@ -551,8 +577,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
         return Decimal("0.00")
 
-    # Reuse OrderSerializer's validate logic
+    # Reuse OrderSerializer's validate and to_internal_value logic
     validate = OrderSerializer.validate
+    to_internal_value = OrderSerializer.to_internal_value
 
     def create(self, validated_data):
         items_data = validated_data.pop("items", [])
