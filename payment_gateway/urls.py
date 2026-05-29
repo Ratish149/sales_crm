@@ -5,6 +5,8 @@ from .views import (
     PaymentHistoryRetrieveUpdateDestroyAPIView,
     PaymentListAPIView,
     PaymentListCreateAPIView,
+    PaymentQRListCreateAPIView,
+    PaymentQRRetrieveUpdateDestroyAPIView,
     PaymentRetrieveUpdateDestroyAPIView,
 )
 
@@ -33,5 +35,15 @@ urlpatterns = [
         "payment-gateway/history/<int:pk>/",
         PaymentHistoryRetrieveUpdateDestroyAPIView.as_view(),
         name="payment-history-retrieve-update-destroy",
+    ),
+    path(
+        "payment-gateway-qr/",
+        PaymentQRListCreateAPIView.as_view(),
+        name="payment-qr-list-create",
+    ),
+    path(
+        "payment-gateway-qr/<int:pk>/",
+        PaymentQRRetrieveUpdateDestroyAPIView.as_view(),
+        name="payment-qr-retrieve-update-destroy",
     ),
 ]

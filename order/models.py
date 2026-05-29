@@ -4,6 +4,7 @@ from django.db import models
 
 from product.models import Product
 from promo_code.models import PromoCode
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 # Create your models here.
 
@@ -54,6 +55,12 @@ class Order(models.Model):
     dash_tracking_code = models.CharField(max_length=255, null=True, blank=True)
     promo_code = models.ForeignKey(
         PromoCode, on_delete=models.CASCADE, null=True, blank=True
+    )
+    attachment = models.FileField(
+        upload_to="order/attachment",
+        null=True,
+        blank=True,
+        storage=PublicMediaStorage(),
     )
     offer = models.ForeignKey(
         "product.Offer",

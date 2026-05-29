@@ -1,6 +1,6 @@
 from django.db import models
 
-# Create your models here.
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
 class Payment(models.Model):
@@ -39,3 +39,23 @@ class PaymentHistory(models.Model):
 
     def __str__(self):
         return f"{self.payment_type} - {self.pay_amount} ({self.status})"
+
+
+class PaymentQR(models.Model):
+    CHOICES = (
+        ("esewa", "Esewa"),
+        ("khalti", "Khalti"),
+        ("Bank", "Bank"),
+        ("Fonepay", "Fonepay"),
+    )
+    payment_type = models.CharField(max_length=10, choices=CHOICES, unique=True)
+    qr = models.FileField(
+        null=True,
+        blank=True,
+        storage=PublicMediaStorage(),
+        upload_to="payment_qr",
+    )
+    is_enabled = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.payment_type} QR"

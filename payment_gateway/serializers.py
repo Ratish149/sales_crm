@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Payment, PaymentHistory
+from .models import Payment, PaymentHistory, PaymentQR
 
 
 class PaymentSerializer(serializers.ModelSerializer):
@@ -31,3 +31,10 @@ class PaymentHistorySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+
+class PaymentQRSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentQR
+        fields = ["id", "payment_type", "qr", "is_enabled"]
+

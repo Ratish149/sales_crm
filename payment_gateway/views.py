@@ -5,9 +5,10 @@ from rest_framework.permissions import IsAuthenticated
 from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
 
-from .models import Payment, PaymentHistory
+from .models import Payment, PaymentHistory, PaymentQR
 from .serializers import (
     PaymentHistorySerializer,
+    PaymentQRSerializer,
     PaymentSerializer,
     PaymentSmallSerializer,
 )
@@ -121,5 +122,39 @@ class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
 class PaymentHistoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PAYMENT_HISTORY_QS
     serializer_class = PaymentHistorySerializer
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [TenantJWTAuthentication]
+
+
+class PaymentQRFilterSet(django_filters.FilterSet):
+    payment_type = django_filters.CharFilter(
+        field_name="payment_type", lookup_expr="iexact"
+    )
+
+    class Meta:
+        model = PaymentQR
+        fields = ["payment_type"]
+
+
+class PaymentQRListCreateAPIView(generics.ListCreateAPIView):
+    queryset = PaymentQR.objects.all()
+    serializer_class = PaymentQRSerializer
+    filter_backends = [django_filters.DjangoFilterBackend]
+    filterset_class = PaymentQRFilterSet
+
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class PaymentQRRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PaymentQR.objects.all()
+    serializer_class = PaymentQRSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
