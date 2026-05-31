@@ -339,14 +339,14 @@ class DashboardStatsView(APIView):
     def get(self, request):
         now = timezone.now()
 
-        # --- Base Global Metrics ---
-        total_orders = Order.objects.count()
-        total_revenue = (
-            Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
-        )
+        # --- Base Global Metrics (excluding cancelled orders) ---
+        base_qs = Order.objects.exclude(status="cancelled")
 
-        # --- Current Month Filtering Base ---
-        current_month_qs = Order.objects.filter(
+        total_orders = base_qs.count()
+        total_revenue = base_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
+
+        # --- Current Month Filtering Base (excluding cancelled orders) ---
+        current_month_qs = base_qs.filter(
             created_at__year=now.year, created_at__month=now.month
         )
 
