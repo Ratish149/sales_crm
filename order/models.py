@@ -1,7 +1,6 @@
 import hashlib
 
 from django.db import models
-
 from product.models import Product
 from promo_code.models import PromoCode
 from sales_crm.utils.s3bucket import PublicMediaStorage
@@ -25,6 +24,7 @@ class Order(models.Model):
         ("cash", "Cash"),
         ("Fonepay", "Fonepay"),
         ("Bank", "Bank"),
+        ("split", "Split Payment"),
     ]
     customer = models.ForeignKey(
         "customer.Customer",
@@ -35,6 +35,23 @@ class Order(models.Model):
     )
 
     payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPE, default="cod")
+    cash_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00, null=True, blank=True
+    )
+    online_amount = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0.00, null=True, blank=True
+    )
+    online_payment_type = models.CharField(
+        max_length=20,
+        choices=[
+            ("khalti", "Khalti"),
+            ("esewa", "Esewa"),
+            ("Fonepay", "Fonepay"),
+            ("Bank", "Bank"),
+        ],
+        null=True,
+        blank=True,
+    )
     order_number = models.CharField(
         max_length=20, unique=True, default="", null=True, blank=True
     )

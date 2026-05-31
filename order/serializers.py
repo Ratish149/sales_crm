@@ -209,6 +209,9 @@ class OrderSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "payment_type",
+            "cash_amount",
+            "online_amount",
+            "online_payment_type",
             "items",
             "order_items",
         ]
@@ -335,6 +338,56 @@ class OrderSerializer(serializers.ModelSerializer):
 
         # 4. Safely apply the preserved total back into validation attributes
         attrs["total_amount"] = frontend_total
+
+        # 5. Validate split payment details
+        payment_type = attrs.get("payment_type")
+        if not payment_type and is_update:
+            payment_type = self.instance.payment_type
+
+        if payment_type == "split":
+            cash_amt = attrs.get("cash_amount")
+            if cash_amt is None:
+                cash_amt = (
+                    self.instance.cash_amount
+                    if (is_update and "cash_amount" not in attrs)
+                    else Decimal("0.00")
+                )
+
+            online_amt = attrs.get("online_amount")
+            if online_amt is None:
+                online_amt = (
+                    self.instance.online_amount
+                    if (is_update and "online_amount" not in attrs)
+                    else Decimal("0.00")
+                )
+
+            online_pay_type = attrs.get("online_payment_type")
+            if online_pay_type is None:
+                online_pay_type = (
+                    self.instance.online_payment_type
+                    if (is_update and "online_payment_type" not in attrs)
+                    else None
+                )
+
+            if cash_amt is None:
+                cash_amt = Decimal("0.00")
+            if online_amt is None:
+                online_amt = Decimal("0.00")
+
+            if not online_pay_type:
+                raise serializers.ValidationError({
+                    "online_payment_type": [
+                        "Online payment type must be specified when payment type is split."
+                    ]
+                })
+
+            total_pay = Decimal(str(cash_amt)) + Decimal(str(online_amt))
+            if abs(total_pay - frontend_total) > Decimal("0.01"):
+                raise serializers.ValidationError({
+                    "non_field_errors": [
+                        f"Sum of cash amount ({cash_amt}) and online amount ({online_amt}) must equal total amount ({frontend_total})."
+                    ]
+                })
 
         return attrs
 
@@ -512,7 +565,7 @@ class OrderSerializer(serializers.ModelSerializer):
         return instance
 
 
-class AdminOrderSerializer(serializers.ModelSerializer):
+class AdminOrderSerializer(OrderSerializer):
     items = OrderItemSerializer(many=True, write_only=True)
     order_items = OrderItemDetailSerializer(source="items", many=True, read_only=True)
     customer_details = CustomerSerializer(source="customer", read_only=True)
@@ -553,6 +606,9 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             "latitude",
             "longitude",
             "payment_type",
+            "cash_amount",
+            "online_amount",
+            "online_payment_type",
             "items",
             "order_items",
         ]
@@ -577,10 +633,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
         return Decimal("0.00")
 
-    # Reuse OrderSerializer's validate and to_internal_value logic
-    validate = OrderSerializer.validate
-    to_internal_value = OrderSerializer.to_internal_value
-
     def create(self, validated_data):
         items_data = validated_data.pop("items", [])
 
@@ -603,11 +655,6 @@ class AdminOrderSerializer(serializers.ModelSerializer):
                 self.send_order_email(order, created_items)
 
             return order
-
-    # send_order_email, send_delivery_sms, update — identical to OrderSerializer above
-    send_order_email = OrderSerializer.send_order_email
-    send_delivery_sms = OrderSerializer.send_delivery_sms
-    update = OrderSerializer.update
 
 
 class OrderListSerializer(serializers.ModelSerializer):
@@ -642,6 +689,9 @@ class OrderListSerializer(serializers.ModelSerializer):
             "is_manual",
             "delivery_charge",
             "payment_type",
+            "cash_amount",
+            "online_amount",
+            "online_payment_type",
             "promo_code",
             "promo_code_details",
             "promo_discount",
