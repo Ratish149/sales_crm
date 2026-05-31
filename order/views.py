@@ -339,25 +339,10 @@ class DashboardStatsView(APIView):
     def get(self, request):
         now = timezone.now()
 
-        # --- Dynamic Previous Month Calculations ---
-        # First day of current month minus a few days lands safely into the previous month
-        first_of_this_month = now.replace(day=1)
-        prev_month_date = first_of_this_month - timezone.timedelta(days=5)
-
-        prev_year = prev_month_date.year
-        prev_month = prev_month_date.month
-
         # --- Base Global Metrics ---
         total_orders = Order.objects.count()
         total_revenue = (
             Order.objects.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
-        )
-        total_cancelled_orders = Order.objects.filter(status="cancelled").count()
-        total_cancelled_amount = (
-            Order.objects.filter(status="cancelled").aggregate(Sum("total_amount"))[
-                "total_amount__sum"
-            ]
-            or 0
         )
 
         # --- Current Month Filtering Base ---
@@ -370,50 +355,13 @@ class DashboardStatsView(APIView):
             current_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
         )
 
-        cancelled_orders_this_month = current_month_qs.filter(
-            status="cancelled"
-        ).count()
-        cancelled_amount_this_month = (
-            current_month_qs.filter(status="cancelled").aggregate(Sum("total_amount"))[
-                "total_amount__sum"
-            ]
-            or 0
-        )
-
-        # --- Previous Month Filtering Base ---
-        prev_month_qs = Order.objects.filter(
-            created_at__year=prev_year, created_at__month=prev_month
-        )
-
-        total_orders_prev_month = prev_month_qs.count()
-        revenue_prev_month = (
-            prev_month_qs.aggregate(Sum("total_amount"))["total_amount__sum"] or 0
-        )
-
-        cancelled_orders_prev_month = prev_month_qs.filter(status="cancelled").count()
-        cancelled_amount_prev_month = (
-            prev_month_qs.filter(status="cancelled").aggregate(Sum("total_amount"))[
-                "total_amount__sum"
-            ]
-            or 0
-        )
-
         return Response({
             # All-Time Totals
             "total_orders": total_orders,
             "total_revenue": total_revenue,
-            "total_cancelled_orders": total_cancelled_orders,
-            "total_cancelled_amount": total_cancelled_amount,
             # Current Month Context
             "total_orders_this_month": total_orders_this_month,
             "revenue_this_month": revenue_this_month,
-            "cancelled_orders_this_month": cancelled_orders_this_month,
-            "cancelled_amount_this_month": cancelled_amount_this_month,
-            # Previous Month Context
-            "total_orders_prev_month": total_orders_prev_month,
-            "revenue_prev_month": revenue_prev_month,
-            "cancelled_orders_prev_month": cancelled_orders_prev_month,
-            "cancelled_amount_prev_month": cancelled_amount_prev_month,
         })
 
 
