@@ -206,7 +206,35 @@ class StorefrontProductSerializer(serializers.ModelSerializer):
         return obj.id
 
     def get_attributes(self, obj):
-        return {}
+        request = self.context.get("request")
+        variants = []
+        for variant in obj.variants.prefetch_related("option_values__option").all():
+            options = {}
+            for ov in variant.option_values.all():
+                options[ov.option.name] = ov.value
+
+            image_url = None
+            if variant.image:
+                url = variant.image.url
+                image_url = request.build_absolute_uri(url) if request else url
+
+            base_price = variant.price if variant.price is not None else obj.price
+            discounted = (
+                variant.discounted_price
+                if variant.price is not None
+                else obj.discounted_price
+            )
+
+            variants.append({
+                "id": variant.id,
+                "options": options,
+                "price": f"{discounted:.2f}",
+                "regular_price": f"{base_price:.2f}",
+                "sale_price": f"{discounted:.2f}" if discounted < base_price else None,
+                "stock": variant.stock,
+                "image": image_url,
+            })
+        return variants
 
     def get_price(self, obj):
         return f"{obj.discounted_price:.2f}"
