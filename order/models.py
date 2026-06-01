@@ -1,6 +1,7 @@
 import hashlib
 
 from django.db import models
+
 from product.models import Product
 from promo_code.models import PromoCode
 from sales_crm.utils.s3bucket import PublicMediaStorage
@@ -93,6 +94,12 @@ class Order(models.Model):
     )
     pos_order = models.BooleanField(default=False)
     note = models.TextField(null=True, blank=True)
+    additional_file = models.FileField(
+        upload_to="order/additional_file",
+        null=True,
+        blank=True,
+        storage=PublicMediaStorage(),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
