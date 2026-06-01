@@ -85,7 +85,7 @@ class Client(TenantMixin):
     def base_url(self):
         from django.conf import settings
 
-        protocol = "https" if not settings.DEBUG else "http"
+        protocol = getattr(settings, "HTTP", "https")
         backend_domain = getattr(settings, "BACKEND_DOMAIN", "localhost:8000")
         return f"{protocol}://{self.schema_name}.{backend_domain}"
 

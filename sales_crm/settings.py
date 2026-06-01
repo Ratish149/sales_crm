@@ -24,6 +24,7 @@ TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
 OLLAMA_KEY = os.getenv("OLLAMA_KEY")
 BACKEND_URL = os.getenv("BACKEND_URL", "localhost:8000")
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost:8000")
+HTTP = os.getenv("HTTP", "https")
 
 USE_SPACES = False
 
