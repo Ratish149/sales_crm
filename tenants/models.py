@@ -81,6 +81,14 @@ class Client(TenantMixin):
     sidebar_config = models.JSONField(default=dict, blank=True)
     auto_create_schema = True  # Required for automatic schema creation
 
+    @property
+    def base_url(self):
+        from django.conf import settings
+
+        protocol = "https" if not settings.DEBUG else "http"
+        backend_domain = getattr(settings, "BACKEND_DOMAIN", "localhost:8000")
+        return f"{protocol}://{self.schema_name}.{backend_domain}"
+
     def is_subscription_active(self):
         if self.paid_until:
             return date.today() <= self.paid_until

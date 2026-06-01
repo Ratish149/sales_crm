@@ -22,6 +22,8 @@ load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 TEMPLATE_REPO_URL = os.getenv("TEMPLATE_REPO_URL")
 OLLAMA_KEY = os.getenv("OLLAMA_KEY")
+BACKEND_URL = os.getenv("BACKEND_URL", "localhost:8000")
+BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost:8000")
 
 USE_SPACES = False
 
@@ -83,6 +85,7 @@ SHARED_APPS = [
     "nepdora_blog",
     "nepdora_payment",
     "dashboard",
+    "pasalbiz",
 ]
 
 

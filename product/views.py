@@ -1921,7 +1921,9 @@ class OfferProductListView(generics.ListAPIView):
                 q_prod |= Q(id__in=product_ids)
                 q_var |= Q(product_id__in=product_ids)
 
-            if (category_ids or sub_category_ids or product_ids) and Product.objects.filter(q_prod).exists():
+            if (
+                category_ids or sub_category_ids or product_ids
+            ) and Product.objects.filter(q_prod).exists():
                 has_offer_products = True
 
         if not site_config.use_product_variant:
@@ -1933,9 +1935,10 @@ class OfferProductListView(generics.ListAPIView):
 
             if has_offer_products:
                 max_price = float(
-                    Product.objects.filter(q_prod).annotate(
-                        computed_final_price=FINAL_PRICE_ANNOTATION
-                    ).aggregate(m=Max("computed_final_price"))["m"]
+                    Product.objects
+                    .filter(q_prod)
+                    .annotate(computed_final_price=FINAL_PRICE_ANNOTATION)
+                    .aggregate(m=Max("computed_final_price"))["m"]
                     or 0.0
                 )
             else:
@@ -2062,7 +2065,8 @@ class OfferProductListView(generics.ListAPIView):
 
         if has_offer_products:
             variant_max = float(
-                ProductVariant.objects.filter(q_var).aggregate(m=Max("price"))["m"] or 0.0
+                ProductVariant.objects.filter(q_var).aggregate(m=Max("price"))["m"]
+                or 0.0
             )
             standalone_product_max = float(
                 Product.objects
@@ -2108,4 +2112,3 @@ class OfferProductListView(generics.ListAPIView):
 
         serializer = self.get_serializer(combined, many=True)
         return Response(serializer.data)
-

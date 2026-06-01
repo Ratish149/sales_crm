@@ -28,6 +28,7 @@ class SiteConfig(SingletonModel):
     map_link = models.TextField(blank=True, null=True)
     tour = models.BooleanField(default=False)
     dynamic_qr = models.BooleanField(default=False)
+    enable_pasalbiz = models.BooleanField(default=False)
 
 
 class Theme(models.Model):

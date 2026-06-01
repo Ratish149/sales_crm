@@ -97,6 +97,7 @@ class CustomDomainTenantMiddleware:
         "/api/docs/",
         "/api/redoc/",
         "/api/support/",
+        "/api/stores/",
     )
 
     def __init__(self, get_response):
