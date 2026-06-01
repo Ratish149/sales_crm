@@ -5,7 +5,7 @@ from pasalbiz.views import StorefrontProductListView, StoreListAPIView
 urlpatterns = [
     path("stores/", StoreListAPIView.as_view(), name="store-list"),
     path(
-        "pasalbiz-products/",
+        "products/",
         StorefrontProductListView.as_view(),
         name="storefront-product-list",
     ),
