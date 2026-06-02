@@ -73,6 +73,8 @@ class DomainAdmin(admin.ModelAdmin):
     list_display = ("domain", "tenant", "is_primary")
     list_display_links = ("domain",)
 
+    search_fields = ["domain", "tenant__schema_name", "tenant__name"]
+
     # Force the schema connection to public just like the Client admin does
     def get_queryset(self, request):
         connection.set_schema_to_public()
