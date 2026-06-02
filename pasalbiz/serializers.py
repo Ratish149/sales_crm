@@ -22,6 +22,7 @@ class StoreListSerializer(serializers.ModelSerializer):
     seller_location = serializers.SerializerMethodField()
     product_count = serializers.SerializerMethodField()
     last_indexed_at = serializers.SerializerMethodField()
+    x_tenant_domain = serializers.SerializerMethodField()
 
     class Meta:
         model = Client
@@ -38,10 +39,50 @@ class StoreListSerializer(serializers.ModelSerializer):
             "seller_location",
             "product_count",
             "last_indexed_at",
+            "x_tenant_domain",
         ]
 
     def get_tenant_id(self, obj):
         return str(obj.id)
+
+    def get_x_tenant_domain(self, obj):
+        from tenants.models import Domain
+
+        domains = Domain.objects.filter(tenant=obj)
+        valid_domains = []
+        for d in domains:
+            dom = d.domain.lower()
+            if "nepdora.baliyotech.com" in dom or "localhost" in dom:
+                continue
+            valid_domains.append(d)
+
+        nepdora_default = f"{obj.schema_name.lower()}.nepdora.com"
+        other_domain = None
+        fallback_domain = None
+
+        for d in valid_domains:
+            if d.domain.lower() == nepdora_default:
+                fallback_domain = d
+            else:
+                if getattr(d, "is_primary", False):
+                    other_domain = d
+                    break
+                if not other_domain:
+                    other_domain = d
+
+        selected_domain = other_domain or fallback_domain
+        if selected_domain:
+            return selected_domain.domain
+
+        if hasattr(obj, "base_url") and obj.base_url:
+            domain = obj.base_url
+            if "://" in domain:
+                domain = domain.split("://")[1]
+            if "/" in domain:
+                domain = domain.split("/")[0]
+            return domain
+
+        return f"{obj.schema_name.lower()}.nepdora.com"
 
     def get_api_root(self, obj):
         return "api"
