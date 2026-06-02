@@ -178,20 +178,34 @@ class StorefrontProductSerializer(serializers.ModelSerializer):
     def get_permalink(self, obj):
         tenant = getattr(connection, "tenant", None)
         if tenant:
-            # 1. Try the primary domain first
-            primary_domain = tenant.get_primary_domain()
-            if primary_domain:
-                protocol = "https"
-                return f"{protocol}://{primary_domain.domain}/product/{obj.slug}/"
-
-            # 2. Fall back to schemaname.nepdora.com style domain
             from tenants.models import Domain
 
-            nepdora_domain = Domain.objects.filter(
-                tenant=tenant, domain__startswith=f"{tenant.schema_name}."
-            ).first()
-            if nepdora_domain:
-                return f"https://{nepdora_domain.domain}/product/{obj.slug}/"
+            domains = Domain.objects.filter(tenant=tenant)
+            valid_domains = []
+            for d in domains:
+                dom = d.domain.lower()
+                if "nepdora.baliyotech.com" in dom or "localhost" in dom:
+                    continue
+                valid_domains.append(d)
+
+            nepdora_default = f"{tenant.schema_name.lower()}.nepdora.com"
+            other_domain = None
+            fallback_domain = None
+
+            for d in valid_domains:
+                if d.domain.lower() == nepdora_default:
+                    fallback_domain = d
+                else:
+                    if getattr(d, "is_primary", False):
+                        other_domain = d
+                        break
+                    if not other_domain:
+                        other_domain = d
+
+            selected_domain = other_domain or fallback_domain
+            if selected_domain:
+                protocol = "https"
+                return f"{protocol}://{selected_domain.domain}/product/{obj.slug}/"
 
             # 3. Last resort: use base_url from the Client model
             if hasattr(tenant, "base_url") and tenant.base_url:
