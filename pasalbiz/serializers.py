@@ -151,7 +151,7 @@ class StoreListSerializer(serializers.ModelSerializer):
         return ""
 
     def get_seller_id(self, obj):
-        return str(obj.owner_id) if obj.owner_id else ""
+        return str(obj.id)
 
     def get_seller_location(self, obj):
         try:
