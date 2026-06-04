@@ -103,6 +103,7 @@ TENANT_APPS = [
     "faq",
     "team",
     "customer",
+    "invoice",
     "portfolio",
     "service",
     "payment_gateway",
@@ -249,7 +250,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://phrases-segments-scenario-apartments.trycloudflare.com",
+    "https://episode-raymond-initially-atomic.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -258,7 +259,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://phrases-segments-scenario-apartments.trycloudflare.com",
+    "https://episode-raymond-initially-atomic.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

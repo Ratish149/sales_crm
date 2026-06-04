@@ -14,6 +14,9 @@ class Customer(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
     def save(self, *args, **kwargs):
         # Hash password before saving if it's not already hashed
         if self.password and not self.password.startswith("pbkdf2_"):
@@ -35,6 +38,3 @@ class Customer(models.Model):
     @property
     def is_active(self):
         return True
-
-    def __str__(self):
-        return f"{self.first_name} {self.last_name}"
