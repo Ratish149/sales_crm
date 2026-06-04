@@ -289,7 +289,15 @@ class CustomerOrderSummaryView(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-        orders = Order.objects.filter(customer=customer)
+        from django.db.models import Q
+
+        q_filter = Q(customer=customer)
+        if customer.email:
+            q_filter |= Q(customer_email=customer.email)
+        if customer.phone:
+            q_filter |= Q(customer_phone=customer.phone)
+
+        orders = Order.objects.filter(q_filter)
         total_orders = orders.count()
         total_amount = orders.aggregate(total=Sum("total_amount"))["total"] or 0.00
 

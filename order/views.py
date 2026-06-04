@@ -137,7 +137,15 @@ class MyOrderListAPIView(generics.ListAPIView):
     def get_queryset(self):
         customer = get_customer_from_request(self.request)
         if customer:
-            return ORDER_OPTIMIZED_QS.filter(customer=customer)
+            from django.db.models import Q
+
+            q_filter = Q(customer=customer)
+            if customer.email:
+                q_filter |= Q(customer_email=customer.email)
+            if customer.phone:
+                q_filter |= Q(customer_phone=customer.phone)
+
+            return ORDER_OPTIMIZED_QS.filter(q_filter)
         return Order.objects.none()
 
 
@@ -403,12 +411,25 @@ class CustomerOrderListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         customer_id = self.request.query_params.get("customer_id")
+        from django.db.models import Q
+
         from customer.models import Customer
 
         if customer_id and not isinstance(self.request.user, Customer):
-            return ORDER_OPTIMIZED_QS.filter(customer_id=customer_id)
+            try:
+                customer = Customer.objects.get(id=customer_id)
+            except Customer.DoesNotExist:
+                return Order.objects.none()
+        else:
+            customer = get_customer_from_request(self.request)
 
-        customer = get_customer_from_request(self.request)
-        if customer:
-            return ORDER_OPTIMIZED_QS.filter(customer=customer)
-        return Order.objects.none()
+        if not customer:
+            return Order.objects.none()
+
+        q_filter = Q(customer=customer)
+        if customer.email:
+            q_filter |= Q(customer_email=customer.email)
+        if customer.phone:
+            q_filter |= Q(customer_phone=customer.phone)
+
+        return ORDER_OPTIMIZED_QS.filter(q_filter)
