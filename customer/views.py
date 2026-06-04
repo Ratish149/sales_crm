@@ -1,3 +1,4 @@
+from django.db.models import Sum
 from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from order.models import Order
 from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.pagination import CustomPagination
 from sales_crm.utils.email_service import send_resend_email
@@ -255,3 +257,46 @@ class CustomerLoginView(APIView):
                 "access": str(refresh.access_token),
             },
         })
+
+
+class CustomerOrderSummaryView(APIView):
+    authentication_classes = [CustomerJWTAuthentication, TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        customer_id = request.query_params.get("customer_id")
+
+        if customer_id and not isinstance(request.user, Customer):
+            try:
+                customer = Customer.objects.get(id=customer_id)
+            except Customer.DoesNotExist:
+                return Response(
+                    {"error": "Customer not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            customer = get_customer_from_request(request)
+            if not customer:
+                if not isinstance(request.user, Customer):
+                    return Response(
+                        {
+                            "error": "customer_id query parameter is required for tenant users."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                return Response(
+                    {"error": "Customer not found or not authenticated."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        orders = Order.objects.filter(customer=customer)
+        total_orders = orders.count()
+        total_amount = orders.aggregate(total=Sum("total_amount"))["total"] or 0.00
+
+        return Response(
+            {
+                "total_orders": total_orders,
+                "total_amount": float(total_amount),
+            },
+            status=status.HTTP_200_OK,
+        )

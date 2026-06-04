@@ -4,6 +4,7 @@ from .views import (
     ChangePasswordView,
     CustomerDetailView,
     CustomerLoginView,
+    CustomerOrderSummaryView,
     CustomerRegisterView,
     CustomerRequestPasswordResetView,
     CustomerResetPasswordConfirmView,
@@ -11,6 +12,11 @@ from .views import (
 )
 
 urlpatterns = [
+    path(
+        "customer/order-summary/",
+        CustomerOrderSummaryView.as_view(),
+        name="customer-order-summary",
+    ),
     path(
         "customer/register/", CustomerRegisterView.as_view(), name="customer-register"
     ),

@@ -384,3 +384,31 @@ class MyOrderStatusView(APIView):
             status_counts[item["status"]] = item["count"]
 
         return Response(status_counts)
+
+
+class CustomerOrderListAPIView(generics.ListAPIView):
+    queryset = ORDER_OPTIMIZED_QS
+    serializer_class = OrderListSerializer
+    pagination_class = CustomPagination
+    authentication_classes = [CustomerJWTAuthentication, TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    filter_backends = [
+        filters.SearchFilter,
+        filters.OrderingFilter,
+        django_filters.DjangoFilterBackend,
+    ]
+    search_fields = ["customer_name", "order_number", "customer_phone"]
+    ordering_fields = ["created_at", "total_amount"]
+    filterset_class = OrderFilter
+
+    def get_queryset(self):
+        customer_id = self.request.query_params.get("customer_id")
+        from customer.models import Customer
+
+        if customer_id and not isinstance(self.request.user, Customer):
+            return ORDER_OPTIMIZED_QS.filter(customer_id=customer_id)
+
+        customer = get_customer_from_request(self.request)
+        if customer:
+            return ORDER_OPTIMIZED_QS.filter(customer=customer)
+        return Order.objects.none()
