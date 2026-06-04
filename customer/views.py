@@ -291,10 +291,18 @@ class CustomerOrderSummaryView(APIView):
         total_orders = orders.count()
         total_amount = orders.aggregate(total=Sum("total_amount"))["total"] or 0.00
 
+        cancelled_orders = orders.filter(status="cancelled")
+        total_cancelled_orders = cancelled_orders.count()
+        total_cancelled_amount = (
+            cancelled_orders.aggregate(total=Sum("total_amount"))["total"] or 0.00
+        )
+
         return Response(
             {
                 "total_orders": total_orders,
                 "total_amount": float(total_amount),
+                "total_cancelled_orders": total_cancelled_orders,
+                "total_cancelled_amount": float(total_cancelled_amount),
             },
             status=status.HTTP_200_OK,
         )
