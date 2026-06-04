@@ -260,34 +260,24 @@ class CustomerLoginView(APIView):
 
 
 class CustomerOrderSummaryView(APIView):
-    authentication_classes = [CustomerJWTAuthentication, TenantJWTAuthentication]
+    authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         customer_id = request.query_params.get("customer_id")
+        if not customer_id:
+            return Response(
+                {"error": "customer_id query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if customer_id and not isinstance(request.user, Customer):
-            try:
-                customer = Customer.objects.get(id=customer_id)
-            except Customer.DoesNotExist:
-                return Response(
-                    {"error": "Customer not found."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
-            customer = get_customer_from_request(request)
-            if not customer:
-                if not isinstance(request.user, Customer):
-                    return Response(
-                        {
-                            "error": "customer_id query parameter is required for tenant users."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                return Response(
-                    {"error": "Customer not found or not authenticated."},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            return Response(
+                {"error": "Customer not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         from django.db.models import Q
 

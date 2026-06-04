@@ -398,7 +398,7 @@ class CustomerOrderListAPIView(generics.ListAPIView):
     queryset = ORDER_OPTIMIZED_QS
     serializer_class = OrderListSerializer
     pagination_class = CustomPagination
-    authentication_classes = [CustomerJWTAuthentication, TenantJWTAuthentication]
+    authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
     filter_backends = [
         filters.SearchFilter,
@@ -411,19 +411,16 @@ class CustomerOrderListAPIView(generics.ListAPIView):
 
     def get_queryset(self):
         customer_id = self.request.query_params.get("customer_id")
+        if not customer_id:
+            return Order.objects.none()
+
         from django.db.models import Q
 
         from customer.models import Customer
 
-        if customer_id and not isinstance(self.request.user, Customer):
-            try:
-                customer = Customer.objects.get(id=customer_id)
-            except Customer.DoesNotExist:
-                return Order.objects.none()
-        else:
-            customer = get_customer_from_request(self.request)
-
-        if not customer:
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
             return Order.objects.none()
 
         q_filter = Q(customer=customer)
