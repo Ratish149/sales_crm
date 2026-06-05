@@ -795,6 +795,8 @@ class ResetUIView(APIView):
                 status="draft",
                 theme=theme_map.get(published_page.theme_id),
                 published_version=published_page,
+                meta_title=published_page.meta_title,
+                meta_description=published_page.meta_description,
             )
             page_map[published_page.id] = draft_page
 
