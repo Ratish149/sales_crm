@@ -910,6 +910,9 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     variants_read = ProductVariantReadSerializer(
         source="product.variants", many=True, read_only=True
     )
+    require_custom_image = serializers.BooleanField(
+        source="product.require_custom_image", read_only=True
+    )
     active_offer = OfferListSerializer(source="product.active_offer", read_only=True)
     discounted_price = serializers.DecimalField(
         max_digits=10, decimal_places=2, read_only=True
