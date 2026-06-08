@@ -34,7 +34,7 @@ ORDER_OPTIMIZED_QS = (
                 "product",
                 "variant",
                 "variant__product",
-            ).prefetch_related("variant__option_values__option"),
+            ).prefetch_related("variant__option_values__option", "images"),
         )
     )
     .order_by("-created_at")

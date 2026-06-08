@@ -250,7 +250,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://episode-raymond-initially-atomic.trycloudflare.com",
+    "https://bathrooms-bearing-checkout-secrets.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -259,7 +259,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://episode-raymond-initially-atomic.trycloudflare.com",
+    "https://bathrooms-bearing-checkout-secrets.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

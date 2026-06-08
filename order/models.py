@@ -198,3 +198,20 @@ class OrderItem(models.Model):
         if self.variant:
             return f"{self.variant} - {self.quantity}"
         return f"{self.product.name} - {self.quantity}"
+
+
+class OrderItemImage(models.Model):
+    order_item = models.ForeignKey(
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="images",
+    )
+    image = models.FileField(
+        upload_to="order_item/images",
+        storage=PublicMediaStorage(),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.order_item.id} - {self.order_item}"
+

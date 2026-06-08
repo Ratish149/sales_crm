@@ -149,6 +149,7 @@ class Product(models.Model):
     base_making_charge = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00
     )
+    require_custom_image = models.BooleanField(default=False)
 
     meta_title = models.CharField(max_length=255, null=True, blank=True)
     meta_description = models.TextField(null=True, blank=True)

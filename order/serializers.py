@@ -14,14 +14,25 @@ from product.serializers import OfferSerializer, ProductOnlySerializer
 from promo_code.models import PromoCode
 from sms.utils import send_sms_test
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderItemImage
 
 resend.api_key = os.getenv("RESEND_API_KEY")
+
+
+class OrderItemImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItemImage
+        fields = ["id", "image"]
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.IntegerField(required=False, allow_null=True)
     variant_id = serializers.IntegerField(required=False, allow_null=True)
+    uploaded_images = serializers.ListField(
+        child=serializers.FileField(allow_empty_file=False, use_url=False),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = OrderItem
@@ -33,6 +44,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "price",
             "offer",
             "offer_discount",
+            "uploaded_images",
         ]
 
     def validate(self, data):
@@ -117,6 +129,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderItemDetailSerializer(serializers.ModelSerializer):
     product = serializers.SerializerMethodField()
     offer_details = OfferSerializer(source="offer", read_only=True)
+    images = OrderItemImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = OrderItem
@@ -127,6 +140,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
             "price",
             "offer_details",
             "offer_discount",
+            "images",
         ]
 
     def get_product(self, obj):
@@ -411,8 +425,28 @@ class OrderSerializer(serializers.ModelSerializer):
             order = Order.objects.create(**validated_data)
             created_items = []
 
-            for item_data in items_data:
+            for i, item_data in enumerate(items_data):
+                uploaded_images = item_data.pop("uploaded_images", [])
                 order_item = OrderItem.objects.create(order=order, **item_data)
+                
+                for img in uploaded_images:
+                    OrderItemImage.objects.create(order_item=order_item, image=img)
+
+                if request and request.FILES:
+                    for key in request.FILES:
+                        if (
+                            key == f"items[{i}]images"
+                            or key == f"items[{i}][images]"
+                            or key == f"items[{i}]images[]"
+                            or key == f"items_{i}_images"
+                            or key == f"items[{i}].images"
+                            or key.startswith(f"items_{i}_images_")
+                            or key.startswith(f"item_{i}_image_")
+                        ):
+                            files = request.FILES.getlist(key)
+                            for f in files:
+                                OrderItemImage.objects.create(order_item=order_item, image=f)
+
                 created_items.append({
                     "product_name": str(order_item.product or order_item.variant),
                     "quantity": order_item.quantity,
@@ -636,13 +670,34 @@ class AdminOrderSerializer(OrderSerializer):
         return Decimal("0.00")
 
     def create(self, validated_data):
+        request = self.context.get("request")
         items_data = validated_data.pop("items", [])
 
         with transaction.atomic():
             order = Order.objects.create(**validated_data)
             created_items = []
-            for item_data in items_data:
+            for i, item_data in enumerate(items_data):
+                uploaded_images = item_data.pop("uploaded_images", [])
                 order_item = OrderItem.objects.create(order=order, **item_data)
+                
+                for img in uploaded_images:
+                    OrderItemImage.objects.create(order_item=order_item, image=img)
+
+                if request and request.FILES:
+                    for key in request.FILES:
+                        if (
+                            key == f"items[{i}]images"
+                            or key == f"items[{i}][images]"
+                            or key == f"items[{i}]images[]"
+                            or key == f"items_{i}_images"
+                            or key == f"items[{i}].images"
+                            or key.startswith(f"items_{i}_images_")
+                            or key.startswith(f"item_{i}_image_")
+                        ):
+                            files = request.FILES.getlist(key)
+                            for f in files:
+                                OrderItemImage.objects.create(order_item=order_item, image=f)
+
                 created_items.append({
                     "product_name": str(order_item.product or order_item.variant),
                     "quantity": order_item.quantity,

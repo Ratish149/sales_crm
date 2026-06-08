@@ -374,6 +374,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "track_stock",
             "stock",
             "weight",
+            "require_custom_image",
             "thumbnail_image",
             "thumbnail_alt_description",
             "category",
@@ -768,6 +769,7 @@ class ProductSmallSerializer(serializers.ModelSerializer):
             "is_popular",
             "is_featured",
             "created_at",
+            "require_custom_image",
             "updated_at",
             "fast_shipping",
             "warranty",
@@ -803,6 +805,7 @@ class ProductOnlySerializer(serializers.ModelSerializer):
             "discounted_price",
             "active_offer",
             "thumbnail_image",
+            "require_custom_image",
             "thumbnail_alt_description",
         ]  # unchanged
 
@@ -929,6 +932,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
             "category",
             "sub_category",
             "is_popular",
+            "require_custom_image",
             "is_featured",
             "created_at",
             "updated_at",

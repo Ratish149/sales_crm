@@ -1,11 +1,22 @@
 from django.contrib import admin
-from .models import Order, OrderItem
+
+from .models import Order, OrderItem, OrderItemImage
 # Register your models here.
 
 
 class OrderItem(admin.TabularInline):
     model = OrderItem
     tab = True
+
+
+class OrderItemImageInline(admin.TabularInline):
+    model = OrderItemImage
+    extra = 1
+
+
+@admin.register(OrderItemImage)
+class OrderItemImageAdmin(admin.ModelAdmin):
+    list_display = ['id', 'order_item', 'image', 'created_at']
 
 
 class OrderAdmin(admin.ModelAdmin):
