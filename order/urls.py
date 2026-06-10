@@ -10,10 +10,16 @@ from .views import (
     OrderGetAPIView,
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
+    OrderStorageStatsView,
 )
 
 urlpatterns = [
     path("order/", OrderListCreateAPIView.as_view(), name="order-list-create"),
+    path(
+        "order-storage-stats/",
+        OrderStorageStatsView.as_view(),
+        name="order-storage-stats",
+    ),
     path(
         "order-export/",
         OrderExcelExportView.as_view(),

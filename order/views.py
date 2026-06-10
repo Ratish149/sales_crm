@@ -18,8 +18,9 @@ from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 from logistics.models import Logistics
 from sales_crm.authentication import TenantJWTAuthentication
+from sales_crm.utils.s3bucket import PublicMediaStorage
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderItemImage
 from .serializers import AdminOrderSerializer, OrderListSerializer, OrderSerializer
 from .utils import send_order_to_dash
 
@@ -430,3 +431,67 @@ class CustomerOrderListAPIView(generics.ListAPIView):
             q_filter |= Q(customer_phone=customer.phone)
 
         return ORDER_OPTIMIZED_QS.filter(q_filter)
+
+
+class OrderStorageStatsView(APIView):
+    # authentication_classes = [TenantJWTAuthentication]
+    # permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        storage = PublicMediaStorage()
+
+        item_image_count = 0
+        item_image_bytes = 0
+
+        use_s3_direct = False
+        s3_objects = {}
+
+        try:
+            if hasattr(storage, "bucket") and storage.bucket:
+                bucket = storage.bucket
+                prefix = storage.location
+                # List all objects in the prefix
+                for obj in bucket.objects.filter(Prefix=prefix):
+                    rel_path = obj.key[len(prefix) :]
+                    s3_objects[rel_path] = obj.size
+                use_s3_direct = len(s3_objects) > 0
+        except Exception:
+            pass
+
+        def get_file_size(file_field):
+            if not file_field:
+                return 0
+            name = file_field.name
+            if use_s3_direct:
+                return s3_objects.get(name, 0)
+            try:
+                if storage.exists(name):
+                    return storage.size(name)
+            except Exception:
+                pass
+            return 0
+
+        # Order Item Images
+        for item_img in OrderItemImage.objects.exclude(image="").only("image"):
+            size = get_file_size(item_img.image)
+            if size > 0:
+                item_image_bytes += size
+                item_image_count += 1
+
+        def format_size(size_in_bytes):
+            for unit in ["B", "KB", "MB", "GB", "TB"]:
+                if size_in_bytes < 1024.0:
+                    return f"{size_in_bytes:.2f} {unit}"
+                size_in_bytes /= 1024.0
+            return f"{size_in_bytes:.2f} PB"
+
+        return Response({
+            "status": "success",
+            "data": {
+                "order_item_images": {
+                    "count": item_image_count,
+                    "bytes": item_image_bytes,
+                    "readable_size": format_size(item_image_bytes),
+                }
+            },
+        })
