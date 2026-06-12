@@ -114,6 +114,7 @@ TENANT_APPS = [
     "facebook",
     "clarity",
     "tawkto",
+    "fb_pixel",
     "our_client",
     "appointment",
     "videos",

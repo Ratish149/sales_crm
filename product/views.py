@@ -1272,6 +1272,7 @@ class DownloadProductSampleTemplateView(APIView):
             "weight",
             "thumbnail_image",
             "thumbnail_image_aly_description",
+            "images",
             "category",
             "subcategory",
             "is_popular",
@@ -1322,8 +1323,9 @@ class DownloadProductSampleTemplateView(APIView):
             "TRUE",
             15,
             "45g",
-            "image url",
+            "image.jpg",
             "alt description",
+            "image1.jpg, image2.jpg",
             sample_category,
             sample_subcategory,
             "TRUE",
@@ -1341,7 +1343,7 @@ class DownloadProductSampleTemplateView(APIView):
             "",
             80,
             10,
-            "image url",
+            "image.jpg",
             "Meta Title",
             "Meta Description",
         ]
@@ -1355,18 +1357,18 @@ class DownloadProductSampleTemplateView(APIView):
             else "Silver (190000.00/10)"
         )
         composition_row_2 = [""] * len(headers)
-        composition_row_2[16] = second_metric
-        composition_row_2[17] = 3
+        composition_row_2[17] = second_metric
+        composition_row_2[18] = 3
         for col, value in enumerate(composition_row_2, 1):
             ws.cell(row=3, column=col, value=value)
 
         def make_variant_row(opt1_val, opt2_val, v_price, v_stock, v_image):
             row = [""] * len(headers)
-            row[19] = opt1_val
-            row[21] = opt2_val
-            row[24] = v_price
-            row[25] = v_stock
-            row[26] = v_image
+            row[20] = opt1_val
+            row[22] = opt2_val
+            row[25] = v_price
+            row[26] = v_stock
+            row[27] = v_image
             return row
 
         variant_rows = [
@@ -1413,9 +1415,9 @@ class DownloadProductSampleTemplateView(APIView):
             dv.add(cell_range)
 
         add_bool_validation("E2:E1048576")
-        add_bool_validation("L2:L1048576")
         add_bool_validation("M2:M1048576")
-        add_bool_validation("O2:O1048576")
+        add_bool_validation("N2:N1048576")
+        add_bool_validation("P2:P1048576")
 
         status_dv = DataValidation(
             type="list",
@@ -1426,7 +1428,7 @@ class DownloadProductSampleTemplateView(APIView):
             error="Please select from: active, draft, archived",
         )
         ws.add_data_validation(status_dv)
-        status_dv.add("N2:N1048576")
+        status_dv.add("O2:O1048576")
 
         if categories.exists():
             cat_names = [c.name for c in categories]
@@ -1441,7 +1443,7 @@ class DownloadProductSampleTemplateView(APIView):
                 error="Please select from available categories",
             )
             ws.add_data_validation(cat_dv)
-            cat_dv.add("J2:J1048576")
+            cat_dv.add("K2:K1048576")
 
         if subcategories.exists():
             sub_names = [f"{s.name} ({s.category.name})" for s in subcategories]
@@ -1456,7 +1458,7 @@ class DownloadProductSampleTemplateView(APIView):
                 error="Please select from available subcategories",
             )
             ws.add_data_validation(sub_dv)
-            sub_dv.add("K2:K1048576")
+            sub_dv.add("L2:L1048576")
 
         if metrics:
             metric_display_names = [
@@ -1473,7 +1475,7 @@ class DownloadProductSampleTemplateView(APIView):
                 error="Please select a valid metric from the dropdown",
             )
             ws.add_data_validation(comp_dv)
-            comp_dv.add("Q2:Q1048576")
+            comp_dv.add("R2:R1048576")
 
         qty_dv = DataValidation(
             type="decimal",
@@ -1485,7 +1487,7 @@ class DownloadProductSampleTemplateView(APIView):
             error="Enter a numeric quantity greater than 0",
         )
         ws.add_data_validation(qty_dv)
-        qty_dv.add("R2:R1048576")
+        qty_dv.add("S2:S1048576")
 
     def _adjust_column_widths(self, ws):
         column_widths = {
@@ -1498,16 +1500,16 @@ class DownloadProductSampleTemplateView(APIView):
             "G": 10,
             "H": 20,
             "I": 20,
-            "J": 15,
-            "K": 25,
-            "L": 12,
+            "J": 20,
+            "K": 15,
+            "L": 25,
             "M": 12,
-            "N": 10,
-            "O": 20,
+            "N": 12,
+            "O": 10,
             "P": 20,
-            "Q": 30,
-            "R": 12,
-            "S": 15,
+            "Q": 20,
+            "R": 30,
+            "S": 12,
             "T": 15,
             "U": 15,
             "V": 15,
@@ -1515,9 +1517,10 @@ class DownloadProductSampleTemplateView(APIView):
             "X": 15,
             "Y": 15,
             "Z": 15,
-            "AA": 20,
+            "AA": 15,
             "AB": 20,
-            "AC": 25,
+            "AC": 20,
+            "AD": 25,
         }
         for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
@@ -1687,6 +1690,33 @@ class BulkProductUploadView(APIView):
                         return Response(
                             {"error": str(e)}, status=status.HTTP_400_BAD_REQUEST
                         )
+
+                    images_val = safe_value(row.get("images"))
+                    if images_val:
+                        image_names = [
+                            img.strip()
+                            for img in str(images_val).split(",")
+                            if img.strip()
+                        ]
+                        for img_name in image_names:
+                            if not img_name.startswith(("http://", "https://")):
+                                img_file = process_image_field(
+                                    img_name, images_from_zip
+                                )
+                                if img_file:
+                                    prod_image = ProductImage(product=product)
+                                    prod_image.image.save(
+                                        img_file.name, img_file, save=True
+                                    )
+                            else:
+                                img_file, img_filename = download_image_from_url(
+                                    img_name, upload_to="product_images"
+                                )
+                                if img_file:
+                                    prod_image = ProductImage(product=product)
+                                    prod_image.image.save(
+                                        img_filename, img_file, save=True
+                                    )
 
                     option_names = self._create_product_options(product, row)
                     product_options[current_product_key] = option_names
