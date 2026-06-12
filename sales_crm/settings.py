@@ -113,6 +113,7 @@ TENANT_APPS = [
     "google_analytic",
     "facebook",
     "clarity",
+    "tawkto",
     "our_client",
     "appointment",
     "videos",

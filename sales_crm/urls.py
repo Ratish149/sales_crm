@@ -57,6 +57,7 @@ urlpatterns = [
     path("api/", include("google_analytic.urls")),
     path("api/", include("facebook.urls")),
     path("api/", include("clarity.urls")),
+    path("api/", include("tawkto.urls")),
     path("api/", include("pricing.urls")),
     path("api/", include("appointment.urls")),
     path("api/", include("our_client.urls")),
