@@ -112,6 +112,7 @@ TENANT_APPS = [
     "delivery_charge",
     "google_analytic",
     "facebook",
+    "clarity",
     "our_client",
     "appointment",
     "videos",
