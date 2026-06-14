@@ -428,7 +428,7 @@ class OrderSerializer(serializers.ModelSerializer):
             for i, item_data in enumerate(items_data):
                 uploaded_images = item_data.pop("uploaded_images", [])
                 order_item = OrderItem.objects.create(order=order, **item_data)
-                
+
                 for img in uploaded_images:
                     OrderItemImage.objects.create(order_item=order_item, image=img)
 
@@ -445,7 +445,9 @@ class OrderSerializer(serializers.ModelSerializer):
                         ):
                             files = request.FILES.getlist(key)
                             for f in files:
-                                OrderItemImage.objects.create(order_item=order_item, image=f)
+                                OrderItemImage.objects.create(
+                                    order_item=order_item, image=f
+                                )
 
                 created_items.append({
                     "product_name": str(order_item.product or order_item.variant),
@@ -679,7 +681,7 @@ class AdminOrderSerializer(OrderSerializer):
             for i, item_data in enumerate(items_data):
                 uploaded_images = item_data.pop("uploaded_images", [])
                 order_item = OrderItem.objects.create(order=order, **item_data)
-                
+
                 for img in uploaded_images:
                     OrderItemImage.objects.create(order_item=order_item, image=img)
 
@@ -696,7 +698,9 @@ class AdminOrderSerializer(OrderSerializer):
                         ):
                             files = request.FILES.getlist(key)
                             for f in files:
-                                OrderItemImage.objects.create(order_item=order_item, image=f)
+                                OrderItemImage.objects.create(
+                                    order_item=order_item, image=f
+                                )
 
                 created_items.append({
                     "product_name": str(order_item.product or order_item.variant),

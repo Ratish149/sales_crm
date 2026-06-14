@@ -29,6 +29,7 @@ class SiteConfig(SingletonModel):
     tour = models.BooleanField(default=False)
     dynamic_qr = models.BooleanField(default=False)
     enable_pasalbiz = models.BooleanField(default=False)
+    chat_enable = models.BooleanField(default=False)
 
 
 class Theme(models.Model):
