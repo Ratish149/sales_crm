@@ -150,6 +150,8 @@ class StoreProfileSerializer(serializers.ModelSerializer):
 
 
 class CustomUserSerializer(serializers.ModelSerializer):
+    is_email_verified = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
         fields = [
@@ -160,7 +162,11 @@ class CustomUserSerializer(serializers.ModelSerializer):
             "email",
             "role",
             "phone_number",
+            "is_email_verified",
         ]
+
+    def get_is_email_verified(self, obj):
+        return obj.emailaddress_set.filter(verified=True).exists()
 
 
 class StoreUserSerializer(serializers.ModelSerializer):
