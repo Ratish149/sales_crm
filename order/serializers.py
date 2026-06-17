@@ -22,7 +22,7 @@ resend.api_key = os.getenv("RESEND_API_KEY")
 class OrderItemImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItemImage
-        fields = ["id", "image"]
+        fields = ["id", "image", "text"]
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
@@ -31,6 +31,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
     uploaded_images = serializers.ListField(
         child=serializers.FileField(allow_empty_file=False, use_url=False),
         required=False,
+        write_only=True,
+    )
+    text = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
         write_only=True,
     )
 
@@ -45,6 +51,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "offer",
             "offer_discount",
             "uploaded_images",
+            "text",
         ]
 
     def validate(self, data):
@@ -427,10 +434,26 @@ class OrderSerializer(serializers.ModelSerializer):
 
             for i, item_data in enumerate(items_data):
                 uploaded_images = item_data.pop("uploaded_images", [])
+                item_text = item_data.pop("text", None)
+
+                if not item_text and request and request.data:
+                    for tk in [
+                        f"items[{i}]text",
+                        f"items[{i}][text]",
+                        f"items_{i}_text",
+                        f"items[{i}].text",
+                    ]:
+                        if tk in request.data:
+                            item_text = request.data.get(tk)
+                            if item_text:
+                                break
+
                 order_item = OrderItem.objects.create(order=order, **item_data)
 
                 for img in uploaded_images:
-                    OrderItemImage.objects.create(order_item=order_item, image=img)
+                    OrderItemImage.objects.create(
+                        order_item=order_item, image=img, text=item_text
+                    )
 
                 if request and request.FILES:
                     for key in request.FILES:
@@ -446,7 +469,7 @@ class OrderSerializer(serializers.ModelSerializer):
                             files = request.FILES.getlist(key)
                             for f in files:
                                 OrderItemImage.objects.create(
-                                    order_item=order_item, image=f
+                                    order_item=order_item, image=f, text=item_text
                                 )
 
                 created_items.append({
@@ -680,10 +703,26 @@ class AdminOrderSerializer(OrderSerializer):
             created_items = []
             for i, item_data in enumerate(items_data):
                 uploaded_images = item_data.pop("uploaded_images", [])
+                item_text = item_data.pop("text", None)
+
+                if not item_text and request and request.data:
+                    for tk in [
+                        f"items[{i}]text",
+                        f"items[{i}][text]",
+                        f"items_{i}_text",
+                        f"items[{i}].text",
+                    ]:
+                        if tk in request.data:
+                            item_text = request.data.get(tk)
+                            if item_text:
+                                break
+
                 order_item = OrderItem.objects.create(order=order, **item_data)
 
                 for img in uploaded_images:
-                    OrderItemImage.objects.create(order_item=order_item, image=img)
+                    OrderItemImage.objects.create(
+                        order_item=order_item, image=img, text=item_text
+                    )
 
                 if request and request.FILES:
                     for key in request.FILES:
@@ -699,7 +738,7 @@ class AdminOrderSerializer(OrderSerializer):
                             files = request.FILES.getlist(key)
                             for f in files:
                                 OrderItemImage.objects.create(
-                                    order_item=order_item, image=f
+                                    order_item=order_item, image=f, text=item_text
                                 )
 
                 created_items.append({

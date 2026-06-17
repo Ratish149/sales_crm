@@ -905,6 +905,7 @@ class ProductExcelExportView(generics.ListAPIView):
             "status",
             "use_dynamic_pricing",
             "base_making_charge",
+            "require_custom_image",
             "composition",
             "quantity",
             "option1 name",
@@ -944,6 +945,7 @@ class ProductExcelExportView(generics.ListAPIView):
                 float(product.base_making_charge)
                 if product.base_making_charge
                 else 0.0,
+                "TRUE" if product.require_custom_image else "FALSE",
             ]
 
             compositions = list(product.compositions.all())
@@ -963,10 +965,10 @@ class ProductExcelExportView(generics.ListAPIView):
 
             if compositions:
                 comp = compositions[0]
-                row_data[16] = (
+                row_data[17] = (
                     f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
                 )
-                row_data[17] = float(comp.quantity)
+                row_data[18] = float(comp.quantity)
 
             if variants:
                 var = variants[0]
@@ -974,10 +976,10 @@ class ProductExcelExportView(generics.ListAPIView):
                 for val in var_values:
                     for i, opt in enumerate(options[:3]):
                         if val.option_id == opt.id:
-                            row_data[19 + i * 2] = val.value
-                row_data[24] = float(var.price) if var.price else 0.0
-                row_data[25] = var.stock
-                row_data[26] = var.image.url if var.image else ""
+                            row_data[20 + i * 2] = val.value
+                row_data[25] = float(var.price) if var.price else 0.0
+                row_data[26] = var.stock
+                row_data[27] = var.image.url if var.image else ""
 
             for col, value in enumerate(row_data, 1):
                 ws.cell(row=current_row, column=col, value=value)
@@ -988,10 +990,10 @@ class ProductExcelExportView(generics.ListAPIView):
                 extra_row = [""] * len(headers)
                 if i < len(compositions):
                     comp = compositions[i]
-                    extra_row[16] = (
+                    extra_row[17] = (
                         f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
                     )
-                    extra_row[17] = float(comp.quantity)
+                    extra_row[18] = float(comp.quantity)
 
                 if i < len(variants):
                     var = variants[i]
@@ -999,10 +1001,10 @@ class ProductExcelExportView(generics.ListAPIView):
                     for val in var_values:
                         for j, opt in enumerate(options[:3]):
                             if val.option_id == opt.id:
-                                extra_row[19 + j * 2] = val.value
-                    extra_row[24] = float(var.price) if var.price else 0.0
-                    extra_row[25] = var.stock
-                    extra_row[26] = var.image.url if var.image else ""
+                                extra_row[20 + j * 2] = val.value
+                    extra_row[25] = float(var.price) if var.price else 0.0
+                    extra_row[26] = var.stock
+                    extra_row[27] = var.image.url if var.image else ""
 
                 for col, value in enumerate(extra_row, 1):
                     ws.cell(row=current_row, column=col, value=value)
@@ -1025,9 +1027,9 @@ class ProductExcelExportView(generics.ListAPIView):
             "N": 10,
             "O": 20,
             "P": 20,
-            "Q": 30,
-            "R": 12,
-            "S": 15,
+            "Q": 20,
+            "R": 30,
+            "S": 12,
             "T": 15,
             "U": 15,
             "V": 15,
@@ -1035,9 +1037,10 @@ class ProductExcelExportView(generics.ListAPIView):
             "X": 15,
             "Y": 15,
             "Z": 15,
-            "AA": 20,
+            "AA": 15,
             "AB": 20,
-            "AC": 25,
+            "AC": 20,
+            "AD": 25,
         }
         for col_let, width in column_widths.items():
             ws.column_dimensions[col_let].width = width
@@ -1280,6 +1283,7 @@ class DownloadProductSampleTemplateView(APIView):
             "status",
             "use_dynamic_pricing",
             "base_making_charge",
+            "require_custom_image",
             "composition",
             "quantity",
             "option1 name",
@@ -1333,6 +1337,7 @@ class DownloadProductSampleTemplateView(APIView):
             "active",
             "TRUE",
             0.00,
+            "FALSE",
             sample_metric,
             5,
             "Color",
@@ -1357,18 +1362,18 @@ class DownloadProductSampleTemplateView(APIView):
             else "Silver (190000.00/10)"
         )
         composition_row_2 = [""] * len(headers)
-        composition_row_2[17] = second_metric
-        composition_row_2[18] = 3
+        composition_row_2[18] = second_metric
+        composition_row_2[19] = 3
         for col, value in enumerate(composition_row_2, 1):
             ws.cell(row=3, column=col, value=value)
 
         def make_variant_row(opt1_val, opt2_val, v_price, v_stock, v_image):
             row = [""] * len(headers)
-            row[20] = opt1_val
-            row[22] = opt2_val
-            row[25] = v_price
-            row[26] = v_stock
-            row[27] = v_image
+            row[21] = opt1_val
+            row[23] = opt2_val
+            row[26] = v_price
+            row[27] = v_stock
+            row[28] = v_image
             return row
 
         variant_rows = [
@@ -1418,6 +1423,7 @@ class DownloadProductSampleTemplateView(APIView):
         add_bool_validation("M2:M1048576")
         add_bool_validation("N2:N1048576")
         add_bool_validation("P2:P1048576")
+        add_bool_validation("R2:R1048576")
 
         status_dv = DataValidation(
             type="list",
@@ -1475,7 +1481,7 @@ class DownloadProductSampleTemplateView(APIView):
                 error="Please select a valid metric from the dropdown",
             )
             ws.add_data_validation(comp_dv)
-            comp_dv.add("R2:R1048576")
+            comp_dv.add("S2:S1048576")
 
         qty_dv = DataValidation(
             type="decimal",
@@ -1487,7 +1493,7 @@ class DownloadProductSampleTemplateView(APIView):
             error="Enter a numeric quantity greater than 0",
         )
         ws.add_data_validation(qty_dv)
-        qty_dv.add("S2:S1048576")
+        qty_dv.add("T2:T1048576")
 
     def _adjust_column_widths(self, ws):
         column_widths = {
@@ -1508,9 +1514,9 @@ class DownloadProductSampleTemplateView(APIView):
             "O": 10,
             "P": 20,
             "Q": 20,
-            "R": 30,
-            "S": 12,
-            "T": 15,
+            "R": 20,
+            "S": 30,
+            "T": 12,
             "U": 15,
             "V": 15,
             "W": 15,
@@ -1518,9 +1524,10 @@ class DownloadProductSampleTemplateView(APIView):
             "Y": 15,
             "Z": 15,
             "AA": 15,
-            "AB": 20,
+            "AB": 15,
             "AC": 20,
-            "AD": 25,
+            "AD": 20,
+            "AE": 25,
         }
         for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
@@ -1632,6 +1639,12 @@ class BulkProductUploadView(APIView):
                     except (ValueError, TypeError):
                         base_making_charge = 0.00
 
+                    raw_custom_image = safe_value(row.get("require_custom_image"), False)
+                    if isinstance(raw_custom_image, str):
+                        require_custom_image = raw_custom_image.strip().upper() == "TRUE"
+                    else:
+                        require_custom_image = bool(raw_custom_image)
+
                     product_data = {
                         "name": current_product_key,
                         "description": safe_value(row.get("description"), ""),
@@ -1654,6 +1667,7 @@ class BulkProductUploadView(APIView):
                         "status": safe_value(row.get("status"), "active"),
                         "use_dynamic_pricing": use_dynamic_pricing,
                         "base_making_charge": base_making_charge,
+                        "require_custom_image": require_custom_image,
                         "meta_title": safe_value(
                             row.get("meta_title", row.get("meta title")), ""
                         ),

@@ -16,7 +16,7 @@ class OrderItemImageInline(admin.TabularInline):
 
 @admin.register(OrderItemImage)
 class OrderItemImageAdmin(admin.ModelAdmin):
-    list_display = ['id', 'order_item', 'image', 'created_at']
+    list_display = ['id', 'order_item', 'image', 'text', 'created_at']
 
 
 class OrderAdmin(admin.ModelAdmin):

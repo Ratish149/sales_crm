@@ -210,8 +210,8 @@ class OrderItemImage(models.Model):
         upload_to="order_item/images",
         storage=PublicMediaStorage(),
     )
+    text = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Image for {self.order_item.id} - {self.order_item}"
-
