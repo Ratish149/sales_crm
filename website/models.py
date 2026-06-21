@@ -27,6 +27,7 @@ class SiteConfig(SingletonModel):
     use_product_variant = models.BooleanField(default=False)
     map_link = models.TextField(blank=True, null=True)
     tour = models.BooleanField(default=False)
+    dashboard_tour = models.BooleanField(default=False)
     dynamic_qr = models.BooleanField(default=False)
     enable_pasalbiz = models.BooleanField(default=False)
     chat_enable = models.BooleanField(default=False)
