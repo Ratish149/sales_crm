@@ -196,6 +196,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
             "id",
             "product",
             "image",
+            "order",
             "created_at",
             "updated_at",
         ]  # explicit, was __all__
@@ -204,7 +205,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductImageSmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ["id", "image"]  # unchanged
+        fields = ["id", "image", "order"]  # unchanged
 
 
 class SubCategorySerializer(serializers.ModelSerializer):
@@ -361,6 +362,9 @@ class ProductSerializer(serializers.ModelSerializer):
     reviews_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     is_wishlist = serializers.SerializerMethodField()
+    product_image_order = serializers.ListField(
+        child=serializers.DictField(), write_only=True, required=False, allow_empty=True
+    )
 
     class Meta:
         model = Product
@@ -405,6 +409,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_wishlist",
             "created_at",
             "updated_at",
+            "product_image_order",
         ]
         extra_kwargs = {"slug": {"read_only": True}}
 
@@ -449,6 +454,7 @@ class ProductSerializer(serializers.ModelSerializer):
         self._variant_images_temp = {}
         self._compositions_temp = None
         self._options_temp = None
+        self._product_image_order_temp = None
 
         if hasattr(data, "_mutable"):
             data._mutable = True
@@ -484,6 +490,27 @@ class ProductSerializer(serializers.ModelSerializer):
                 self._options_temp = data["options"]
             data.pop("options", None)
 
+        if "product_image_order" in data:
+            if isinstance(data["product_image_order"], str):
+                try:
+                    self._product_image_order_temp = json.loads(
+                        data["product_image_order"]
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            elif isinstance(data["product_image_order"], list):
+                self._product_image_order_temp = data["product_image_order"]
+
+            # If it failed to parse or is still a string (due to nested serialization), double check
+            if isinstance(self._product_image_order_temp, str):
+                try:
+                    self._product_image_order_temp = json.loads(
+                        self._product_image_order_temp
+                    )
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            data.pop("product_image_order", None)
+
         validated = super().to_internal_value(data)
 
         if self._variant_images_temp:
@@ -492,6 +519,8 @@ class ProductSerializer(serializers.ModelSerializer):
             validated["compositions"] = self._compositions_temp
         if self._options_temp is not None:
             validated["options"] = self._options_temp
+        if self._product_image_order_temp is not None:
+            validated["product_image_order"] = self._product_image_order_temp
 
         return validated
 
@@ -515,6 +544,7 @@ class ProductSerializer(serializers.ModelSerializer):
         variant_images = validated_data.pop("variant_images", {})
         compositions_data = validated_data.pop("compositions", [])
         options_data = validated_data.pop("options", [])
+        validated_data.pop("order", None)
 
         product = Product.objects.create(**validated_data)
 
@@ -528,8 +558,8 @@ class ProductSerializer(serializers.ModelSerializer):
                     quantity=quantity,
                 )
 
-        for img in image_files:
-            ProductImage.objects.create(product=product, image=img)
+        for idx, img in enumerate(image_files):
+            ProductImage.objects.create(product=product, image=img, order=idx)
 
         # Create options and values if provided
         for opt_data in options_data:
@@ -584,7 +614,19 @@ class ProductSerializer(serializers.ModelSerializer):
         ):
             raise serializers.ValidationError("Product with this name already exists.")
 
+        product_image_order_data = validated_data.pop("product_image_order", None)
+
         instance = super().update(instance, validated_data)
+
+        if product_image_order_data is not None:
+            # product_image_order_data looks like: [{"id": 8, "order": 0}, {"id": 6, "order": 1}]
+            for img_order_info in product_image_order_data:
+                img_id = img_order_info.get("id")
+                ord_val = img_order_info.get("order")
+                if img_id is not None and ord_val is not None:
+                    ProductImage.objects.filter(pk=img_id, product=instance).update(
+                        order=ord_val
+                    )
 
         if options_data is not None:
             provided_option_names = [
@@ -627,8 +669,8 @@ class ProductSerializer(serializers.ModelSerializer):
                         )
 
         if image_files is not None:
-            for img in image_files:
-                ProductImage.objects.create(product=instance, image=img)
+            for idx, img in enumerate(image_files):
+                ProductImage.objects.create(product=instance, image=img, order=idx)
 
         if variants_data is not None:
             # We don't need the partial cleanup here anymore as we do it at the end

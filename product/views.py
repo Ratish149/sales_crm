@@ -239,7 +239,7 @@ PRODUCT_COMPOSITION_QS = ProductComposition.objects.select_related("metric").onl
 )
 
 PRODUCT_IMAGE_QS = ProductImage.objects.only(
-    "id", "product_id", "image", "created_at", "updated_at"
+    "id", "product_id", "image", "order", "created_at", "updated_at"
 )
 
 PRODUCT_REVIEW_QS = (

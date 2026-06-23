@@ -97,8 +97,12 @@ class ProductImage(models.Model):
         blank=True,
         max_length=255,
     )
+    order = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "created_at"]
 
     def __str__(self):
         return (
