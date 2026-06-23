@@ -167,7 +167,7 @@ class CustomSignupView(APIView):
                         email=user.email,
                         user=user,
                         primary=True,
-                        verified=is_template_account,
+                        verified=True,
                     )
 
                     Domain.objects.create(
@@ -195,15 +195,19 @@ class CustomSignupView(APIView):
                             tenant.save()
 
             # Send verification email (outside atomic? no, only if success)
-            try:
-                send_email_confirmation(request, user)
-            except Exception:
-                # If email fails, do we rollback user?
-                # Probably yes, return error.
-                # So keep inside atomic or handle explicitly.
-                # Use strict requirement: "if any fail, do not create user"
-                # But email sending is external.
-                pass
+            email_address = EmailAddress.objects.filter(
+                user=user, email=user.email
+            ).first()
+            if not email_address or not email_address.verified:
+                try:
+                    send_email_confirmation(request, user)
+                except Exception:
+                    # If email fails, do we rollback user?
+                    # Probably yes, return error.
+                    # So keep inside atomic or handle explicitly.
+                    # Use strict requirement: "if any fail, do not create user"
+                    # But email sending is external.
+                    pass
 
             # Log activity: Signup
             log_user_activity(
@@ -213,6 +217,8 @@ class CustomSignupView(APIView):
                 metadata={"store_name": store_name, "email": email},
             )
 
+            tokens = generate_fresh_tokens(user)
+
             # Return success response
             return Response(
                 {
@@ -221,6 +227,8 @@ class CustomSignupView(APIView):
                     "username": username,
                     "store_name": store_name,
                     "role": user.role,
+                    "access": tokens["access"],
+                    "refresh": tokens["refresh"],
                 },
                 status=status.HTTP_201_CREATED,
             )
