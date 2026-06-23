@@ -125,6 +125,9 @@ class Product(models.Model):
     market_price = models.DecimalField(
         max_digits=100, decimal_places=2, null=True, blank=True
     )
+    cost_price = models.DecimalField(
+        max_digits=100, decimal_places=2, null=True, blank=True
+    )
     fast_shipping = models.BooleanField(default=False)
     warranty = models.CharField(max_length=250, null=True, blank=True)
     track_stock = models.BooleanField(default=True, null=True, blank=True)

@@ -375,6 +375,7 @@ class ProductSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "market_price",
+            "cost_price",
             "track_stock",
             "stock",
             "weight",

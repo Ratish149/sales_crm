@@ -1639,9 +1639,13 @@ class BulkProductUploadView(APIView):
                     except (ValueError, TypeError):
                         base_making_charge = 0.00
 
-                    raw_custom_image = safe_value(row.get("require_custom_image"), False)
+                    raw_custom_image = safe_value(
+                        row.get("require_custom_image"), False
+                    )
                     if isinstance(raw_custom_image, str):
-                        require_custom_image = raw_custom_image.strip().upper() == "TRUE"
+                        require_custom_image = (
+                            raw_custom_image.strip().upper() == "TRUE"
+                        )
                     else:
                         require_custom_image = bool(raw_custom_image)
 
