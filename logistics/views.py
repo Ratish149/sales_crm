@@ -14,7 +14,7 @@ from sales_crm.authentication import TenantJWTAuthentication
 from .models import Logistics
 from .serializers import LogisticsSerializer
 
-DASH_BASE_URL = "https://dashlogistics.dev"
+DASH_BASE_URL = "https://dashlogistics.com.np"
 
 
 def dash_login(email, password, dash_obj=None):
