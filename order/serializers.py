@@ -747,6 +747,9 @@ class AdminOrderSerializer(OrderSerializer):
                     "price": order_item.price,
                 })
 
+            if order.pos_order:
+                order.deduct_stock()
+
             if order.promo_code:
                 PromoCode.objects.filter(id=order.promo_code.id).update(
                     used_count=models.F("used_count") + 1

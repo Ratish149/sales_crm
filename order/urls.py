@@ -11,6 +11,7 @@ from .views import (
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
     OrderStorageStatsView,
+    SendOrderToLogisticsAPIView,
 )
 
 urlpatterns = [
@@ -29,6 +30,11 @@ urlpatterns = [
         "order/<int:pk>/",
         OrderRetrieveUpdateDestroyAPIView.as_view(),
         name="order-retrieve-update-destroy",
+    ),
+    path(
+        "order/<int:pk>/send-order/",
+        SendOrderToLogisticsAPIView.as_view(),
+        name="order-send-to-logistics",
     ),
     path("get-order/<str:order_number>/", OrderGetAPIView.as_view(), name="order-get"),
     path("dashboard-stats/", DashboardStatsView.as_view(), name="dashboard-stats"),

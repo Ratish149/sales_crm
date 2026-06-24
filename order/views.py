@@ -8,7 +8,7 @@ from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
 from openpyxl import Workbook
-from rest_framework import filters, generics
+from rest_framework import filters, generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -177,27 +177,67 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
         instance.refresh_from_db()
         new_status = instance.status
 
-        # Handle transitions to "confirmed" status (Deduct stock and Sync with Logistics)
-        if old_status != "confirmed" and new_status == "confirmed":
+        # Handle transitions: deduct stock if changed from pending to any status other than pending or cancelled
+        if old_status == "pending" and new_status not in ["pending", "cancelled"]:
             instance.deduct_stock()
 
-            # Check if Dash logistics is enabled
-            if Logistics.objects.filter(is_enabled=True, logistic="Dash").exists():
-                dash_response = send_order_to_dash(instance)
-
-                # If Dash failed, raise error and revert status/stock
-                if dash_response.status_code != 200:
-                    instance.return_stock()
-                    instance.status = old_status
-                    instance.save(update_fields=["status"])
-                    return dash_response  # Return Dash error directly
-
-        # Handle transitions to "pending" or "cancelled" from a deducted state (Restock)
-        DEDUCTED_STATUSES = ["confirmed", "processing", "shipped", "delivered"]
-        if old_status in DEDUCTED_STATUSES and new_status in ["pending", "cancelled"]:
+        # Handle transitions: return stock if changed to pending or cancelled from any deducted state (non-pending and non-cancelled)
+        if old_status not in ["pending", "cancelled"] and new_status in [
+            "pending",
+            "cancelled",
+        ]:
             instance.return_stock()
 
         return response
+
+
+class SendOrderToLogisticsAPIView(APIView):
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            order = Order.objects.get(pk=pk)
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        logistic_id = request.data.get("logistic")
+        if not logistic_id:
+            return Response(
+                {"error": "logistic is required in post data"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            logistic_obj = Logistics.objects.get(id=logistic_id)
+        except Logistics.DoesNotExist:
+            return Response(
+                {"error": "Logistics configuration not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if not logistic_obj.is_enabled:
+            return Response(
+                {"error": f"{logistic_obj.logistic} logistics is not enabled"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if logistic_obj.logistic == "Dash":
+            old_status = order.status
+            res = send_order_to_dash(order)
+            if res.status_code == 200:
+                order.status = "shipped"
+                order.save(update_fields=["status"])
+                if old_status == "pending":
+                    order.deduct_stock()
+            return res
+        else:
+            return Response(
+                {"error": f"Unsupported logistic type: {logistic_obj.logistic}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 
 class OrderGetAPIView(generics.RetrieveAPIView):

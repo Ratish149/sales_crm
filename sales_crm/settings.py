@@ -253,7 +253,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://dual-collins-desire-monitors.trycloudflare.com",
+    "http://ip-store.127.0.0.1.nip.io:8000",
+    "http://*.127.0.0.1.nip.io:8000",
+    "http://*.localhost:8000",
+    "https://puzzles-courts-refresh-indicators.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -262,7 +265,10 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8081",
     "https://www.nepdora.com",
-    "https://dual-collins-desire-monitors.trycloudflare.com",
+    "http://ip-store.127.0.0.1.nip.io:8000",
+    "http://*.127.0.0.1.nip.io:8000",
+    "http://*.localhost:8000",
+    "https://puzzles-courts-refresh-indicators.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 
