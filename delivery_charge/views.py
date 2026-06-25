@@ -2,7 +2,7 @@ import os
 
 from django.conf import settings
 from django.db.models import Q
-from rest_framework import filters, generics, status
+from rest_framework import generics, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,8 +24,16 @@ class DeliveryChargeListCreateView(generics.ListCreateAPIView):
     ).order_by("location_name")
     serializer_class = DeliveryChargeSerializer
     pagination_class = CustomPagination
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["location_name"]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        search_query = self.request.query_params.get("search", "").strip()
+        if search_query:
+            queryset = queryset.filter(
+                Q(location_name__icontains=search_query)
+                | Q(coverage_area__icontains=search_query)
+            )
+        return queryset
 
 
 class DefaultDeliveryChargeListCreateView(generics.ListCreateAPIView):
@@ -60,7 +68,7 @@ class LoadDefaultLocationsAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         file_path = os.path.join(
-            settings.BASE_DIR, "delivery_charge", "default_locations.xlsx"
+            settings.BASE_DIR, "delivery_charge", "default_location.xlsx"
         )
 
         success = import_default_locations(file_path)

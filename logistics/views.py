@@ -3,6 +3,7 @@
 from datetime import timedelta
 
 import requests
+from django.conf import settings
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from rest_framework import generics, status
@@ -14,7 +15,7 @@ from sales_crm.authentication import TenantJWTAuthentication
 from .models import Logistics
 from .serializers import LogisticsSerializer
 
-DASH_BASE_URL = "https://dashlogistics.com.np"
+DASH_BASE_URL = getattr(settings, "DASH_BASE_URL", "https://dashlogistics.com.np")
 
 
 def dash_login(email, password, dash_obj=None):

@@ -26,6 +26,8 @@ class DeliveryCharge(models.Model):
     cost_above_10kg = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True
     )
+    coverage_area = models.JSONField(default=list, null=True, blank=True)
 
     def __str__(self):
         return self.location_name or "Default"
+

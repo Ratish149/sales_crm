@@ -25,6 +25,7 @@ OLLAMA_KEY = os.getenv("OLLAMA_KEY")
 BACKEND_URL = os.getenv("BACKEND_URL", "localhost:8000")
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost:8000")
 HTTP = os.getenv("HTTP", "https")
+DASH_BASE_URL = os.getenv("DASH_BASE_URL", "https://dashlogistics.com.np")
 
 USE_SPACES = False
 
@@ -256,7 +257,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://ip-store.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://puzzles-courts-refresh-indicators.trycloudflare.com",
+    "https://unlikely-behalf-www-native.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -268,7 +269,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://ip-store.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://puzzles-courts-refresh-indicators.trycloudflare.com",
+    "https://unlikely-behalf-www-native.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 
