@@ -2160,3 +2160,8 @@ class OfferProductListView(generics.ListAPIView):
 
         serializer = self.get_serializer(combined, many=True)
         return Response(serializer.data)
+
+
+class ProductDeleteView(generics.DestroyAPIView):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer

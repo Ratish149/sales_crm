@@ -13,6 +13,7 @@ from .views import (
     PricingMetricRetrieveUpdateDestroyView,
     ProductCompositionListCreateView,
     ProductCompositionRetrieveUpdateDestroyView,
+    ProductDeleteView,
     ProductExcelExportView,
     ProductImageListCreateView,
     ProductImageRetrieveUpdateDestroyView,
@@ -31,6 +32,7 @@ from .views import (
 
 urlpatterns = [
     path("product/", ProductListCreateView.as_view(), name="product-list-create"),
+    path("product/<int:pk>/delete", ProductDeleteView.as_view(), name="product-delete"),
     path(
         "offer-products/",
         OfferProductListView.as_view(),
