@@ -105,10 +105,11 @@ class TemplateSubCategoryRetrieveUpdateDeleteView(
 
 class DomainFilter(django_filters.FilterSet):
     payment = django_filters.CharFilter(method="filter_payment")
+    expiring_soon = django_filters.BooleanFilter(method="filter_expiring_soon")
 
     class Meta:
         model = Domain
-        fields = ["payment"]
+        fields = ["payment", "expiring_soon"]
 
     def filter_payment(self, queryset, name, value):
         if not value:
@@ -132,6 +133,18 @@ class DomainFilter(django_filters.FilterSet):
         elif value.lower() == "disabled":
             return queryset.exclude(tenant_id__in=enabled_tenant_ids)
 
+        return queryset
+
+    def filter_expiring_soon(self, queryset, name, value):
+        if value:
+            from datetime import date, timedelta
+
+            today = date.today()
+            fifteen_days_later = today + timedelta(days=15)
+            return queryset.filter(
+                tenant__paid_until__gte=today,
+                tenant__paid_until__lte=fifteen_days_later,
+            )
         return queryset
 
 
