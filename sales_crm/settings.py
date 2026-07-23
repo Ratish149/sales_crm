@@ -370,8 +370,8 @@ FETCH_USER_INFO = True
 
 SESSION_COOKIE_SAMESITE = None  # Very important for cross-site cookies
 SESSION_COOKIE_DOMAIN = None  # Let browser decide
-SESSION_COOKIE_SECURE = False  # Must be True in production with HTTPS
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True  # Must be True in production with HTTPS
+CSRF_COOKIE_SECURE = True
 
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
