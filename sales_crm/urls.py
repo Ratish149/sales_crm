@@ -18,6 +18,7 @@ Including another URLconf
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -26,6 +27,9 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
+    path(
+        "", lambda request: HttpResponse("Sales CRM is running successfully!")
+    ),  # Temporary homepage
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     # Allauth headless for API endpoints
