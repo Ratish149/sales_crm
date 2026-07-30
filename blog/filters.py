@@ -18,7 +18,8 @@ class BlogFilterSet(django_filters.FilterSet):
         field_name="category__slug", lookup_expr="iexact"
     )
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
+    author = django_filters.CharFilter(lookup_expr="icontains")
 
     class Meta:
         model = Blog
-        fields = ["tags", "category", "is_featured"]
+        fields = ["tags", "category", "is_featured", "author"]

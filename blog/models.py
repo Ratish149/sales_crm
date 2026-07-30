@@ -47,6 +47,7 @@ class Blog(models.Model):
     thumbnail_image_alt_description = models.CharField(
         max_length=255, blank=True, null=True
     )
+    author = models.CharField(max_length=255, null=True, blank=True)
     time_to_read = models.CharField(max_length=255, null=True, blank=True)
     tags = models.ManyToManyField("Tags", related_name="blogs", blank=True)
     meta_title = models.CharField(max_length=255, null=True, blank=True)

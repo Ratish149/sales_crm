@@ -59,6 +59,7 @@ class BlogSerializer(serializers.ModelSerializer):
             "tag_names",
             "thumbnail_image",
             "thumbnail_image_alt_description",
+            "author",
             "time_to_read",
             "meta_title",
             "meta_description",
@@ -136,6 +137,9 @@ class BulkCreateBlogItemSerializer(serializers.Serializer):
     content = serializers.CharField()
     category = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, default=None
+    )
+    author = serializers.CharField(
+        max_length=255, required=False, allow_null=True, allow_blank=True, default=None
     )
     time_to_read = serializers.CharField(max_length=50, required=False)
     meta_title = serializers.CharField(required=False, allow_blank=True, default="")

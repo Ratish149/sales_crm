@@ -80,6 +80,7 @@ class BlogListCreateView(generics.ListCreateAPIView):
             "content",
             "thumbnail_image",
             "thumbnail_image_alt_description",
+            "author",
             "time_to_read",
             "meta_title",
             "meta_description",
@@ -93,7 +94,7 @@ class BlogListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
     filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
     filterset_class = BlogFilterSet
-    search_fields = ["title"]
+    search_fields = ["title", "author"]
 
     def get_authenticators(self):
         if self.request.method == "POST":
@@ -122,6 +123,7 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             "content",
             "thumbnail_image",
             "thumbnail_image_alt_description",
+            "author",
             "time_to_read",
             "meta_title",
             "meta_description",
@@ -182,6 +184,7 @@ class RecentBlogsView(generics.ListAPIView):
             "content",
             "thumbnail_image",
             "thumbnail_image_alt_description",
+            "author",
             "time_to_read",
             "meta_title",
             "meta_description",
@@ -264,6 +267,7 @@ class BlogBulkCreateView(APIView):
                 "content",
                 "thumbnail_image",
                 "thumbnail_image_alt_description",
+                "author",
                 "time_to_read",
                 "meta_title",
                 "meta_description",
