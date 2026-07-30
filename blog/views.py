@@ -27,7 +27,7 @@ class CustomPagination(PageNumberPagination):
 
 class BlogCategoryListCreateView(generics.ListCreateAPIView):
     queryset = BlogCategory.objects.only(
-        "id", "name", "slug", "created_at", "updated_at"
+        "id", "name", "slug", "thumbnail_image", "created_at", "updated_at"
     ).order_by("name")
     serializer_class = BlogCategorySerializer
     pagination_class = CustomPagination
@@ -48,7 +48,7 @@ class BlogCategoryListCreateView(generics.ListCreateAPIView):
 
 class BlogCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = BlogCategory.objects.only(
-        "id", "name", "slug", "created_at", "updated_at"
+        "id", "name", "slug", "thumbnail_image", "created_at", "updated_at"
     )
     serializer_class = BlogCategorySerializer
     lookup_field = "slug"
@@ -75,6 +75,7 @@ class BlogListCreateView(generics.ListCreateAPIView):
             "category__id",
             "category__name",
             "category__slug",
+            "category__thumbnail_image",
             "title",
             "slug",
             "content",
@@ -118,6 +119,7 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             "category__id",
             "category__name",
             "category__slug",
+            "category__thumbnail_image",
             "title",
             "slug",
             "content",
@@ -179,6 +181,7 @@ class RecentBlogsView(generics.ListAPIView):
             "category__id",
             "category__name",
             "category__slug",
+            "category__thumbnail_image",
             "title",
             "slug",
             "content",
@@ -262,6 +265,7 @@ class BlogBulkCreateView(APIView):
                 "category__id",
                 "category__name",
                 "category__slug",
+                "category__thumbnail_image",
                 "title",
                 "slug",
                 "content",

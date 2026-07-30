@@ -10,6 +10,13 @@ from sales_crm.utils.s3bucket import PublicMediaStorage
 class BlogCategory(models.Model):
     name = models.CharField(max_length=255)
     slug = models.CharField(max_length=255, null=True, blank=True)
+    thumbnail_image = models.FileField(
+        upload_to="blog/category_images/",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

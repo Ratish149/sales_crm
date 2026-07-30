@@ -6,14 +6,21 @@ from .models import Blog, BlogCategory, Tags
 class BlogCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogCategory
-        fields = ["id", "name", "slug", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "thumbnail_image",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["id", "slug", "created_at", "updated_at"]
 
 
 class BlogCategorySmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogCategory
-        fields = ["id", "name", "slug"]
+        fields = ["id", "name", "slug", "thumbnail_image"]
 
 
 class TagsSerializer(serializers.ModelSerializer):
