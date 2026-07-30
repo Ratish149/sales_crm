@@ -62,6 +62,7 @@ class BlogSerializer(serializers.ModelSerializer):
             "time_to_read",
             "meta_title",
             "meta_description",
+            "is_featured",
             "created_at",
             "updated_at",
         ]
@@ -141,6 +142,7 @@ class BulkCreateBlogItemSerializer(serializers.Serializer):
     meta_description = serializers.CharField(
         required=False, allow_blank=True, default=""
     )
+    is_featured = serializers.BooleanField(required=False, default=False)
     tag_names = serializers.ListField(
         child=serializers.CharField(allow_blank=False),
         required=False,

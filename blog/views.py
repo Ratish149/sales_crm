@@ -83,6 +83,7 @@ class BlogListCreateView(generics.ListCreateAPIView):
             "time_to_read",
             "meta_title",
             "meta_description",
+            "is_featured",
             "created_at",
             "updated_at",
         )
@@ -124,6 +125,7 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
             "time_to_read",
             "meta_title",
             "meta_description",
+            "is_featured",
             "created_at",
             "updated_at",
         )
@@ -183,6 +185,7 @@ class RecentBlogsView(generics.ListAPIView):
             "time_to_read",
             "meta_title",
             "meta_description",
+            "is_featured",
             "created_at",
             "updated_at",
         )
@@ -264,6 +267,7 @@ class BlogBulkCreateView(APIView):
                 "time_to_read",
                 "meta_title",
                 "meta_description",
+                "is_featured",
                 "created_at",
                 "updated_at",
             )

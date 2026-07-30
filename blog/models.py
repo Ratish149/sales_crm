@@ -51,6 +51,7 @@ class Blog(models.Model):
     tags = models.ManyToManyField("Tags", related_name="blogs", blank=True)
     meta_title = models.CharField(max_length=255, null=True, blank=True)
     meta_description = models.TextField(null=True, blank=True)
+    is_featured = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
