@@ -130,6 +130,7 @@ TENANT_APPS = [
     "booking",
     "gallery",
     "event",
+    "google_adsense",
 ]
 SILENCED_SYSTEM_CHECKS = ["auth.W004"]
 AUTH_CREATE_PERMISSIONS = True

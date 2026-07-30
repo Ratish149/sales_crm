@@ -59,6 +59,7 @@ urlpatterns = [
     path("api/", include("promo_code.urls")),
     path("api/", include("delivery_charge.urls")),
     path("api/", include("google_analytic.urls")),
+    path("api/", include("google_adsense.urls")),
     path("api/", include("facebook.urls")),
     path("api/", include("clarity.urls")),
     path("api/", include("tawkto.urls")),
