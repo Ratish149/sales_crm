@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     BlogBulkCreateView,
+    BlogCategoryListCreateView,
+    BlogCategoryRetrieveUpdateDestroyView,
     BlogListCreateView,
     BlogRetrieveUpdateDestroyView,
     RecentBlogsView,
@@ -10,6 +12,12 @@ from .views import (
 )
 
 urlpatterns = [
+    path("categories/", BlogCategoryListCreateView.as_view(), name="blog-category-list-create"),
+    path(
+        "categories/<slug:slug>/",
+        BlogCategoryRetrieveUpdateDestroyView.as_view(),
+        name="blog-category-retrieve-update-destroy",
+    ),
     path("blogs/", BlogListCreateView.as_view(), name="blog-list-create"),
     path(
         "blogs/<slug:slug>/",

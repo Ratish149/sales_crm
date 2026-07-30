@@ -1,4 +1,3 @@
-# Create your views here.
 from django.db import transaction
 from django.db.models import Prefetch
 from django_filters import rest_framework as django_filters
@@ -10,8 +9,14 @@ from rest_framework.views import APIView
 
 from sales_crm.authentication import TenantJWTAuthentication
 
-from .models import Blog, Tags
-from .serializers import BlogSerializer, BulkCreateBlogSerializer, TagsSerializer
+from .filters import BlogCategoryFilterSet, BlogFilterSet
+from .models import Blog, BlogCategory, Tags
+from .serializers import (
+    BlogCategorySerializer,
+    BlogSerializer,
+    BulkCreateBlogSerializer,
+    TagsSerializer,
+)
 
 
 class CustomPagination(PageNumberPagination):
@@ -20,21 +25,56 @@ class CustomPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class BlogFilterSet(django_filters.FilterSet):
-    tags = django_filters.CharFilter(field_name="tags__slug", lookup_expr="iexact")
+class BlogCategoryListCreateView(generics.ListCreateAPIView):
+    queryset = BlogCategory.objects.only(
+        "id", "name", "slug", "created_at", "updated_at"
+    ).order_by("name")
+    serializer_class = BlogCategorySerializer
+    pagination_class = CustomPagination
+    filter_backends = [django_filters.DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = BlogCategoryFilterSet
+    search_fields = ["name"]
 
-    class Meta:
-        model = Blog
-        fields = ["tags"]
+    def get_authenticators(self):
+        if self.request.method == "POST":
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return super().get_permissions()
+
+
+class BlogCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BlogCategory.objects.only(
+        "id", "name", "slug", "created_at", "updated_at"
+    )
+    serializer_class = BlogCategorySerializer
+    lookup_field = "slug"
+
+    def get_authenticators(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [TenantJWTAuthentication()]
+        return []
+
+    def get_permissions(self):
+        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+            return [IsAuthenticated()]
+        return super().get_permissions()
 
 
 class BlogListCreateView(generics.ListCreateAPIView):
     queryset = (
-        Blog.objects.prefetch_related(
+        Blog.objects.select_related("category")
+        .prefetch_related(
             Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
         )
         .only(
             "id",
+            "category__id",
+            "category__name",
+            "category__slug",
             "title",
             "slug",
             "content",
@@ -57,7 +97,7 @@ class BlogListCreateView(generics.ListCreateAPIView):
     def get_authenticators(self):
         if self.request.method == "POST":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for GET
+        return []
 
     def get_permissions(self):
         if self.request.method == "POST":
@@ -66,20 +106,27 @@ class BlogListCreateView(generics.ListCreateAPIView):
 
 
 class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Blog.objects.prefetch_related(
-        Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
-    ).only(
-        "id",
-        "title",
-        "slug",
-        "content",
-        "thumbnail_image",
-        "thumbnail_image_alt_description",
-        "time_to_read",
-        "meta_title",
-        "meta_description",
-        "created_at",
-        "updated_at",
+    queryset = (
+        Blog.objects.select_related("category")
+        .prefetch_related(
+            Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
+        )
+        .only(
+            "id",
+            "category__id",
+            "category__name",
+            "category__slug",
+            "title",
+            "slug",
+            "content",
+            "thumbnail_image",
+            "thumbnail_image_alt_description",
+            "time_to_read",
+            "meta_title",
+            "meta_description",
+            "created_at",
+            "updated_at",
+        )
     )
     serializer_class = BlogSerializer
     lookup_field = "slug"
@@ -117,14 +164,17 @@ class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         return super().get_permissions()
 
 
-# Get recent blogs api
 class RecentBlogsView(generics.ListAPIView):
     queryset = (
-        Blog.objects.prefetch_related(
+        Blog.objects.select_related("category")
+        .prefetch_related(
             Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
         )
         .only(
             "id",
+            "category__id",
+            "category__name",
+            "category__slug",
             "title",
             "slug",
             "content",
@@ -142,32 +192,10 @@ class RecentBlogsView(generics.ListAPIView):
 
 
 class BlogBulkCreateView(APIView):
-    """
-    POST /api/blogs/bulk-create/
+    """POST /api/blogs-bulk-create/
 
-    Accepts a JSON body with a `blogs` list and creates all of them
-    inside a single database transaction.
-
-    Request body example:
-    {
-      "blogs": [
-        {
-          "title": "Blog One",
-          "content": "<p>...</p>",
-          "time_to_read": "4 min read",
-          "meta_title": "...",
-          "meta_description": "...",
-          "tag_ids": [1, 2]
-        },
-        { ... }
-      ]
-    }
-
-    Response on success (201):
-    {
-      "created": 3,
-      "blogs": [ <BlogSerializer data for each created blog> ]
-    }
+    Accepts a JSON body with a `blogs` list and creates all of them inside a
+    single database transaction.
     """
 
     authentication_classes = [TenantJWTAuthentication]
@@ -184,6 +212,15 @@ class BlogBulkCreateView(APIView):
 
         for item in blogs_data:
             tag_names = item.pop("tag_names", [])
+            category_name = item.pop("category", None)
+
+            if category_name:
+                category = BlogCategory.objects.filter(
+                    name__icontains=category_name
+                ).first()
+                if not category:
+                    category = BlogCategory.objects.create(name=category_name)
+                item["category"] = category
 
             # Deduplicate titles
             title = item["title"]
@@ -198,7 +235,6 @@ class BlogBulkCreateView(APIView):
             tag_objects = set()
             if tag_names:
                 for name in tag_names:
-                    # Case-insensitive lookup using icontains
                     tag = Tags.objects.filter(name__icontains=name).first()
                     if not tag:
                         tag = Tags.objects.create(name=name)
@@ -209,14 +245,17 @@ class BlogBulkCreateView(APIView):
 
             created_blogs.append(blog)
 
-        # Optimize response serialization by prefetching tags for the created blogs
         response_blogs = (
             Blog.objects.filter(id__in=[b.id for b in created_blogs])
+            .select_related("category")
             .prefetch_related(
                 Prefetch("tags", queryset=Tags.objects.only("id", "name", "slug"))
             )
             .only(
                 "id",
+                "category__id",
+                "category__name",
+                "category__slug",
                 "title",
                 "slug",
                 "content",

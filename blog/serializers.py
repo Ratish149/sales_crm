@@ -1,6 +1,19 @@
 from rest_framework import serializers
 
-from .models import Blog, Tags
+from .models import Blog, BlogCategory, Tags
+
+
+class BlogCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlogCategory
+        fields = ["id", "name", "slug", "created_at", "updated_at"]
+        read_only_fields = ["id", "slug", "created_at", "updated_at"]
+
+
+class BlogCategorySmallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlogCategory
+        fields = ["id", "name", "slug"]
 
 
 class TagsSerializer(serializers.ModelSerializer):
@@ -16,6 +29,14 @@ class TagsSmallSerializer(serializers.ModelSerializer):
 
 
 class BlogSerializer(serializers.ModelSerializer):
+    category = BlogCategorySmallSerializer(read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=BlogCategory.objects.all(),
+        source="category",
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
     tags = TagsSmallSerializer(many=True, read_only=True)
     tag_ids = serializers.ListField(
         child=serializers.IntegerField(), write_only=True, required=False
@@ -28,6 +49,8 @@ class BlogSerializer(serializers.ModelSerializer):
         model = Blog
         fields = [
             "id",
+            "category",
+            "category_id",
             "title",
             "slug",
             "content",
@@ -42,6 +65,18 @@ class BlogSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def to_internal_value(self, data):
+        if (
+            isinstance(data, dict)
+            and "category" in data
+            and "category_id" not in data
+        ):
+            category_val = data.get("category")
+            if isinstance(category_val, (int, str)) or category_val is None:
+                data = data.copy()
+                data["category_id"] = category_val
+        return super().to_internal_value(data)
 
     def validate_title(self, value):
         if self.instance:
@@ -94,15 +129,13 @@ class BlogSerializer(serializers.ModelSerializer):
 
 
 class BulkCreateBlogItemSerializer(serializers.Serializer):
-    """Serializer for a single blog item inside the bulk create request.
-
-    `tags` is a list of tag **name strings**. Each name is looked up by
-    `tag_names` is a list of tag **name strings**. Each name is looked up by
-    case-insensitive match; if it doesn't exist it is created automatically.
-    """
+    """Serializer for a single blog item inside the bulk create request."""
 
     title = serializers.CharField(max_length=255)
     content = serializers.CharField()
+    category = serializers.CharField(
+        required=False, allow_null=True, allow_blank=True, default=None
+    )
     time_to_read = serializers.CharField(max_length=50, required=False)
     meta_title = serializers.CharField(required=False, allow_blank=True, default="")
     meta_description = serializers.CharField(
