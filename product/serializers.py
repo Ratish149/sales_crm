@@ -2,6 +2,7 @@ import json
 
 from django.core.files.base import File
 from django.db import models
+from django.utils.text import slugify
 from rest_framework import serializers
 
 from customer.serializers import CustomerSerializer
@@ -525,6 +526,17 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return validated
 
+    def validate_name(self, value):
+        if not value:
+            return value
+        slug = slugify(value)
+        queryset = Product.objects.filter(slug=slug)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("Product with this slug already exists.")
+        return value
+
     def validate_variants(self, value):
         if not value:
             return value
@@ -606,14 +618,6 @@ class ProductSerializer(serializers.ModelSerializer):
         variant_images = validated_data.pop("variant_images", None)
         compositions_data = validated_data.pop("compositions", None)
         options_data = validated_data.pop("options", None)
-
-        name = validated_data.get("name")
-        if (
-            name
-            and name != instance.name
-            and Product.objects.filter(name=name).exists()
-        ):
-            raise serializers.ValidationError("Product with this name already exists.")
 
         product_image_order_data = validated_data.pop("product_image_order", None)
 
