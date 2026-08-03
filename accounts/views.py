@@ -176,11 +176,15 @@ class CustomSignupView(APIView):
                         is_primary=True,
                     )
 
-                    # Initialise the SMSSetting singleton for the new tenant schema
+                    # Initialise singletons for the new tenant schema
                     from sms.models import SMSSetting  # noqa: PLC0415
+                    from website.models import SiteConfig  # noqa: PLC0415
 
                     with schema_context(storeName):
                         SMSSetting.objects.get_or_create(pk=1)
+                        site_config = SiteConfig.get_solo()
+                        site_config.enable_pasalbiz = True
+                        site_config.save()
 
                     # For template accounts, assign a premium plan with no expiration
                     if is_template_account:
