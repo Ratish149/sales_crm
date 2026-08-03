@@ -608,8 +608,6 @@ class EnablePasalbizView(APIView):
     otherwise, toggle the current state (True -> False, False -> True).
     """
 
-    permission_classes = [IsAuthenticated]
-
     def post(self, request, user_id):
         user = CustomUser.objects.filter(pk=user_id, is_deleted=False).first()
         if not user:
