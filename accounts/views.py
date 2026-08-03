@@ -604,6 +604,8 @@ class UserListDestroyAPIView(generics.ListAPIView):
 class EnablePasalbizView(APIView):
     """
     API view to enable or disable Pasalbiz for a user's store by user ID.
+    If 'enable_pasalbiz' is explicitly passed in request data, set to that value;
+    otherwise, toggle the current state (True -> False, False -> True).
     """
 
     permission_classes = [IsAuthenticated]
@@ -617,16 +619,21 @@ class EnablePasalbizView(APIView):
         if not client:
             return bad_request("No store associated with this user")
 
-        enable_pasalbiz = request.data.get("enable_pasalbiz", True)
-        if isinstance(enable_pasalbiz, str):
-            enable_pasalbiz = enable_pasalbiz.lower() in ("true", "1")
-
         from website.models import SiteConfig  # noqa: PLC0415
 
         try:
             with schema_context(client.schema_name):
                 site_config = SiteConfig.get_solo()
-                site_config.enable_pasalbiz = bool(enable_pasalbiz)
+                if "enable_pasalbiz" in request.data:
+                    raw_val = request.data.get("enable_pasalbiz")
+                    if isinstance(raw_val, str):
+                        enable_pasalbiz = raw_val.lower() in ("true", "1")
+                    else:
+                        enable_pasalbiz = bool(raw_val)
+                else:
+                    enable_pasalbiz = not site_config.enable_pasalbiz
+
+                site_config.enable_pasalbiz = enable_pasalbiz
                 site_config.save()
         except Exception as e:
             return server_error(f"Failed to update site config: {str(e)}")
@@ -637,7 +644,7 @@ class EnablePasalbizView(APIView):
                 "message": f"Pasalbiz is now {'enabled' if enable_pasalbiz else 'disabled'} for store '{client.name}'",
                 "user_id": user.id,
                 "store_name": client.name,
-                "enable_pasalbiz": bool(enable_pasalbiz),
+                "enable_pasalbiz": enable_pasalbiz,
             },
             status=status.HTTP_200_OK,
         )
