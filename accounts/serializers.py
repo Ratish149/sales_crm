@@ -190,6 +190,7 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
     stores = serializers.SerializerMethodField()
     schema_name = serializers.SerializerMethodField()
     created_at = serializers.SerializerMethodField()
+    enable_pasalbiz = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
@@ -197,10 +198,12 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "role",
+            "website_type",
             "stores",
             "schema_name",
             "phone_number",
             "created_at",
+            "enable_pasalbiz",
         )
 
     def get_stores(self, user):
@@ -221,6 +224,25 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
     def get_created_at(self, user):
         # Fallback to date_joined if created_at is not available
         return user.created_at or user.date_joined
+
+    def get_enable_pasalbiz(self, user):
+        try:
+            client = getattr(user, "client", None)
+            if not client:
+                from tenants.models import Client  # noqa: PLC0415
+
+                client = Client.objects.filter(owner=user).first()
+            if client:
+                from django_tenants.utils import schema_context  # noqa: PLC0415
+
+                from website.models import SiteConfig  # noqa: PLC0415
+
+                with schema_context(client.schema_name):
+                    config = SiteConfig.objects.first()
+                    return config.enable_pasalbiz if config else False
+        except Exception:
+            pass
+        return False
 
 
 class ClientDataSerializer(serializers.Serializer):

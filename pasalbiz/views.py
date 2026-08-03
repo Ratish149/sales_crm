@@ -24,14 +24,23 @@ class StoreListAPIView(generics.ListAPIView):
     pagination_class = CustomPagination
 
     def get_queryset(self):
-        all_clients = Client.objects.exclude(schema_name="public").order_by("id")
+        all_clients = (
+            Client.objects
+            .exclude(schema_name="public")
+            .filter(is_template_account=False)
+            .order_by("id")
+        )
 
         enabled_ids = []
         for client in all_clients:
             try:
                 with schema_context(client.schema_name):
                     config = SiteConfig.objects.first()
-                    if config and config.enable_pasalbiz:
+                    if (
+                        config
+                        and config.enable_pasalbiz
+                        and Product.objects.filter(status="active").exists()
+                    ):
                         enabled_ids.append(client.id)
             except Exception:
                 pass

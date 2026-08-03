@@ -7,6 +7,7 @@ from .views import (
     CompleteOnboardingView,
     CustomSignupView,
     CustomVerifyEmailView,
+    EnablePasalbizView,
     InvitationCreateView,
     PasswordChangeView,
     RefreshFreshAccessTokenView,
@@ -61,6 +62,11 @@ urlpatterns = [
     ),
     path("user-lists/", UserListDestroyAPIView.as_view(), name="user-list"),
     path("user-lists/<int:id>/", UserDeleteAPIView.as_view(), name="user-delete"),
+    path(
+        "user-lists/<int:user_id>/enable-pasalbiz/",
+        EnablePasalbizView.as_view(),
+        name="enable-pasalbiz",
+    ),
     path(
         "users/check-status/",
         CheckUserStatusAPIView.as_view(),

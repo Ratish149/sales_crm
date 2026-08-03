@@ -27,6 +27,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
 from django.views.decorators.csrf import csrf_exempt
+from django_filters.rest_framework import DjangoFilterBackend
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
 from rest_framework import filters, generics, permissions, serializers, status
@@ -47,6 +48,7 @@ from sales_crm.utils.error_handler import (
 )
 from tenants.models import Client, Domain
 
+from .filters import UserFilter
 from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
     AcceptInvitationSerializer,
@@ -183,7 +185,7 @@ class CustomSignupView(APIView):
                     with schema_context(storeName):
                         SMSSetting.objects.get_or_create(pk=1)
                         site_config = SiteConfig.get_solo()
-                        site_config.enable_pasalbiz = True
+                        site_config.enable_pasalbiz = website_type == "ecommerce"
                         site_config.save()
 
                     # For template accounts, assign a premium plan with no expiration
@@ -540,6 +542,20 @@ class UserUpdateAPIView(generics.RetrieveUpdateAPIView):
         # Return the authenticated user from the token
         return self.request.user
 
+    def perform_update(self, serializer):
+        user = serializer.save()
+        client = Client.objects.filter(owner=user).first()
+        if client:
+            from website.models import SiteConfig  # noqa: PLC0415
+
+            try:
+                with schema_context(client.schema_name):
+                    site_config = SiteConfig.get_solo()
+                    site_config.enable_pasalbiz = user.website_type == "ecommerce"
+                    site_config.save()
+            except Exception:
+                pass
+
 
 class CompleteOnboardingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -571,7 +587,8 @@ class UserListDestroyAPIView(generics.ListAPIView):
     )
     serializer_class = UserWithStoresSerializer
     pagination_class = CustomPagination
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = UserFilter
     search_fields = [
         "username",
         "email",
@@ -582,6 +599,51 @@ class UserListDestroyAPIView(generics.ListAPIView):
         "stores__store_name",
         "client__name",
     ]
+
+
+class EnablePasalbizView(APIView):
+    """
+    API view to enable or disable Pasalbiz for a user's store by user ID.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, user_id):
+        user = CustomUser.objects.filter(pk=user_id, is_deleted=False).first()
+        if not user:
+            return not_found("User not found")
+
+        client = Client.objects.filter(owner=user).first()
+        if not client:
+            return bad_request("No store associated with this user")
+
+        enable_pasalbiz = request.data.get("enable_pasalbiz", True)
+        if isinstance(enable_pasalbiz, str):
+            enable_pasalbiz = enable_pasalbiz.lower() in ("true", "1")
+
+        from website.models import SiteConfig  # noqa: PLC0415
+
+        try:
+            with schema_context(client.schema_name):
+                site_config = SiteConfig.get_solo()
+                site_config.enable_pasalbiz = bool(enable_pasalbiz)
+                site_config.save()
+        except Exception as e:
+            return server_error(f"Failed to update site config: {str(e)}")
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Pasalbiz is now {'enabled' if enable_pasalbiz else 'disabled'} for store '{client.name}'",
+                "user_id": user.id,
+                "store_name": client.name,
+                "enable_pasalbiz": bool(enable_pasalbiz),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request, user_id):
+        return self.post(request, user_id)
 
 
 class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
