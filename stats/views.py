@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from django.db.models import Avg, Count, F, Q, Sum
+from django.db.models import Avg, Case, CharField, Count, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
@@ -148,8 +148,17 @@ class StatsView(APIView):
         )
 
         # Distributions
-        channel_dist = orders_qs.values("pos_order").annotate(
-            count=Count("id"), amount=Sum("total_amount")
+        channel_dist = (
+            orders_qs.annotate(
+                channel=Case(
+                    When(pos_order=True, then=Value("pos")),
+                    When(is_manual=True, then=Value("manual")),
+                    default=Value("website"),
+                    output_field=CharField(),
+                )
+            )
+            .values("channel", "pos_order", "is_manual")
+            .annotate(count=Count("id"), amount=Sum("total_amount"))
         )
         status_dist = orders_qs.values("status").annotate(
             count=Count("id"), amount=Sum("total_amount")
