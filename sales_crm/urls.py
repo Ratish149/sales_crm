@@ -30,6 +30,12 @@ urlpatterns = [
     path(
         "", lambda request: HttpResponse("Sales CRM is running successfully!")
     ),  # Temporary homepage
+    path("admin/dj-control-room/", include("dj_control_room.urls")),
+    path("admin/dj_urls_panel/", include("dj_urls_panel.urls")),
+    path("admin/dj_redis_panel/", include("dj_redis_panel.urls")),
+    path("admin/dj_cache_panel/", include("dj_cache_panel.urls")),
+    path("admin/dj_celery_panel/", include("dj_celery_panel.urls")),
+    path("admin/dj_signals_panel/", include("dj_signals_panel.urls")),
     path("admin/", admin.site.urls),
     path("accounts/", include("allauth.urls")),
     # Allauth headless for API endpoints

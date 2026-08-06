@@ -33,6 +33,13 @@ daphne==4.2.1
 decorator==5.2.1
 defusedxml==0.7.1
 distro==1.9.0
+dj-cache-panel==0.4.0
+dj-celery-panel==0.5.0
+dj-control-room==1.6.0
+dj-control-room-base==1.4.0
+dj-redis-panel==0.8.2
+dj-signals-panel==0.5.0
+dj-urls-panel==0.4.0
 Django==6.0
 django-allauth==65.9.0
 django-cors-headers==4.9.0
@@ -133,6 +140,7 @@ pyzmq==27.1.0
 redis==7.0.1
 referencing==0.36.2
 regex==2025.11.3
+reportlab==4.5.1
 requests==2.32.5
 resend==2.11.0
 rich==14.2.0

@@ -88,6 +88,13 @@ SHARED_APPS = [
     "nepdora_payment",
     "dashboard",
     "pasalbiz",
+    "dj_control_room_base",
+    "dj_urls_panel",
+    "dj_redis_panel",
+    "dj_celery_panel",
+    "dj_cache_panel",
+    "dj_signals_panel",
+    "dj_control_room",  # list after panels so they appear in one section
 ]
 
 
