@@ -185,7 +185,7 @@ class CustomSignupView(APIView):
                     with schema_context(storeName):
                         SMSSetting.objects.get_or_create(pk=1)
                         site_config = SiteConfig.get_solo()
-                        site_config.enable_pasalbiz = website_type == "ecommerce"
+                        site_config.enable_pasalbiz = False
                         site_config.save()
 
                     # For template accounts, assign a premium plan with no expiration
