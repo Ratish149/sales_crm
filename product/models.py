@@ -226,9 +226,10 @@ class Product(models.Model):
     @property
     def discounted_price(self):
         offer = self.active_offer
-        base_price = self.final_price
         if not offer:
-            return base_price
+            return None
+
+        base_price = self.final_price
 
         if offer.offer_type == "percentage":
             from decimal import Decimal
@@ -238,7 +239,7 @@ class Product(models.Model):
             from decimal import Decimal
 
             return max(Decimal("0.00"), base_price - offer.discount_value)
-        return base_price
+        return None
 
 
 class ProductOption(models.Model):
@@ -292,11 +293,11 @@ class ProductVariant(models.Model):
     @property
     def discounted_price(self):
         offer = self.active_offer
+        if not offer:
+            return None
+
         # Use variant price if set, otherwise use product's base price
         base_price = self.price if self.price is not None else self.product.final_price
-
-        if not offer:
-            return base_price
 
         if offer.offer_type == "percentage":
             from decimal import Decimal
@@ -306,7 +307,7 @@ class ProductVariant(models.Model):
             from decimal import Decimal
 
             return max(Decimal("0.00"), base_price - offer.discount_value)
-        return base_price
+        return None
 
 
 class ProductReview(models.Model):
