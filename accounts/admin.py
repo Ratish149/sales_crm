@@ -1,11 +1,7 @@
 from django.contrib import admin
 
 from tenants.models import Client, Domain
-
 from .models import CustomUser, Invitation, StoreProfile, UserActivity
-
-# from unfold.admin import ModelAdmin
-# Register your models here.
 
 
 class ClientInline(admin.TabularInline):
@@ -15,15 +11,15 @@ class ClientInline(admin.TabularInline):
     fields = ("name", "schema_name", "get_domains")
     readonly_fields = ("get_domains",)
 
+    @admin.display(description="Domains")
     def get_domains(self, obj):
-        return ", ".join([d.domain for d in Domain.objects.filter(tenant=obj)])
-
-    get_domains.short_description = "Domains"
+        return ", ".join(
+            Domain.objects.filter(tenant=obj).values_list("domain", flat=True)
+        )
 
 
 class StoreProfileTabularInline(admin.TabularInline):
     model = StoreProfile
-    tab = True
     extra = 0
 
 
@@ -49,7 +45,6 @@ class UserActivityAdmin(admin.ModelAdmin):
     list_filter = ("action", "timestamp")
     search_fields = ("user__email", "description")
 
+    @admin.display(description="User Email")
     def user_email(self, obj):
         return obj.user.email if obj.user else "Anonymous"
-
-    user_email.short_description = "User Email"
