@@ -124,11 +124,27 @@ class OrderItemSerializer(serializers.ModelSerializer):
         data.pop("product_id", None)
         data.pop("variant_id", None)
 
-        # Force price to be the current discounted price
+        # Force price to be the current discounted price if available, otherwise base price
         if variant:
-            data["price"] = variant.discounted_price
+            dis_price = variant.discounted_price
+            if dis_price is not None:
+                data["price"] = dis_price
+            else:
+                data["price"] = (
+                    variant.price
+                    if variant.price is not None
+                    else (
+                        variant.product.final_price
+                        if (variant.product and hasattr(variant, "product"))
+                        else Decimal("0.00")
+                    )
+                )
         elif product:
-            data["price"] = product.discounted_price
+            dis_price = product.discounted_price
+            if dis_price is not None:
+                data["price"] = dis_price
+            else:
+                data["price"] = product.final_price
 
         return data
 
@@ -314,11 +330,19 @@ class OrderSerializer(serializers.ModelSerializer):
                         if variant.price is not None
                         else (product.final_price if product else Decimal("0.00"))
                     )
-                    discounted_price = variant.discounted_price
+                    discounted_price = (
+                        variant.discounted_price
+                        if variant.discounted_price is not None
+                        else base_price
+                    )
                     active_offer = variant.active_offer
                 elif product:
                     base_price = product.final_price
-                    discounted_price = product.discounted_price
+                    discounted_price = (
+                        product.discounted_price
+                        if product.discounted_price is not None
+                        else base_price
+                    )
                     active_offer = product.active_offer
                 else:
                     base_price = Decimal("0.00")

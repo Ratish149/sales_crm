@@ -274,11 +274,12 @@ class StorefrontProductSerializer(serializers.ModelSerializer):
                 image_url = request.build_absolute_uri(url) if request else url
 
             base_price = variant.price if variant.price is not None else obj.price
-            discounted = (
+            dis_val = (
                 variant.discounted_price
                 if variant.price is not None
                 else obj.discounted_price
             )
+            discounted = dis_val if dis_val is not None else base_price
 
             variants.append({
                 "id": variant.id,
@@ -292,14 +293,17 @@ class StorefrontProductSerializer(serializers.ModelSerializer):
         return variants
 
     def get_price(self, obj):
-        return f"{obj.discounted_price:.2f}"
+        dis = obj.discounted_price
+        price = dis if dis is not None else obj.price
+        return f"{price:.2f}"
 
     def get_regular_price(self, obj):
         return f"{obj.price:.2f}"
 
     def get_sale_price(self, obj):
-        if obj.discounted_price < obj.price:
-            return f"{obj.discounted_price:.2f}"
+        dis = obj.discounted_price
+        if dis is not None and dis < obj.price:
+            return f"{dis:.2f}"
         return None
 
     def get_images(self, obj):
