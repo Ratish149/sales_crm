@@ -31,6 +31,8 @@ class SiteConfig(SingletonModel):
     dynamic_qr = models.BooleanField(default=False)
     enable_pasalbiz = models.BooleanField(default=True)
     chat_enable = models.BooleanField(default=False)
+    pan_no = models.CharField(max_length=255, blank=True, null=True)
+    vat_no = models.CharField(max_length=255, blank=True, null=True)
 
 
 class Theme(models.Model):
