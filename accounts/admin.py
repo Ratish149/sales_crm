@@ -26,6 +26,7 @@ class StoreProfileTabularInline(admin.TabularInline):
 @admin.register(CustomUser)
 class CustomUserAdmin(admin.ModelAdmin):
     list_display = ("email", "role", "is_staff")
+    search_fields = ("email", "first_name", "last_name", "username")
     inlines = [StoreProfileTabularInline, ClientInline]
 
 
