@@ -29,7 +29,7 @@ class SiteConfig(SingletonModel):
     tour = models.BooleanField(default=False)
     dashboard_tour = models.BooleanField(default=False)
     dynamic_qr = models.BooleanField(default=False)
-    enable_pasalbiz = models.BooleanField(default=True)
+    enable_pasalbiz = models.BooleanField(default=False)
     chat_enable = models.BooleanField(default=False)
     pan_no = models.CharField(max_length=255, blank=True, null=True)
     vat_no = models.CharField(max_length=255, blank=True, null=True)
