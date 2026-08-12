@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.db import models
 from django.db.models import Q
 from django.utils.text import slugify
@@ -157,6 +160,13 @@ class Product(models.Model):
         max_digits=10, decimal_places=2, default=0.00
     )
     require_custom_image = models.BooleanField(default=False)
+    barcode = models.CharField(
+    max_length=50,
+    unique=True,
+    null=True,
+    blank=True,
+    db_index=True,
+)
 
     meta_title = models.CharField(max_length=255, null=True, blank=True)
     meta_description = models.TextField(null=True, blank=True)
@@ -187,8 +197,25 @@ class Product(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
-        self.slug = slugify(self.name)
+        if self.name and not self.slug:
+            self.slug = slugify(self.name)
+        elif self.name and self.slug:
+            self.slug = slugify(self.slug)
+        elif self.name:
+            self.slug = slugify(self.name)
+
+        if not self.barcode:
+            self.barcode = self.generate_unique_barcode()
+
         super().save(*args, **kwargs)
+
+    @classmethod
+    def generate_unique_barcode(cls):
+        """Generates a unique 12-digit numeric barcode."""
+        while True:
+            code = "20" + "".join(random.choices(string.digits, k=10))
+            if not cls.objects.filter(barcode=code).exists():
+                return code
 
     @property
     def final_price(self):

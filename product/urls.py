@@ -11,6 +11,7 @@ from .views import (
     OfferRetrieveUpdateDestroyView,
     PricingMetricListCreateView,
     PricingMetricRetrieveUpdateDestroyView,
+    ProductBarcodeRetrieveView,
     ProductCompositionListCreateView,
     ProductCompositionRetrieveUpdateDestroyView,
     ProductDeleteView,
@@ -47,6 +48,11 @@ urlpatterns = [
         "admin-product/",
         AdminProductListCreateView.as_view(),
         name="admin-product-list-create",
+    ),
+    path(
+        "product/barcode/<str:barcode>/",
+        ProductBarcodeRetrieveView.as_view(),
+        name="product-barcode-retrieve",
     ),
     path(
         "product/<slug:slug>/",

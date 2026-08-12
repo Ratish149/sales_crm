@@ -389,7 +389,10 @@ class ProductFilterSet(django_filters.FilterSet):
     is_popular = django_filters.BooleanFilter(field_name="is_popular")
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
     offer = django_filters.CharFilter(method="filter_by_offer")
-    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")  # ← add
+    barcode = django_filters.CharFilter(
+        field_name="barcode", lookup_expr="exact"
+    )
+    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales") 
 
     class Meta:
         model = Product
@@ -401,7 +404,8 @@ class ProductFilterSet(django_filters.FilterSet):
             "is_popular",
             "is_featured",
             "offer",
-            "flash_sales",  # ← add
+            "flash_sales",
+            "barcode",
         ]
 
     def filter_flash_sales(self, queryset, name, value):
@@ -843,6 +847,12 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method == "GET":
             return PRODUCT_LIST_QS
         return Product.objects.all()
+
+
+class ProductBarcodeRetrieveView(generics.RetrieveAPIView):
+    queryset = PRODUCT_LIST_QS
+    serializer_class = ProductSerializer
+    lookup_field = "barcode"
 
 
 class RelatedProductList(generics.ListAPIView):
