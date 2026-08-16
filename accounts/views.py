@@ -538,19 +538,7 @@ class UserUpdateAPIView(generics.RetrieveUpdateAPIView):
         # Return the authenticated user from the token
         return self.request.user
 
-    def perform_update(self, serializer):
-        user = serializer.save()
-        client = Client.objects.filter(owner=user).first()
-        if client:
-            from website.models import SiteConfig  # noqa: PLC0415
 
-            try:
-                with schema_context(client.schema_name):
-                    site_config = SiteConfig.get_solo()
-                    site_config.enable_pasalbiz = user.website_type == "ecommerce"
-                    site_config.save()
-            except Exception:
-                pass
 
 
 class CompleteOnboardingView(APIView):
