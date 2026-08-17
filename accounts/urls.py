@@ -3,6 +3,8 @@ from django.urls import path
 from .views import (
     AcceptInvitationView,
     ChangePasswordView,
+    CheckEmailExistsAPIView,
+    CheckStoreNameExistsAPIView,
     CheckUserStatusAPIView,
     CompleteOnboardingView,
     CustomSignupView,
@@ -71,6 +73,16 @@ urlpatterns = [
         "users/check-status/",
         CheckUserStatusAPIView.as_view(),
         name="user-check-status",
+    ),
+    path(
+        "users/check-email/",
+        CheckEmailExistsAPIView.as_view(),
+        name="user-check-email",
+    ),
+    path(
+        "stores/check-name/",
+        CheckStoreNameExistsAPIView.as_view(),
+        name="store-check-name",
     ),
     path(
         "user-lists/<int:id>/delete/",

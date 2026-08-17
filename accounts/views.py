@@ -783,6 +783,68 @@ class CheckUserStatusAPIView(APIView):
         )
 
 
+class CheckEmailExistsAPIView(APIView):
+    """
+    Checks if a given email is already registered.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        email = request.query_params.get("email")
+        if not email:
+            return Response(
+                {"error": "Email parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        exists = CustomUser.objects.filter(email__iexact=email).exists()
+        return Response(
+            {
+                "exists": exists,
+                "message": "Email is already taken." if exists else "Email is available.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class CheckStoreNameExistsAPIView(APIView):
+    """
+    Checks if a given store name is already taken or is reserved.
+    """
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        store_name = request.query_params.get("store_name")
+        if not store_name:
+            return Response(
+                {"error": "Store name parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        store_slug = slugify(store_name)
+        if store_slug in ["public", "default", "postgres"]:
+            return Response(
+                {
+                    "exists": True,
+                    "message": f"Store name '{store_name}' is reserved and cannot be used.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        exists = Client.objects.filter(schema_name=store_slug).exists()
+        return Response(
+            {
+                "exists": exists,
+                "message": f"Store name '{store_name}' is already taken. Please choose a different one."
+                if exists
+                else f"Store name '{store_name}' is available.",
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class RequestPasswordResetAPIView(APIView):
     """
     Request password reset link and send email using Resend API
