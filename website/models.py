@@ -33,6 +33,8 @@ class SiteConfig(SingletonModel):
     chat_enable = models.BooleanField(default=False)
     pan_no = models.CharField(max_length=255, blank=True, null=True)
     vat_no = models.CharField(max_length=255, blank=True, null=True)
+    onboarding_checklist=models.JSONField(null=True, blank=True)
+    tour_checklist=models.JSONField(null=True, blank=True)
 
 
 class Theme(models.Model):
