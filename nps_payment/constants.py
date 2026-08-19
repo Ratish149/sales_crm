@@ -8,7 +8,6 @@ load_dotenv()
 NPS_SANDBOX_BASE_URL = os.getenv(
     "NPS_SANDBOX_BASE_URL", "https://apisandbox.nepalpayment.com"
 )
-# Production API Base URL (Configurable via environment variable NPS_PRODUCTION_BASE_URL):
 NPS_PRODUCTION_BASE_URL = os.getenv(
     "NPS_PRODUCTION_BASE_URL", "https://apisandbox.nepalpayment.com"
 )
@@ -17,7 +16,8 @@ NPS_SANDBOX_GATEWAY_URL = os.getenv(
     "NPS_SANDBOX_GATEWAY_URL", "https://gatewaysandbox.nepalpayment.com/Payment/Index"
 )
 NPS_PRODUCTION_GATEWAY_URL = os.getenv(
-    "NPS_PRODUCTION_GATEWAY_URL", "https://gateway.nepalpayment.com/Payment/Index"
+    "NPS_PRODUCTION_GATEWAY_URL",
+    "https://gatewaysandbox.nepalpayment.com/Payment/Index",
 )
 
 ENDPOINT_GET_INSTRUMENTS = "/GetPaymentInstrumentDetails"
