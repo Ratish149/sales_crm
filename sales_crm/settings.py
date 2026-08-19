@@ -115,6 +115,7 @@ TENANT_APPS = [
     "portfolio",
     "service",
     "payment_gateway",
+    "nps_payment",
     "logistics",
     "promo_code",
     "delivery_charge",
@@ -264,10 +265,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.nepdora.com",
     "http://200.141.2.115",
     "https://200.141.2.115",
-    "http://ip-store.127.0.0.1.nip.io:8000",
+    "http://bibek.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://unlikely-behalf-www-native.trycloudflare.com",
+    "https://powers-kinase-applications-energy.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -278,10 +279,11 @@ CSRF_TRUSTED_ORIGINS = [
     "http://200.141.2.115",
     "https://200.141.2.115",
     "https://www.nepdora.com",
-    "http://ip-store.127.0.0.1.nip.io:8000",
+    "http://bibek.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
+    "http://*.127.0.0.1.nip.io",
     "http://*.localhost:8000",
-    "https://unlikely-behalf-www-native.trycloudflare.com",
+    "https://powers-kinase-applications-energy.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

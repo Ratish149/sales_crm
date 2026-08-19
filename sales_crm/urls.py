@@ -78,6 +78,7 @@ urlpatterns = [
     path("api/", include("collection.urls")),
     path("api/", include("nepdora_blog.urls")),
     path("api/", include("nepdora_payment.urls")),
+    path("api/", include("nps_payment.urls")),
     path("api/", include("sms.urls")),
     path("api/", include("skills.urls")),
     path("api/", include("ai_generation.urls")),

@@ -507,6 +507,13 @@ class OrderSerializer(serializers.ModelSerializer):
                     used_count=models.F("used_count") + 1
                 )
 
+            if order.transaction_id:
+                from nps_payment.models import NPSTransaction
+
+                NPSTransaction.objects.filter(
+                    merchant_txn_id=order.transaction_id
+                ).update(order=order)
+
             if order.customer_email:
                 self.send_order_email(order, created_items)
 

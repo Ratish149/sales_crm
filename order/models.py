@@ -22,6 +22,7 @@ class Order(models.Model):
         ("cod", "Cash On Delivery"),
         ("khalti", "Khalti"),
         ("esewa", "Esewa"),
+        ("nps", "NPS Gateway"),
         ("cash", "Cash"),
         ("Fonepay", "Fonepay"),
         ("Bank", "Bank"),
@@ -47,6 +48,7 @@ class Order(models.Model):
         choices=[
             ("khalti", "Khalti"),
             ("esewa", "Esewa"),
+            ("nps", "NPS Gateway"),
             ("Fonepay", "Fonepay"),
             ("Bank", "Bank"),
         ],
