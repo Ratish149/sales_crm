@@ -98,6 +98,7 @@ class CustomDomainTenantMiddleware:
         "/api/redoc/",
         "/api/support/",
         "/api/stores/",
+        "/api/nps/webhook/",
     )
 
     def __init__(self, get_response):

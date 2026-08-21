@@ -4,6 +4,7 @@ from .views import (
     NepdoraPaymentListCreateView,
     NepdoraPaymentRetrieveUpdateDestroyView,
     PaymentSummaryAPIView,
+    PublicNPSWebhookListenerAPIView,
     TenantCentralPaymentHistoryListCreateView,
     TenantCentralPaymentHistoryRetrieveUpdateDestroyView,
     TenantTransferHistoryListCreateView,
@@ -46,4 +47,10 @@ urlpatterns = [
     ),
     # Summary: totals of received vs paid
     path("payment-summary/", PaymentSummaryAPIView.as_view(), name="payment-summary"),
+    # Public NPS Webhook listener using schema name
+    path(
+        "nps/webhook/<str:schema_name>/",
+        PublicNPSWebhookListenerAPIView.as_view(),
+        name="public-nps-webhook-tenant",
+    ),
 ]

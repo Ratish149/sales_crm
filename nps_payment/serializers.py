@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 from .models import NPSConfig, NPSTransaction
 
 
@@ -27,7 +28,9 @@ class NPSInitiatePaymentSerializer(serializers.Serializer):
     order_id = serializers.IntegerField(required=False, allow_null=True)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     remarks = serializers.CharField(max_length=255, required=False, allow_blank=True)
-    instrument_code = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    instrument_code = serializers.CharField(
+        max_length=100, required=False, allow_blank=True
+    )
     response_url = serializers.URLField(required=False, allow_blank=True)
 
 
