@@ -28,6 +28,22 @@ EXEMPT_PATHS = (
     "/api/upgrade",
 )
 
+SUBSCRIPTION_EXEMPT_PATHS = (
+    "/admin",
+    "/login",
+    "/signup",
+    "/accounts",
+    "/_allauth",
+    "/api/upgrade",
+    "/api/order",
+    "/api/my-order",
+    "/api/customer",
+    "/api/contact",
+    "/api/newsletter",
+    "/api/bookings",
+)
+
+
 WHITELISTED_IPS = {
     "127.0.0.1",
     "::1",
@@ -289,7 +305,7 @@ class SubscriptionMiddleware:
     def _check_subscription(self, request):
         path = request.path.lower()
 
-        if any(p in path for p in EXEMPT_PATHS):
+        if any(p in path for p in SUBSCRIPTION_EXEMPT_PATHS):
             return None
 
         tenant = getattr(request, "tenant", None)
