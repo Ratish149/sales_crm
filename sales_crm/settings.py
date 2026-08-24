@@ -274,6 +274,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
+    "http://*.baliyotech.com",
+    "https://*.baliyotech.com",
+    "http://*.nepdoraapi.baliyotech.com",
+    "https://*.nepdoraapi.baliyotech.com",
     "http://127.0.0.1:8000",
     "http://127.0.0.1:8001",
     "http://localhost:3000",
