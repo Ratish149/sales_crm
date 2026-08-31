@@ -85,6 +85,7 @@ SHARED_APPS = [
     "web_builder",
     "project_runner",
     "nepdora_blog",
+    "nepdora_video",
     "nepdora_payment",
     "dashboard",
     "pasalbiz",
