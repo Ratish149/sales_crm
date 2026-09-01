@@ -13,3 +13,12 @@ class FBPixel(SingletonModel):
 
     def __str__(self):
         return "Facebook Pixel"
+
+
+class MetaCommerce(SingletonModel):
+    is_enabled = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Meta Commerce"
