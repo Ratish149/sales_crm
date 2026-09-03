@@ -318,10 +318,13 @@ class SubCategoryFilterSet(django_filters.FilterSet):
     category = django_filters.CharFilter(
         field_name="category__id", lookup_expr="iexact"
     )
+    category_slug = django_filters.CharFilter(
+        field_name="category__slug", lookup_expr="iexact"
+    )
 
     class Meta:
         model = SubCategory
-        fields = ["category"]
+        fields = ["category", "category_slug"]
 
 
 class SubCategoryListCreateView(generics.ListCreateAPIView):
@@ -342,6 +345,19 @@ class SubCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView
     queryset = SUBCATEGORY_QS
     serializer_class = SubCategorySerializer
     lookup_field = "slug"
+
+    def get_object(self):
+        queryset = self.filter_queryset(self.get_queryset())
+        category_slug = self.kwargs.get("category_slug")
+        slug = self.kwargs.get("slug")
+
+        filter_kwargs = {"slug": slug}
+        if category_slug:
+            filter_kwargs["category__slug"] = category_slug
+
+        obj = generics.get_object_or_404(queryset, **filter_kwargs)
+        self.check_object_permissions(self.request, obj)
+        return obj
 
     def get_serializer_class(self):
         if self.request.method in ("GET",):
@@ -389,10 +405,8 @@ class ProductFilterSet(django_filters.FilterSet):
     is_popular = django_filters.BooleanFilter(field_name="is_popular")
     is_featured = django_filters.BooleanFilter(field_name="is_featured")
     offer = django_filters.CharFilter(method="filter_by_offer")
-    barcode = django_filters.CharFilter(
-        field_name="barcode", lookup_expr="exact"
-    )
-    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales") 
+    barcode = django_filters.CharFilter(field_name="barcode", lookup_expr="exact")
+    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")
 
     class Meta:
         model = Product

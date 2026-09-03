@@ -70,6 +70,11 @@ urlpatterns = [
         name="sub-category-list-create",
     ),
     path(
+        "sub-category/<slug:category_slug>/<slug:slug>/",
+        SubCategoryRetrieveUpdateDestroyView.as_view(),
+        name="sub-category-retrieve-update-destroy-with-category",
+    ),
+    path(
         "sub-category/<slug:slug>/",
         SubCategoryRetrieveUpdateDestroyView.as_view(),
         name="sub-category-retrieve-update-destroy",

@@ -53,7 +53,7 @@ class SubCategory(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("name", "slug")
+        unique_together = (("category", "name"), ("category", "slug"))
 
     def __str__(self):
         return self.name
@@ -161,12 +161,12 @@ class Product(models.Model):
     )
     require_custom_image = models.BooleanField(default=False)
     barcode = models.CharField(
-    max_length=50,
-    unique=True,
-    null=True,
-    blank=True,
-    db_index=True,
-)
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+    )
 
     meta_title = models.CharField(max_length=255, null=True, blank=True)
     meta_description = models.TextField(null=True, blank=True)

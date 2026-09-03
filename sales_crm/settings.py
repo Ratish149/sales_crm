@@ -224,7 +224,7 @@ CACHES = {
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
-""" DATABASES = {
+DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",  # required for django-tenants
         "NAME": "builder",
@@ -237,9 +237,9 @@ CACHES = {
         },
         "CONN_MAX_AGE": 0,
     }
-} """
+}
 
-DATABASES = {
+""" DATABASES = {
     "default": {
         "ENGINE": "django_tenants.postgresql_backend",
         "NAME": os.getenv("DB_NAME", "nepdora_db"),
@@ -251,7 +251,7 @@ DATABASES = {
         "CONN_MAX_AGE": 0,
         "DISABLE_SERVER_SIDE_CURSORS": True,  # This is perfect for PgBouncer!
     }
-}
+} """
 
 DATABASE_ROUTERS = ("django_tenants.routers.TenantSyncRouter",)
 
@@ -271,7 +271,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://bibek.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://powers-kinase-applications-energy.trycloudflare.com",
+    "https://loop-relative-facial-hamilton.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -292,7 +292,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io",
     "http://*.localhost:8000",
-    "https://powers-kinase-applications-energy.trycloudflare.com",
+    "https://loop-relative-facial-hamilton.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 
