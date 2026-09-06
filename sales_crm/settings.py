@@ -103,6 +103,7 @@ TENANT_APPS = [
     "website",
     "product",
     "order",
+    "cart",
     "blog",
     "whatsapp",
     "issue_tracking",
@@ -271,7 +272,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://bibek.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://had-integrate-paris-adds.trycloudflare.com",
+    "https://oriented-competitive-quilt-grid.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -292,7 +293,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io",
     "http://*.localhost:8000",
-    "https://had-integrate-paris-adds.trycloudflare.com",
+    "https://oriented-competitive-quilt-grid.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

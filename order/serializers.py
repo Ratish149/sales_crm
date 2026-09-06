@@ -204,6 +204,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+    cart_id = serializers.UUIDField(required=False, allow_null=True, write_only=True)
     items = OrderItemSerializer(
         many=True, required=False, write_only=True
     )  # Set required=False for updates
@@ -217,6 +218,7 @@ class OrderSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "id",
+            "cart_id",
             "customer",
             "customer_details",
             "order_number",
@@ -439,6 +441,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context.get("request")
+        cart_id = validated_data.pop("cart_id", None)
         items_data = validated_data.pop("items", [])
         customer = get_customer_from_request(request)
 
@@ -513,6 +516,11 @@ class OrderSerializer(serializers.ModelSerializer):
                 NPSTransaction.objects.filter(
                     merchant_txn_id=order.transaction_id
                 ).update(order=order)
+
+            if cart_id:
+                from cart.services import cart_service
+
+                cart_service.convert_cart(cart_id)
 
             if order.customer_email:
                 self.send_order_email(order, created_items)
