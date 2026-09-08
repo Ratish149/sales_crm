@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <title>Donation / Payment Confirmation – {{ tenant_name }}</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style type="text/css">
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: #333333;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f4f6f8;
+      padding-bottom: 40px;
+    }
+    .main {
+      background-color: #ffffff;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 600px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .header {
+      background-color: #0f172a;
+      padding: 30px 25px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      margin: 10px 0 0 0;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px 25px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 12px;
+    }
+    .message {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .receipt-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .receipt-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    .label {
+      color: #64748b;
+      font-weight: normal;
+      width: 40%;
+    }
+    .value {
+      color: #0f172a;
+      font-weight: 600;
+      text-align: right;
+      width: 60%;
+    }
+    .highlight-amount {
+      font-size: 20px;
+      color: #16a34a;
+      font-weight: bold;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 20px 25px;
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table role="presentation" width="100%" class="main" align="center">
+      <!-- HEADER -->
+      <tr>
+        <td class="header">
+          {% if logo_url %}
+            <img src="{{ logo_url }}" alt="{{ tenant_name }}" width="150" style="max-height: 50px; object-fit: contain; margin: 0 auto; display: block;" />
+          {% endif %}
+          <h1>Payment Confirmation</h1>
+        </td>
+      </tr>
+
+      <!-- CONTENT -->
+      <tr>
+        <td class="content">
+          <div class="greeting">Dear {{ customer_name }},</div>
+          <div class="message">
+            Thank you for your contribution! We have successfully received your payment for <strong>{{ tenant_name }}</strong>. Below are your transaction receipt details for your records.
+          </div>
+
+          <!-- RECEIPT DETAILS BOX -->
+          <div class="receipt-box">
+            <div class="receipt-title">Transaction Details</div>
+            
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr style="height: 30px;">
+                <td class="label">Transaction ID:</td>
+                <td class="value">{{ transaction_id }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Amount Paid:</td>
+                <td class="value highlight-amount">{{ currency }} {{ amount }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Payment Method:</td>
+                <td class="value">{{ payment_method }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Date & Time:</td>
+                <td class="value">{{ payment_date }}</td>
+              </tr>
+              {% if remarks %}
+              <tr style="height: 30px;">
+                <td class="label">Remarks:</td>
+                <td class="value">{{ remarks }}</td>
+              </tr>
+              {% endif %}
+            </table>
+          </div>
+
+          <div class="message" style="margin-bottom: 0;">
+            If you have any questions regarding this transaction, please feel free to contact us at <a href="mailto:{{ admin_email }}" style="color: #2563eb; text-decoration: none;">{{ admin_email }}</a>.
+          </div>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="footer">
+          &copy; {{ current_year }} {{ tenant_name }}. All rights reserved.<br>
+          This is an automated payment confirmation receipt.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

@@ -90,6 +90,7 @@ urlpatterns = [
     path("api/", include("booking.urls")),
     path("api/", include("gallery.urls")),
     path("api/", include("event.urls")),
+    path("api/mail/", include("mail.urls")),
     # API Documentation
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema")),

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <title>New Payment Received – {{ tenant_name }} Admin</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style type="text/css">
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6f8;
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: #333333;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f4f6f8;
+      padding-bottom: 40px;
+    }
+    .main {
+      background-color: #ffffff;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 600px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    }
+    .header {
+      background-color: #1e1b4b;
+      padding: 30px 25px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      font-size: 22px;
+      margin: 10px 0 0 0;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px 25px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: bold;
+      color: #1e293b;
+      margin-bottom: 12px;
+    }
+    .message {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .section-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    .label {
+      color: #64748b;
+      font-weight: normal;
+      width: 40%;
+    }
+    .value {
+      color: #0f172a;
+      font-weight: 600;
+      text-align: right;
+      width: 60%;
+    }
+    .highlight-amount {
+      font-size: 20px;
+      color: #2563eb;
+      font-weight: bold;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 20px 25px;
+      text-align: center;
+      font-size: 13px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table role="presentation" width="100%" class="main" align="center">
+      <!-- HEADER -->
+      <tr>
+        <td class="header">
+          {% if logo_url %}
+            <img src="{{ logo_url }}" alt="{{ tenant_name }}" width="150" style="max-height: 50px; object-fit: contain; margin: 0 auto; display: block;" />
+          {% endif %}
+          <h1>New Payment Notification</h1>
+        </td>
+      </tr>
+
+      <!-- CONTENT -->
+      <tr>
+        <td class="content">
+          <div class="greeting">Hello Admin,</div>
+          <div class="message">
+            A new payment/donation has been successfully recorded for <strong>{{ tenant_name }}</strong>. Below are the full details:
+          </div>
+
+          <!-- PAYMENT SUMMARY BOX -->
+          <div class="section-box">
+            <div class="section-title">Payment Summary</div>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr style="height: 30px;">
+                <td class="label">Transaction ID:</td>
+                <td class="value">{{ transaction_id }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Amount Received:</td>
+                <td class="value highlight-amount">{{ currency }} {{ amount }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Payment Method:</td>
+                <td class="value">{{ payment_method }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Date & Time:</td>
+                <td class="value">{{ payment_date }}</td>
+              </tr>
+              {% if remarks %}
+              <tr style="height: 30px;">
+                <td class="label">Remarks:</td>
+                <td class="value">{{ remarks }}</td>
+              </tr>
+              {% endif %}
+            </table>
+          </div>
+
+          <!-- CUSTOMER DETAILS BOX -->
+          <div class="section-box">
+            <div class="section-title">Donor / Customer Information</div>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr style="height: 30px;">
+                <td class="label">Name:</td>
+                <td class="value">{{ customer_name }}</td>
+              </tr>
+              <tr style="height: 30px;">
+                <td class="label">Email:</td>
+                <td class="value">{{ customer_email }}</td>
+              </tr>
+              {% if customer_phone %}
+              <tr style="height: 30px;">
+                <td class="label">Phone:</td>
+                <td class="value">{{ customer_phone }}</td>
+              </tr>
+              {% endif %}
+            </table>
+          </div>
+        </td>
+      </tr>
+
+      <!-- FOOTER -->
+      <tr>
+        <td class="footer">
+          &copy; {{ current_year }} {{ tenant_name }} Control Panel.<br>
+          Automated Admin System Notification.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>
