@@ -8,6 +8,7 @@ from .views import (
     NPSServiceChargeAPIView,
     NPSTransactionListAPIView,
     NPSTransactionRetrieveAPIView,
+    NPSTransactionTotalAmountAPIView,
     NPSVerifyTransactionAPIView,
     NPSWebhookListenerAPIView,
 )
@@ -44,6 +45,11 @@ urlpatterns = [
         "nps/transactions/",
         NPSTransactionListAPIView.as_view(),
         name="nps-transaction-list",
+    ),
+    path(
+        "nps/transactions/total-amount/",
+        NPSTransactionTotalAmountAPIView.as_view(),
+        name="nps-transaction-total-amount",
     ),
     path(
         "nps/transactions/<int:pk>/",

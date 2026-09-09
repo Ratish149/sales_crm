@@ -48,6 +48,7 @@ class NPSTransaction(models.Model):
     transaction_remarks = models.TextField(null=True, blank=True)
     cbs_message = models.TextField(null=True, blank=True)
     raw_response = models.JSONField(default=dict, blank=True, null=True)
+    extra_data = models.JSONField(default=dict, blank=True, null=True)
     webhook_received_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

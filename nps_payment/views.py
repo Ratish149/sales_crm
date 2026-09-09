@@ -12,11 +12,13 @@ from sales_crm.pagination import CustomPagination
 
 from .filters import NPSTransactionFilterSet
 from .models import NPSConfig, NPSTransaction
+from .selectors import get_nps_transactions_total_amount
 from .serializers import (
     NPSConfigSerializer,
     NPSInitiatePaymentSerializer,
     NPSServiceChargeQuerySerializer,
     NPSTransactionSerializer,
+    NPSTransactionTotalAmountSerializer,
 )
 from .services import (
     build_gateway_form_payload,
@@ -105,6 +107,7 @@ class NPSInitiatePaymentAPIView(APIView):
         remarks = serializer.validated_data.get("remarks", "")
         instrument_code = serializer.validated_data.get("instrument_code", "")
         response_url = serializer.validated_data.get("response_url", "")
+        extra_data = serializer.validated_data.get("extra_data", {})
 
         order = None
         if order_id:
@@ -146,6 +149,7 @@ class NPSInitiatePaymentAPIView(APIView):
             status="Pending",
             transaction_remarks=remarks,
             raw_response=process_res,
+            extra_data=extra_data,
         )
 
         target_gateway_url = process_res.get("target_gateway_url", "")
@@ -300,6 +304,22 @@ class NPSTransactionRetrieveAPIView(generics.RetrieveAPIView):
     serializer_class = NPSTransactionSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
+
+
+class NPSTransactionTotalAmountAPIView(generics.GenericAPIView):
+    queryset = NPSTransaction.objects.all()
+    serializer_class = NPSTransactionTotalAmountSerializer
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    filter_backends = [django_filters.DjangoFilterBackend]
+    filterset_class = NPSTransactionFilterSet
+
+    def get(self, request, *args, **kwargs):
+        filtered_queryset = self.filter_queryset(self.get_queryset())
+        data = get_nps_transactions_total_amount(filtered_queryset)
+        serializer = self.get_serializer(data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 

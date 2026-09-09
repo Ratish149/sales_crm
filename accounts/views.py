@@ -539,8 +539,6 @@ class UserUpdateAPIView(generics.RetrieveUpdateAPIView):
         return self.request.user
 
 
-
-
 class CompleteOnboardingView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -802,7 +800,9 @@ class CheckEmailExistsAPIView(APIView):
         return Response(
             {
                 "exists": exists,
-                "message": "Email is already taken." if exists else "Email is available.",
+                "message": "Email is already taken."
+                if exists
+                else "Email is available.",
             },
             status=status.HTTP_200_OK,
         )

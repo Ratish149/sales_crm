@@ -32,6 +32,7 @@ class NPSInitiatePaymentSerializer(serializers.Serializer):
         max_length=100, required=False, allow_blank=True
     )
     response_url = serializers.URLField(required=False, allow_blank=True)
+    extra_data = serializers.JSONField(required=False, default=dict)
 
 
 class NPSServiceChargeQuerySerializer(serializers.Serializer):
@@ -43,3 +44,8 @@ class NPSTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = NPSTransaction
         fields = "__all__"
+
+
+class NPSTransactionTotalAmountSerializer(serializers.Serializer):
+    total_amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    count = serializers.IntegerField()
