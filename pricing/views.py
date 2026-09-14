@@ -1,6 +1,7 @@
 from datetime import date
 
-from rest_framework import generics, permissions, status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -118,6 +119,14 @@ class AdminUserSubscriptionListView(generics.ListAPIView):
 
 
 @allow_inactive_subscription
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="SubscriptionStatusResponse",
+            fields={"status": serializers.CharField()},
+        )
+    }
+)
 class SubscriptionStatusView(generics.GenericAPIView):
     """
     Check the current tenant's subscription status.

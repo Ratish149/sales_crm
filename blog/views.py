@@ -36,12 +36,14 @@ class BlogCategoryListCreateView(generics.ListCreateAPIView):
     search_fields = ["name"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -54,12 +56,14 @@ class BlogCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -98,12 +102,14 @@ class BlogListCreateView(generics.ListCreateAPIView):
     search_fields = ["title", "author"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -138,12 +144,14 @@ class BlogRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -160,12 +168,14 @@ class TagsRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 

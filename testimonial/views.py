@@ -23,12 +23,14 @@ class TestimonialListCreateView(generics.ListCreateAPIView):
     serializer_class = TestimonialSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -46,8 +48,10 @@ class BulkCreateTestimonialView(APIView):
     Body: { "testimonials": [ { "name": "...", "designation": "...", "comment": "...", "base64_image": "..." }, ... ] }
     """
 
+    serializer_class = BulkCreateTestimonialSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
+
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):

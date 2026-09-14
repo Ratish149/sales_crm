@@ -365,6 +365,13 @@ class SubCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView
         return SubCategorySerializer
 
 
+class SubCategoryWithCategoryRetrieveUpdateDestroyView(
+    SubCategoryRetrieveUpdateDestroyView
+):
+    pass
+
+
+
 # ─── Product Image ────────────────────────────────────────────────────────────
 
 
@@ -373,7 +380,8 @@ class ProductImageListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductImageSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
@@ -604,7 +612,8 @@ class ProductListCreateView(generics.ListCreateAPIView):
     search_fields = ["name"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
@@ -614,11 +623,15 @@ class ProductListCreateView(generics.ListCreateAPIView):
         return super().get_permissions()
 
     def get_serializer_class(self):
-        site_config = SiteConfig.get_solo()
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return ProductSerializer
-        if site_config.use_product_variant:
-            return UnifiedProductListingSerializer
+        try:
+            site_config = SiteConfig.get_solo()
+            if site_config.use_product_variant:
+                return UnifiedProductListingSerializer
+        except Exception:
+            pass
         return ProductSmallSerializer
 
     def get_queryset(self):
@@ -814,7 +827,8 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
     search_fields = ["name"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
@@ -848,7 +862,8 @@ class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
@@ -1251,7 +1266,8 @@ class ProductVariantListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at", "price"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
@@ -1266,7 +1282,8 @@ class ProductVariantRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
     serializer_class = ProductVariantAsProductSerializer
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
@@ -1945,9 +1962,12 @@ class OfferProductListView(generics.ListAPIView):
     search_fields = ["name"]
 
     def get_serializer_class(self):
-        site_config = SiteConfig.get_solo()
-        if site_config.use_product_variant:
-            return UnifiedProductListingSerializer
+        try:
+            site_config = SiteConfig.get_solo()
+            if site_config.use_product_variant:
+                return UnifiedProductListingSerializer
+        except Exception:
+            pass
         return ProductSmallSerializer
 
     def filter_queryset(self, queryset):

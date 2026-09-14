@@ -23,12 +23,14 @@ class CollectionListCreateView(generics.ListCreateAPIView):
     serializer_class = CollectionSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for GET
+        return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -46,12 +48,14 @@ class CollectionRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView)
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -70,10 +74,15 @@ class CollectionDataListCreateView(generics.ListCreateAPIView):
     def collection(self):
         """Cache the collection object to avoid multiple lookups in one request"""
         slug = self.kwargs.get("slug")
+        if not slug:
+            return None
         return get_object_or_404(Collection, slug=slug)
 
     def get_queryset(self):
         """Filter data by the collection slug from URL and apply dynamic filters"""
+        if getattr(self, "swagger_fake_view", False) or not self.kwargs.get("slug"):
+            return CollectionData.objects.none()
+
         queryset = CollectionData.objects.filter(
             collection=self.collection
         ).select_related("collection")
@@ -181,12 +190,14 @@ class CollectionDataRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
     lookup_field = "pk"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -194,10 +205,14 @@ class CollectionDataRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIV
     def collection(self):
         """Cache the collection object to avoid multiple lookups in one request"""
         slug = self.kwargs.get("slug")
+        if not slug:
+            return None
         return get_object_or_404(Collection, slug=slug)
 
     def get_queryset(self):
         """Filter data by collection slug and ensure data belongs to the collection"""
+        if getattr(self, "swagger_fake_view", False) or not self.kwargs.get("slug"):
+            return CollectionData.objects.none()
         return CollectionData.objects.filter(collection=self.collection).select_related(
             "collection"
         )

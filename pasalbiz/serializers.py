@@ -42,10 +42,10 @@ class StoreListSerializer(serializers.ModelSerializer):
             "x_tenant_domain",
         ]
 
-    def get_tenant_id(self, obj):
+    def get_tenant_id(self, obj) -> str:
         return str(obj.id)
 
-    def get_x_tenant_domain(self, obj):
+    def get_x_tenant_domain(self, obj) -> str:
         from tenants.models import Domain
 
         domains = Domain.objects.filter(tenant=obj)
@@ -84,13 +84,13 @@ class StoreListSerializer(serializers.ModelSerializer):
 
         return f"{obj.schema_name.lower()}.nepdora.com"
 
-    def get_api_root(self, obj):
+    def get_api_root(self, obj) -> str:
         return "api"
 
-    def get_status(self, obj):
+    def get_status(self, obj) -> str:
         return "active" if obj.is_plan_active() else "blocked"
 
-    def get_last_indexed_at(self, obj):
+    def get_last_indexed_at(self, obj) -> str | None:
         try:
             with schema_context(obj.schema_name):
                 newest = (
@@ -105,7 +105,7 @@ class StoreListSerializer(serializers.ModelSerializer):
             pass
         return None
 
-    def get_store_name(self, obj):
+    def get_store_name(self, obj) -> str:
         try:
             with schema_context(obj.schema_name):
                 config = SiteConfig.objects.first()
@@ -115,7 +115,7 @@ class StoreListSerializer(serializers.ModelSerializer):
             pass
         return obj.name
 
-    def get_store_slug(self, obj):
+    def get_store_slug(self, obj) -> str:
         try:
             with schema_context(obj.schema_name):
                 config = SiteConfig.objects.first()
@@ -125,7 +125,7 @@ class StoreListSerializer(serializers.ModelSerializer):
             pass
         return slugify(obj.name)
 
-    def get_store_description(self, obj):
+    def get_store_description(self, obj) -> str:
         try:
             with schema_context(obj.schema_name):
                 config = SiteConfig.objects.first()
@@ -135,7 +135,7 @@ class StoreListSerializer(serializers.ModelSerializer):
             pass
         return obj.description or ""
 
-    def get_store_logo(self, obj):
+    def get_store_logo(self, obj) -> str:
         request = self.context.get("request")
         try:
             with schema_context(obj.schema_name):
@@ -150,10 +150,10 @@ class StoreListSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(url) if request else url
         return ""
 
-    def get_seller_id(self, obj):
+    def get_seller_id(self, obj) -> str:
         return str(obj.id)
 
-    def get_seller_location(self, obj):
+    def get_seller_location(self, obj) -> str:
         try:
             with schema_context(obj.schema_name):
                 config = SiteConfig.objects.first()
@@ -163,7 +163,7 @@ class StoreListSerializer(serializers.ModelSerializer):
             pass
         return ""
 
-    def get_product_count(self, obj):
+    def get_product_count(self, obj) -> int:
         try:
             with schema_context(obj.schema_name):
                 return Product.objects.filter(status="active").count()

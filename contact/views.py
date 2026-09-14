@@ -35,17 +35,22 @@ class ContactCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return ContactListSerializer
         return ContactSerializer
 
     def get_authenticators(self):
-        # Authenticate only for listing contacts (GET)
-        return [TenantJWTAuthentication()] if self.request.method == "GET" else []
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []
 
     def get_permissions(self):
-        # Require authentication only for listing contacts (GET)
-        return [IsAuthenticated()] if self.request.method == "GET" else []
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
+            return [IsAuthenticated()]
+        return []
 
     def perform_create(self, serializer):
         contact = serializer.save()
@@ -96,17 +101,22 @@ class NewsLetterCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return NewsLetterListSerializer
         return NewsLetterSerializer
 
     def get_authenticators(self):
-        # Authenticate only for listing subscribers (GET)
-        return [TenantJWTAuthentication()] if self.request.method == "GET" else []
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
+            return [TenantJWTAuthentication()]
+        return []
 
     def get_permissions(self):
-        # Require authentication only for listing subscribers (GET)
-        return [IsAuthenticated()] if self.request.method == "GET" else []
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
+            return [IsAuthenticated()]
+        return []
 
     def perform_create(self, serializer):
         newsletter = serializer.save()

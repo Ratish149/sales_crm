@@ -3,6 +3,7 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import filters, generics, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -33,12 +34,14 @@ class CustomerRegisterView(generics.ListCreateAPIView):
     filter_backends = [filters.SearchFilter]
 
     def get_authenticators(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
             return [TenantJWTAuthentication()]
         return []  # No authentication for POST
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -86,7 +89,9 @@ class CustomerDetailView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         customer = get_customer_from_request(self.request)
         if not customer:
-            raise status.HTTP_401_UNAUTHORIZED
+            raise AuthenticationFailed(
+                "Authentication credentials were not provided or are invalid."
+            )
         return customer
 
 

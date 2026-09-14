@@ -103,10 +103,13 @@ class MyBookingListView(generics.ListAPIView):
     ordering = ["-created_at"]
 
     def get_queryset(self):
+        request = getattr(self, "request", None)
+        if getattr(self, "swagger_fake_view", False) or not request or not getattr(request, "user", None) or not request.user.is_authenticated:
+            return Booking.objects.none()
         return (
             Booking.objects
             .select_related("user")
-            .filter(user=self.request.user)
+            .filter(user=request.user)
             .only(
                 "id",
                 "status",

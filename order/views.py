@@ -7,8 +7,9 @@ from django.http import FileResponse
 from django.utils import timezone
 from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
+from drf_spectacular.utils import extend_schema, inline_serializer
 from openpyxl import Workbook
-from rest_framework import filters, generics, status
+from rest_framework import filters, generics, serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -159,12 +160,14 @@ class OrderRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     authentication_classes = [TenantJWTAuthentication]
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return []
 
@@ -414,6 +417,14 @@ class DashboardStatsView(APIView):
         })
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="MyOrderStatusResponse",
+            fields={"status_counts": serializers.DictField()},
+        )
+    }
+)
 class MyOrderStatusView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [CustomerJWTAuthentication]

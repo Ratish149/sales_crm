@@ -171,6 +171,8 @@ class AdminCartListAPIView(generics.ListAPIView):
     filterset_class = CartFilter
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return get_optimized_cart_queryset().none()
         # Automatically mark active carts idle for 1 day (1440 minutes) as ABANDONED
         cart_service.sweep_abandoned_carts(idle_minutes=1440)
         return get_optimized_cart_queryset()

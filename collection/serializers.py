@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from django.core.validators import EmailValidator
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Collection, CollectionData
@@ -33,6 +34,7 @@ class CollectionSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_all_fields(self, obj):
         """Return combined default and custom fields"""
         return obj.get_all_fields()

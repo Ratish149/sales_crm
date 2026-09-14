@@ -15,12 +15,14 @@ class TeamMemberCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = TeamMemberCategorySerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -51,12 +53,14 @@ class TeamMemberListCreateView(generics.ListCreateAPIView):
     filterset_class = TeamMemberFilterSet
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 

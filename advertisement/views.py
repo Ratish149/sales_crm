@@ -36,12 +36,14 @@ class PopUpCreateView(generics.ListCreateAPIView):
     serializer_class = PopUpSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []  # No authentication for GET
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -84,12 +86,14 @@ class PopUpFormCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
             return [TenantJWTAuthentication()]
         return []  # No authentication for GET
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -119,12 +123,14 @@ class BannerImageListCreateView(generics.ListCreateAPIView):
     serializer_class = BannerImageSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []  # No authentication for GET
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -160,12 +166,14 @@ class BannerListCreateView(generics.ListCreateAPIView):
     serializer_class = BannerSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []  # No authentication for GET
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 

@@ -7,7 +7,8 @@ import requests
 from django.utils import timezone
 from django_tenants.utils import get_public_schema_name, schema_context
 from dotenv import load_dotenv
-from rest_framework import generics, response, status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, response, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -360,6 +361,14 @@ class TenantFacebookWebhookMessageView(APIView):
     # -------------------------------------------------------------------
 
 
+@extend_schema(
+    responses={
+        202: inline_serializer(
+            name="SyncPageDataResponse",
+            fields={"status": serializers.CharField(), "task_id": serializers.CharField()},
+        )
+    }
+)
 class SyncPageData(APIView):
     """
     DRF View: sync page data by page_id from URL.

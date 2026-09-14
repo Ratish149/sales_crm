@@ -4,6 +4,7 @@ from decimal import Decimal
 import resend
 from django.db import connection, models, transaction
 from django.template.loader import render_to_string
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from customer.models import Customer
@@ -166,6 +167,7 @@ class OrderItemDetailSerializer(serializers.ModelSerializer):
             "images",
         ]
 
+    @extend_schema_field(serializers.DictField)
     def get_product(self, obj):
         if obj.variant:
             product_data = ProductOnlySerializer(
@@ -261,6 +263,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_promo_code_details(self, obj):
         if obj.promo_code:
             return {
@@ -270,6 +273,7 @@ class OrderSerializer(serializers.ModelSerializer):
             }
         return None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2))
     def get_promo_discount(self, obj):
         if obj.promo_code:
             subtotal = sum(item.price * item.quantity for item in obj.items.all())
@@ -718,6 +722,7 @@ class AdminOrderSerializer(OrderSerializer):
             "updated_at",
         ]
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_promo_code_details(self, obj):
         if obj.promo_code:
             return {
@@ -727,6 +732,7 @@ class AdminOrderSerializer(OrderSerializer):
             }
         return None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2))
     def get_promo_discount(self, obj):
         if obj.promo_code:
             subtotal = sum(item.price * item.quantity for item in obj.items.all())
@@ -843,6 +849,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             "offer_discount",
         ]
 
+    @extend_schema_field(serializers.DictField(allow_null=True))
     def get_promo_code_details(self, obj):
         if obj.promo_code:
             return {
@@ -852,6 +859,7 @@ class OrderListSerializer(serializers.ModelSerializer):
             }
         return None
 
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2))
     def get_promo_discount(self, obj):
         if obj.promo_code:
             subtotal = sum(item.price * item.quantity for item in obj.items.all())

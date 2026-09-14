@@ -20,7 +20,8 @@ from django.utils.text import slugify
 from django_filters import rest_framework as django_filters
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
-from rest_framework import filters, generics, permissions, status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import filters, generics, permissions, serializers, status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -345,6 +346,21 @@ class TemplateTenantRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
             close_old_connections()
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="ClientTokenByIdRequest",
+        fields={"client_id": serializers.IntegerField()},
+    ),
+    responses={
+        200: inline_serializer(
+            name="ClientTokenByIdResponse",
+            fields={
+                "refresh": serializers.CharField(),
+                "access": serializers.CharField(),
+            },
+        )
+    },
+)
 class ClientTokenByIdAPIView(APIView):
     """
     Generate JWT tokens for a client owner using client ID.
@@ -448,6 +464,14 @@ class ClientTokenByIdAPIView(APIView):
         return Response(response_data)
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="TenantInternalRepoResponse",
+            fields={"repo_url": serializers.CharField()},
+        )
+    }
+)
 class TenantInternalRepoView(APIView):
     """
     Internal API to fetch repo_url for a tenant by schema_name.
@@ -546,6 +570,10 @@ class ClientRetrieveUpdateAPIView(generics.RetrieveUpdateAPIView):
     serializer_class = ClientUpdateSerializer
 
 
+@extend_schema(
+    request=serializers.DictField(),
+    responses={200: serializers.DictField()},
+)
 class TenantSidebarConfigAPIView(APIView):
     """
     API view to get or update the sidebar configuration for the current tenant.

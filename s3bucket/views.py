@@ -2,7 +2,8 @@ import time
 
 import boto3
 from django.conf import settings
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,6 +19,7 @@ from .serializers import (
 
 
 class S3UploadView(APIView):
+    serializer_class = FileUploadSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -84,6 +86,7 @@ class S3UploadView(APIView):
 
 
 class S3DeleteView(APIView):
+    serializer_class = FileDeleteSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
 
@@ -147,6 +150,14 @@ class S3DeleteView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="S3ListResponse",
+            fields={"files": serializers.ListField(child=serializers.DictField())},
+        )
+    }
+)
 class S3ListView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -199,6 +210,14 @@ class S3ListView(APIView):
             )
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="S3DeleteFolderResponse",
+            fields={"message": serializers.CharField()},
+        )
+    }
+)
 class S3DeleteFolderView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -246,6 +265,7 @@ class S3DeleteFolderView(APIView):
 
 
 class S3BulkUploadView(APIView):
+    serializer_class = MultipleFileUploadSerializer
     parser_classes = (MultiPartParser, FormParser)
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]

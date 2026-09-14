@@ -7,24 +7,28 @@ class BlogCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogCategory
         fields = ["id", "name", "slug"]
+        ref_name = "NepdoraBlogCategory"
 
 
 class BlogCategorySmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogCategory
         fields = ["id", "name", "slug"]
+        ref_name = "NepdoraBlogCategorySmall"
 
 
 class TagsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tags
         fields = ["id", "name", "slug"]
+        ref_name = "NepdoraTags"
 
 
 class TagsSmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tags
         fields = ["id", "name", "slug"]
+        ref_name = "NepdoraTagsSmall"
 
 
 class BlogSerializer(serializers.ModelSerializer):
@@ -63,6 +67,8 @@ class BlogSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        ref_name = "NepdoraBlog"
+
 
     def validate_title(self, value):
         if self.instance:

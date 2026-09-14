@@ -7,7 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django_filters import rest_framework as django_filters
 from django_filters.rest_framework import DjangoFilterBackend
 from django_tenants.utils import schema_context
-from rest_framework import filters, generics, status
+from drf_spectacular.utils import extend_schema
+from rest_framework import filters, generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -36,12 +37,14 @@ class NepdoraPaymentListCreateView(generics.ListCreateAPIView):
     filterset_fields = ["payment_type"]
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -93,12 +96,14 @@ class TenantCentralPaymentHistoryListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -175,12 +180,14 @@ class TenantTransferHistoryListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -252,6 +259,10 @@ class PaymentSummaryAPIView(APIView):
 # ─── Public NPS Webhook Listener ─────────────────────────────────────────────
 
 
+@extend_schema(
+    operation_id="public_nps_webhook_tenant_process",
+    responses={200: serializers.DictField()},
+)
 @method_decorator(csrf_exempt, name="dispatch")
 class PublicNPSWebhookListenerAPIView(APIView):
     """

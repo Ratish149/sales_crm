@@ -85,12 +85,14 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
     search_fields = ["full_name", "phone"]
 
     def get_authenticators(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
             return [TenantJWTAuthentication()]
-        return []  # No authentication for GET
+        return []
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return [IsAuthenticated()]
         return super().get_permissions()
 

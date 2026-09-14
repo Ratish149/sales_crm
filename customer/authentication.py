@@ -1,3 +1,4 @@
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 
@@ -25,3 +26,17 @@ class CustomerJWTAuthentication(JWTAuthentication):
         # Add is_authenticated property if not present (though Customer model doesn't inherit from AbstractBaseUser)
         # DRF check request.user.is_authenticated
         return customer
+
+
+class CustomerJWTAuthenticationScheme(OpenApiAuthenticationExtension):
+    target_class = "customer.authentication.CustomerJWTAuthentication"
+    name = "CustomerJWTAuth"
+
+    def get_security_definition(self, auto_schema):
+        return {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+
+

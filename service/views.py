@@ -95,22 +95,26 @@ class ServiceListCreateView(generics.ListCreateAPIView):
     ordering_fields = ["created_at"]
 
     def get_queryset(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return SERVICE_LIST_QS
         return Service.objects.all()
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return ServiceListSerializer
         return ServiceSerializer
 
@@ -121,12 +125,14 @@ class ServiceRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request is None or request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -152,6 +158,7 @@ class ServiceCategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPI
 
 
 class ServiceBulkCreateView(APIView):
+    serializer_class = BulkCreateServiceSerializer
     authentication_classes = [TenantJWTAuthentication]
     permission_classes = [IsAuthenticated]
 

@@ -56,6 +56,8 @@ class BulkCreateFAQView(APIView):
     Body: { "faqs": [ { "question": "...", "answer": "..." }, ... ] }
     """
 
+    serializer_class = BulkCreateFAQSerializer
+
     @transaction.atomic
     def post(self, request, *args, **kwargs):
         serializer = BulkCreateFAQSerializer(data=request.data)

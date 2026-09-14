@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts.serializers import CustomUserSerializer
@@ -82,6 +83,7 @@ class TemplateTenantSerializer(serializers.ModelSerializer):
             "preview_url",
         ]
 
+    @extend_schema_field(serializers.ListField(child=serializers.CharField()))
     def get_domains(self, obj):
         domains = Domain.objects.filter(tenant=obj)
         return [domain.domain for domain in domains]

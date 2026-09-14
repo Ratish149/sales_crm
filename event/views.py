@@ -71,17 +71,20 @@ class EventListCreateView(generics.ListCreateAPIView):
         )
 
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return EventListSerializer
         return EventSerializer
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return []
 
@@ -115,11 +118,13 @@ class EventRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         )
 
     def get_authenticators(self):
-        if self.request.method == "GET":
-            return []
-        return [TenantJWTAuthentication()]
+        request = getattr(self, "request", None)
+        if request is None or request.method != "GET":
+            return [TenantJWTAuthentication()]
+        return []
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return []
         return [IsAuthenticated()]

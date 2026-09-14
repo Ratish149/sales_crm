@@ -27,6 +27,7 @@ from .views import (
     RelatedProductList,
     SubCategoryListCreateView,
     SubCategoryRetrieveUpdateDestroyView,
+    SubCategoryWithCategoryRetrieveUpdateDestroyView,
     WishlistListCreateView,
     WishlistRetrieveUpdateDestroyView,
 )
@@ -71,7 +72,7 @@ urlpatterns = [
     ),
     path(
         "sub-category/<slug:category_slug>/<slug:slug>/",
-        SubCategoryRetrieveUpdateDestroyView.as_view(),
+        SubCategoryWithCategoryRetrieveUpdateDestroyView.as_view(),
         name="sub-category-retrieve-update-destroy-with-category",
     ),
     path(

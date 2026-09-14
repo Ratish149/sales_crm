@@ -1,5 +1,6 @@
 from django_tenants.utils import schema_context
-from rest_framework import generics, permissions, status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -58,19 +59,25 @@ class SMSPurchaseListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_queryset(self):
-        return SMSPurchaseHistory.objects.filter(tenant=self.request.tenant).order_by(
-            "-purchased_at"
-        )
+        request = getattr(self, "request", None)
+        tenant = getattr(request, "tenant", None) if request else None
+        if tenant:
+            return SMSPurchaseHistory.objects.filter(tenant=tenant).order_by(
+                "-purchased_at"
+            )
+        return SMSPurchaseHistory.objects.none()
 
     def perform_create(self, serializer):
         # Use utility to ensure SMS credit is updated in the same transaction
@@ -85,15 +92,18 @@ class SMSPurchaseListCreateView(generics.ListCreateAPIView):
 
 class AdminSMSListCreateView(generics.ListCreateAPIView):
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return SMSPurchaseListSerializer
         return SMSPurchaseHistorySerializer
 
     def get_queryset(self):
         queryset = SMSPurchaseHistory.objects.all().order_by("-purchased_at")
-        client_id = self.request.query_params.get("client")
-        if client_id:
-            queryset = queryset.filter(tenant__id=client_id)
+        request = getattr(self, "request", None)
+        if request:
+            client_id = request.query_params.get("client")
+            if client_id:
+                queryset = queryset.filter(tenant__id=client_id)
         return queryset
 
     def perform_create(self, serializer):
@@ -123,17 +133,23 @@ class SMSPurchaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SMSPurchaseHistorySerializer
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_queryset(self):
-        return SMSPurchaseHistory.objects.filter(tenant=self.request.tenant)
+        request = getattr(self, "request", None)
+        tenant = getattr(request, "tenant", None) if request else None
+        if tenant:
+            return SMSPurchaseHistory.objects.filter(tenant=tenant)
+        return SMSPurchaseHistory.objects.none()
 
 
 class SMSSendHistoryListCreateView(generics.ListCreateAPIView):
@@ -145,12 +161,14 @@ class SMSSendHistoryListCreateView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -196,12 +214,14 @@ class SMSSendHistoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SMSSendHistorySerializer
 
     def get_authenticators(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method in ["PUT", "PATCH", "DELETE"]:
+        request = getattr(self, "request", None)
+        if request and request.method in ["PUT", "PATCH", "DELETE"]:
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -209,6 +229,18 @@ class SMSSendHistoryDetailView(generics.RetrieveUpdateDestroyAPIView):
         return SMSSendHistory.objects.all()
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="SMSBalanceResponse",
+            fields={
+                "client": serializers.CharField(),
+                "sms_enabled": serializers.BooleanField(),
+                "sms_credit": serializers.IntegerField(),
+            },
+        )
+    }
+)
 class SMSBalanceView(APIView):
     """
     Get current SMS credit balance.
@@ -226,6 +258,7 @@ class SMSBalanceView(APIView):
 
 
 class AllTenantSMSSettingView(APIView):
+    serializer_class = TenantSMSSettingSerializer
     """
     Get SMS settings for all tenants.
     Only accessible to superusers (global admins).
@@ -265,17 +298,20 @@ class AllTenantSMSSettingView(APIView):
 
 
 class SendCustomSMSView(APIView):
+    serializer_class = SendCustomSMSSerializer
     """
     Send custom SMS for an order replacing {{name}} placeholder with customer_name.
     """
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 

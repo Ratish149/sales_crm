@@ -4,6 +4,7 @@ import os
 import resend
 from django.db import connection
 from django.template.loader import render_to_string
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import Booking
@@ -20,11 +21,13 @@ class BookingSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["id", "user", "created_at", "updated_at"]
 
+    @extend_schema_field(serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True))
     def get_balance_due(self, obj):
         if obj.total_amount is not None and obj.amount_paid is not None:
             return obj.total_amount - obj.amount_paid
         return None
 
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
     def get_duration_days(self, obj):
         if obj.start_date and obj.end_date:
             return (obj.end_date - obj.start_date).days

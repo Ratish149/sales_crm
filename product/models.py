@@ -424,8 +424,9 @@ class Offer(models.Model):
         super().save(*args, **kwargs)
 
     @property
-    def is_valid(self):
+    def is_valid(self) -> bool:
         from django.utils import timezone
 
         now = timezone.now()
         return self.is_active and self.start_date <= now <= self.end_date
+

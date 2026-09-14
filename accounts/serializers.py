@@ -3,6 +3,7 @@ import os
 import cloudinary
 import cloudinary.uploader
 from dotenv import load_dotenv
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import CustomUser, Invitation, StoreProfile, UserActivity
@@ -165,6 +166,7 @@ class CustomUserSerializer(serializers.ModelSerializer):
             "is_email_verified",
         ]
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_email_verified(self, obj):
         return obj.emailaddress_set.filter(verified=True).exists()
 
@@ -176,6 +178,7 @@ class StoreUserSerializer(serializers.ModelSerializer):
         model = StoreProfile
         fields = ("id", "store_name", "store_address", "store_number", "role")
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_role(self, store):
         user = self.context.get("user")
         if not user:
@@ -206,6 +209,7 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
             "enable_pasalbiz",
         )
 
+    @extend_schema_field(StoreUserSerializer(many=True))
     def get_stores(self, user):
         # Both owned and joined stores are already prefetched in queryset
         stores = list(user.stores.all()) + list(user.owned_stores.all())
@@ -214,6 +218,7 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
         serializer = StoreUserSerializer(stores, many=True, context={"user": user})
         return serializer.data
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_schema_name(self, user):
         # Get the schema name from the Client model
         try:
@@ -221,10 +226,12 @@ class UserWithStoresSerializer(serializers.ModelSerializer):
         except AttributeError:
             return None
 
+    @extend_schema_field(serializers.DateTimeField(allow_null=True))
     def get_created_at(self, user):
         # Fallback to date_joined if created_at is not available
         return user.created_at or user.date_joined
 
+    @extend_schema_field(serializers.BooleanField())
     def get_enable_pasalbiz(self, user):
         try:
             client = getattr(user, "client", None)

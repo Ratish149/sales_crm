@@ -48,23 +48,26 @@ class PaymentListCreateAPIView(generics.ListCreateAPIView):
     filterset_class = PaymentFilterSet
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_queryset(self):
-        # GET uses PaymentSmallSerializer which only needs 3 fields
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return PAYMENT_SMALL_QS
         return PAYMENT_QS
 
     def get_serializer_class(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return PaymentSmallSerializer
         return PaymentSerializer
 
@@ -109,12 +112,14 @@ class PaymentHistoryListCreateAPIView(generics.ListCreateAPIView):
     pagination_class = CustomPagination
 
     def get_authenticators(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "GET":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "GET":
+        request = getattr(self, "request", None)
+        if request and request.method == "GET":
             return [IsAuthenticated()]
         return super().get_permissions()
 
@@ -143,12 +148,14 @@ class PaymentQRListCreateAPIView(generics.ListCreateAPIView):
     filterset_class = PaymentQRFilterSet
 
     def get_authenticators(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request is None or request.method == "POST":
             return [TenantJWTAuthentication()]
         return []
 
     def get_permissions(self):
-        if self.request.method == "POST":
+        request = getattr(self, "request", None)
+        if request and request.method == "POST":
             return [IsAuthenticated()]
         return super().get_permissions()
 

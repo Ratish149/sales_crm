@@ -1,4 +1,5 @@
 # pricing/serializers.py
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts.serializers import CustomUserSerializer
@@ -73,6 +74,7 @@ class UserSubscriptionListSerializer(serializers.ModelSerializer):
     user = CustomUserSerializer(read_only=True)
     tenant = serializers.SerializerMethodField()
 
+    @extend_schema_field(serializers.DictField)
     def get_tenant(self, obj):
         from tenants.serializers import ClientSerializer
 

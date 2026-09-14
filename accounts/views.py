@@ -30,6 +30,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
 from django_tenants.utils import schema_context
 from dotenv import load_dotenv
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import filters, generics, permissions, serializers, status
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
@@ -70,6 +71,23 @@ token_generator = PasswordResetTokenGenerator()
 User = get_user_model()
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="CustomSignupRequest",
+        fields={
+            "email": serializers.EmailField(),
+            "store_name": serializers.CharField(),
+            "password": serializers.CharField(),
+            "phone": serializers.CharField(required=False),
+        },
+    ),
+    responses={
+        201: inline_serializer(
+            name="CustomSignupResponse",
+            fields={"message": serializers.CharField()},
+        )
+    },
+)
 @method_decorator(csrf_exempt, name="dispatch")
 class CustomSignupView(APIView):
     def post(self, request, *args, **kwargs):
@@ -243,6 +261,18 @@ class CustomSignupView(APIView):
             )
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="CustomVerifyEmailRequest",
+        fields={"key": serializers.CharField(required=False)},
+    ),
+    responses={
+        200: inline_serializer(
+            name="CustomVerifyEmailResponse",
+            fields={"message": serializers.CharField()},
+        )
+    },
+)
 class CustomVerifyEmailView(APIView):
     """
     Verify email using the key sent in email.
@@ -412,6 +442,15 @@ class InvitationCreateView(generics.ListCreateAPIView):
             )
 
 
+@extend_schema(
+    request=None,
+    responses={
+        200: inline_serializer(
+            name="ResendInvitationResponse",
+            fields={"detail": serializers.CharField()},
+        )
+    },
+)
 class ResendInvitationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -453,6 +492,7 @@ class ResendInvitationView(APIView):
 
 
 class AcceptInvitationView(APIView):
+    serializer_class = AcceptInvitationSerializer
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
@@ -583,6 +623,18 @@ class UserListDestroyAPIView(generics.ListAPIView):
     ]
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="EnablePasalbizRequest",
+        fields={"enable_pasalbiz": serializers.BooleanField(required=False)},
+    ),
+    responses={
+        200: inline_serializer(
+            name="EnablePasalbizResponse",
+            fields={"message": serializers.CharField()},
+        )
+    },
+)
 class EnablePasalbizView(APIView):
     """
     API view to enable or disable Pasalbiz for a user's store by user ID.
@@ -678,6 +730,15 @@ class UserDeleteAPIView(generics.RetrieveDestroyAPIView):
             close_old_connections()
 
 
+@extend_schema(
+    request=None,
+    responses={
+        200: inline_serializer(
+            name="UserSoftDeleteResponse",
+            fields={"message": serializers.CharField()},
+        )
+    },
+)
 class UserSoftDeleteAPIView(APIView):
     """
     Soft deletes a user. Mark them as is_deleted=True and set deleted_at.
@@ -702,6 +763,15 @@ class UserSoftDeleteAPIView(APIView):
             )
 
 
+@extend_schema(
+    request=None,
+    responses={
+        200: inline_serializer(
+            name="UserRecoverResponse",
+            fields={"message": serializers.CharField()},
+        )
+    },
+)
 class UserRecoverAPIView(APIView):
     """
     Recovers a soft-deleted user within 7 days.
@@ -731,6 +801,18 @@ class UserRecoverAPIView(APIView):
             )
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="CheckUserStatusResponse",
+            fields={
+                "is_deleted": serializers.BooleanField(),
+                "exists": serializers.BooleanField(),
+                "message": serializers.CharField(),
+            },
+        )
+    }
+)
 class CheckUserStatusAPIView(APIView):
     """
     Checks if a given email is soft-deleted or active.
@@ -781,6 +863,14 @@ class CheckUserStatusAPIView(APIView):
         )
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="CheckEmailExistsResponse",
+            fields={"exists": serializers.BooleanField()},
+        )
+    }
+)
 class CheckEmailExistsAPIView(APIView):
     """
     Checks if a given email is already registered.
@@ -808,6 +898,14 @@ class CheckEmailExistsAPIView(APIView):
         )
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="CheckStoreNameExistsResponse",
+            fields={"exists": serializers.BooleanField()},
+        )
+    }
+)
 class CheckStoreNameExistsAPIView(APIView):
     """
     Checks if a given store name is already taken or is reserved.
@@ -1050,6 +1148,18 @@ class UseTemplateView(APIView):
  """
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="UserDataResponse",
+            fields={
+                "id": serializers.IntegerField(),
+                "email": serializers.CharField(),
+                "client": serializers.DictField(),
+            },
+        )
+    }
+)
 class UserDataAPIView(APIView):
     """
     API endpoint to fetch user data with associated client information.

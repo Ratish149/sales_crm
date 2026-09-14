@@ -1,3 +1,4 @@
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
@@ -48,3 +49,16 @@ class TenantJWTAuthentication(JWTAuthentication):
             )
 
         return user, validated_token
+
+
+class TenantJWTAuthenticationScheme(OpenApiAuthenticationExtension):
+    target_class = "sales_crm.authentication.TenantJWTAuthentication"
+    name = "TenantJWTAuth"
+
+    def get_security_definition(self, auto_schema):
+        return {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+

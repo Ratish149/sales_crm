@@ -3,6 +3,8 @@ from datetime import datetime
 from django.db.models import Avg, Case, CharField, Count, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +20,14 @@ from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="StatsResponse",
+            fields={"total_revenue": serializers.FloatField()},
+        )
+    }
+)
 class StatsView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]
@@ -289,6 +299,19 @@ class StatsView(APIView):
         })
 
 
+@extend_schema(
+    responses={
+        200: inline_serializer(
+            name="UnreadCountResponse",
+            fields={
+                "unread_appointments": serializers.IntegerField(),
+                "unread_popup_forms": serializers.IntegerField(),
+                "unread_contacts": serializers.IntegerField(),
+                "unread_orders": serializers.IntegerField(),
+            },
+        )
+    }
+)
 class UnreadCountView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [TenantJWTAuthentication]

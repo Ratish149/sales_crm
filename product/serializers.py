@@ -3,6 +3,7 @@ import json
 from django.core.files.base import File
 from django.db import models
 from django.utils.text import slugify
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from customer.serializers import CustomerSerializer
@@ -304,10 +305,12 @@ class ProductVariantReadSerializer(serializers.ModelSerializer):
             "option_values",
         ]
 
+    @extend_schema_field(serializers.DictField)
     def get_option_values(self, obj):
         return {v.option.name: v.value for v in obj.option_values.all()}
 
 
+@extend_schema_field(serializers.ListField(child=serializers.DictField()))
 class VariantsField(serializers.Field):
     def to_internal_value(self, data):
         if isinstance(data, str):
@@ -416,6 +419,7 @@ class ProductSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"slug": {"read_only": True}}
 
+    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_options(self, obj):
         # uses prefetched productoption_set — no extra queries when queryset is optimized
         options = obj.productoption_set.prefetch_related("productoptionvalue_set").all()
@@ -429,12 +433,14 @@ class ProductSerializer(serializers.ModelSerializer):
             })
         return options_data
 
+    @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         # use annotated value if available (from queryset), else fall back to query
         if hasattr(obj, "reviews_count_annotated"):
             return obj.reviews_count_annotated
         return ProductReview.objects.filter(product=obj).count()
 
+    @extend_schema_field(serializers.FloatField)
     def get_average_rating(self, obj):
         # use annotated value if available (from queryset), else fall back to query
         if hasattr(obj, "average_rating"):
@@ -446,8 +452,12 @@ class ProductSerializer(serializers.ModelSerializer):
             or 0
         )
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_wishlist(self, obj):
-        user = get_customer_from_request(self.context["request"])
+        request = self.context.get("request")
+        if not request:
+            return False
+        user = get_customer_from_request(request)
         if not user:
             return False
         return Wishlist.objects.filter(user=user, product=obj).exists()
@@ -778,12 +788,14 @@ class ProductSmallSerializer(serializers.ModelSerializer):
         max_digits=10, decimal_places=2, read_only=True
     )
 
+    @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         # use annotated value if available (from queryset), else fall back to query
         if hasattr(obj, "reviews_count_annotated"):
             return obj.reviews_count_annotated
         return ProductReview.objects.filter(product=obj).count()
 
+    @extend_schema_field(serializers.FloatField)
     def get_average_rating(self, obj):
         # use annotated value if available (from queryset), else fall back to query
         if hasattr(obj, "average_rating"):
@@ -795,8 +807,12 @@ class ProductSmallSerializer(serializers.ModelSerializer):
             or 0
         )
 
+    @extend_schema_field(serializers.BooleanField)
     def get_is_wishlist(self, obj):
-        user = get_customer_from_request(self.context["request"])
+        request = self.context.get("request")
+        if not request:
+            return False
+        user = get_customer_from_request(request)
         if not user:
             return False
         return Wishlist.objects.filter(user=user, product=obj).exists()

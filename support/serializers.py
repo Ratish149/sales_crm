@@ -16,6 +16,7 @@ class FAQCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQCategory
         fields = "__all__"
+        ref_name = "SupportFAQCategory"
 
 
 class FAQSerializer(serializers.ModelSerializer):
@@ -31,6 +32,7 @@ class FAQSerializer(serializers.ModelSerializer):
     class Meta:
         model = FAQ
         fields = ["id", "question", "answer", "category", "category_id"]
+        ref_name = "SupportFAQ"
 
 
 class NepdoraTestimonialSerializer(serializers.ModelSerializer):
@@ -51,6 +53,8 @@ class ContactSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+        ref_name = "SupportContact"
+
 
 
 class NewsletterSerializer(serializers.ModelSerializer):
