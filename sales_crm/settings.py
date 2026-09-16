@@ -611,4 +611,10 @@ SPECTACULAR_SETTINGS = {
             },
         }
     },
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+        "filter": True,
+    },
 }

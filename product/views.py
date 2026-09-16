@@ -14,8 +14,10 @@ from django.db.models import (
     Prefetch,
     Subquery,
     Sum,
+    Value,
     When,
 )
+from django.db.models.functions import Coalesce
 from django.http import FileResponse
 from django_filters import rest_framework as django_filters
 from openpyxl import Workbook
@@ -97,7 +99,7 @@ class ProductPagination(CustomPagination):
 # Mirrors the Product.final_price model property at the DB level so we can
 # ORDER BY it and compute a correct max_price for the price-range slider.
 #
-#   use_dynamic_pricing=True  → SUM(metric.price_per_unit × composition.quantity)
+#   use_dynamic_pricing=True  → SUM(metric.price_per_unit × composition.quantity) + base_making_charge
 #   use_dynamic_pricing=False → product.price
 
 _dynamic_price_sq = (
@@ -108,7 +110,7 @@ _dynamic_price_sq = (
         total=Sum(
             ExpressionWrapper(
                 F("metric__price_per_unit") * F("quantity"),
-                output_field=DecimalField(max_digits=20, decimal_places=2),
+                output_field=DecimalField(max_digits=100, decimal_places=2),
             )
         )
     )
@@ -118,13 +120,19 @@ _dynamic_price_sq = (
 FINAL_PRICE_ANNOTATION = Case(
     When(
         use_dynamic_pricing=True,
-        then=Subquery(
-            _dynamic_price_sq,
-            output_field=DecimalField(max_digits=20, decimal_places=2),
+        then=Coalesce(
+            Subquery(
+                _dynamic_price_sq,
+                output_field=DecimalField(max_digits=100, decimal_places=2),
+            ),
+            Value(0, output_field=DecimalField(max_digits=100, decimal_places=2)),
+        ) + Coalesce(
+            F("base_making_charge"),
+            Value(0, output_field=DecimalField(max_digits=100, decimal_places=2)),
         ),
     ),
     default=F("price"),
-    output_field=DecimalField(max_digits=20, decimal_places=2),
+    output_field=DecimalField(max_digits=100, decimal_places=2),
 )
 
 

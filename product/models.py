@@ -222,10 +222,17 @@ class Product(models.Model):
         if not self.use_dynamic_pricing:
             return self.price
 
+        from decimal import Decimal
+
         composition_price = sum(
             c.metric.price_per_unit * c.quantity for c in self.compositions.all()
         )
-        return composition_price + self.base_making_charge
+        making_charge = (
+            self.base_making_charge
+            if self.base_making_charge is not None
+            else Decimal("0.00")
+        )
+        return composition_price + making_charge
 
     @property
     def active_offer(self):
@@ -257,6 +264,8 @@ class Product(models.Model):
             return None
 
         base_price = self.final_price
+        if base_price is None:
+            return None
 
         if offer.offer_type == "percentage":
             from decimal import Decimal
@@ -325,6 +334,8 @@ class ProductVariant(models.Model):
 
         # Use variant price if set, otherwise use product's base price
         base_price = self.price if self.price is not None else self.product.final_price
+        if base_price is None:
+            return None
 
         if offer.offer_type == "percentage":
             from decimal import Decimal

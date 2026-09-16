@@ -280,7 +280,7 @@ class ProductOptionSerializer(serializers.ModelSerializer):
 
 
 class ProductVariantWriteSerializer(serializers.Serializer):
-    price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    price = serializers.DecimalField(max_digits=100, decimal_places=2)
     stock = serializers.IntegerField(default=0)
     image = serializers.FileField(required=False, allow_null=True)
     options = serializers.DictField(child=serializers.CharField(), required=False)
@@ -290,7 +290,7 @@ class ProductVariantReadSerializer(serializers.ModelSerializer):
     option_values = serializers.SerializerMethodField()
     active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
 
     class Meta:
@@ -357,11 +357,11 @@ class ProductSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField(read_only=True)
     compositions = ProductCompositionSerializer(many=True, required=False)
     final_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
     active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
     reviews_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
@@ -781,11 +781,11 @@ class ProductSmallSerializer(serializers.ModelSerializer):
         source="variants", many=True, read_only=True
     )
     final_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
     active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
 
     @extend_schema_field(serializers.IntegerField)
@@ -851,11 +851,11 @@ class ProductSmallSerializer(serializers.ModelSerializer):
 
 class ProductOnlySerializer(serializers.ModelSerializer):
     final_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
     active_offer = OfferListSerializer(read_only=True)
     discounted_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
 
     class Meta:
@@ -980,7 +980,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     )
     active_offer = OfferListSerializer(source="product.active_offer", read_only=True)
     discounted_price = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
+        max_digits=100, decimal_places=2, read_only=True
     )
     use_dynamic_pricing = serializers.BooleanField(
         source="product.use_dynamic_pricing", read_only=True
