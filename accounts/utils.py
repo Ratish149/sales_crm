@@ -38,6 +38,7 @@ def generate_fresh_tokens(user):
             client = Client.objects.filter(owner=owner).first()
 
             if client:
+                sub_domain = getattr(client, "schema_name", "") or sub_domain
                 domain = Domain.objects.filter(tenant=client, is_primary=True).first()
 
                 domain_name = getattr(domain, "domain", "") if domain else ""

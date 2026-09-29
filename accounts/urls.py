@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AcceptInvitationView,
     ChangePasswordView,
+    ChangeStoreSchemaAPIView,
     CheckEmailExistsAPIView,
     CheckStoreNameExistsAPIView,
     CheckUserStatusAPIView,
@@ -83,6 +84,16 @@ urlpatterns = [
         "stores/check-name/",
         CheckStoreNameExistsAPIView.as_view(),
         name="store-check-name",
+    ),
+    path(
+        "stores/change-schema/",
+        ChangeStoreSchemaAPIView.as_view(),
+        name="change-store-schema",
+    ),
+    path(
+        "user-lists/<int:user_id>/change-schema/",
+        ChangeStoreSchemaAPIView.as_view(),
+        name="user-change-store-schema",
     ),
     path(
         "user-lists/<int:id>/delete/",

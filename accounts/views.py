@@ -53,6 +53,8 @@ from .filters import UserFilter
 from .models import CustomUser, Invitation, StoreProfile
 from .serializers import (
     AcceptInvitationSerializer,
+    ChangeAccountSchemaResponseSerializer,
+    ChangeAccountSchemaSerializer,
     CustomUserSerializer,
     InvitationSerializer,
     StoreProfileSerializer,
@@ -60,6 +62,7 @@ from .serializers import (
     UserDataSerializer,
     UserWithStoresSerializer,
 )
+from .services import change_account_schema_and_store_name
 
 load_dotenv()
 # Create your views here.
@@ -493,6 +496,7 @@ class ResendInvitationView(APIView):
 
 class AcceptInvitationView(APIView):
     serializer_class = AcceptInvitationSerializer
+
     def post(self, request):
         serializer = AcceptInvitationSerializer(data=request.data)
         if serializer.is_valid():
@@ -1246,3 +1250,66 @@ class UserActivityListView(generics.ListAPIView):
         from .models import UserActivity
 
         return UserActivity.objects.all().select_related("user")
+
+
+@extend_schema(
+    summary="Change database schema name and store name of an account",
+    description=(
+        "Updates the PostgreSQL database schema name and/or store name for an account. "
+        "Atomically renames the schema in PostgreSQL, updates tenant domains, "
+        "updates user subdomain and store profile, invalidates tenant cache, "
+        "and returns fresh authentication tokens."
+    ),
+    request=ChangeAccountSchemaSerializer,
+    responses={
+        200: ChangeAccountSchemaResponseSerializer,
+        400: inline_serializer(
+            name="ChangeAccountSchemaBadRequestResponse",
+            fields={"error": serializers.CharField()},
+        ),
+        403: inline_serializer(
+            name="ChangeAccountSchemaPermissionDeniedResponse",
+            fields={"detail": serializers.CharField()},
+        ),
+        404: inline_serializer(
+            name="ChangeAccountSchemaNotFoundResponse",
+            fields={"detail": serializers.CharField()},
+        ),
+    },
+)
+class ChangeStoreSchemaAPIView(APIView):
+    """
+    API view to change the database schema name and store name of an account.
+    Supports self-service for store owners and administrative updates by staff/superusers.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangeAccountSchemaSerializer(
+            data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user_id = kwargs.get("user_id") or serializer.validated_data.get("user_id")
+        client_id = serializer.validated_data.get("client_id")
+        email = serializer.validated_data.get("email")
+        schema_name = serializer.validated_data.get("schema_name")
+        store_name = serializer.validated_data.get("store_name")
+        tenant_name = serializer.validated_data.get("tenant_name")
+
+        request_user = (
+            request.user if getattr(request.user, "is_authenticated", False) else None
+        )
+
+        result = change_account_schema_and_store_name(
+            request_user=request_user,
+            target_user_id=user_id,
+            client_id=client_id,
+            email=email,
+            new_schema_name=schema_name,
+            new_store_name=store_name,
+            new_tenant_name=tenant_name,
+        )
+
+        return Response(result, status=status.HTTP_200_OK)

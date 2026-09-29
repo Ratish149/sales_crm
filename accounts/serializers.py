@@ -1,7 +1,9 @@
 import os
+import re
 
 import cloudinary
 import cloudinary.uploader
+from django.utils.text import slugify
 from dotenv import load_dotenv
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -294,3 +296,128 @@ class UserActivitySerializer(serializers.ModelSerializer):
             "metadata",
         ]
         read_only_fields = ["timestamp"]
+
+
+class ChangeAccountSchemaSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Optional ID of the user whose account schema is to be updated (Admin/Staff only).",
+    )
+    client_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="Optional ID of the client whose schema is to be updated (Admin/Staff only).",
+    )
+    email = serializers.EmailField(
+        required=False,
+        allow_null=True,
+        help_text="Optional email of the user whose account schema is to be updated (Admin/Staff only, or self).",
+    )
+    store_name = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=False,
+        help_text="The new display name for the store.",
+    )
+    tenant_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=False,
+        help_text="The new name for the tenant (Client.name). Defaults to store_name if omitted.",
+    )
+    schema_name = serializers.CharField(
+        max_length=63,
+        required=False,
+        allow_blank=False,
+        help_text="The new PostgreSQL database schema name (alphanumeric, hyphens, underscores).",
+    )
+
+    def validate(self, attrs):
+        store_name = attrs.get("store_name")
+        tenant_name = attrs.get("tenant_name")
+        schema_name = attrs.get("schema_name")
+        email = attrs.get("email")
+
+        if email is not None:
+            attrs["email"] = email.strip().lower()
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        is_authenticated = getattr(user, "is_authenticated", False)
+
+        if not is_authenticated and not email and not attrs.get("user_id") and not attrs.get("client_id"):
+            raise serializers.ValidationError(
+                {"email": "Email is required to identify the account."}
+            )
+
+        if not store_name and not tenant_name and not schema_name:
+            raise serializers.ValidationError(
+                "At least one of 'tenant_name', 'store_name', or 'schema_name' must be provided."
+            )
+
+        if store_name is not None:
+            cleaned_store_name = store_name.strip()
+            if not cleaned_store_name:
+                raise serializers.ValidationError({"store_name": "Store name cannot be empty."})
+            attrs["store_name"] = cleaned_store_name
+
+        if tenant_name is not None:
+            cleaned_tenant_name = tenant_name.strip()
+            if not cleaned_tenant_name:
+                raise serializers.ValidationError({"tenant_name": "Tenant name cannot be empty."})
+            attrs["tenant_name"] = cleaned_tenant_name
+
+        if schema_name is not None:
+            cleaned_schema = slugify(schema_name.strip()).lower()
+            if not cleaned_schema:
+                raise serializers.ValidationError({"schema_name": "Schema name cannot be empty."})
+
+            if len(cleaned_schema) > 63:
+                raise serializers.ValidationError({"schema_name": "Schema name cannot exceed 63 characters."})
+
+            if not re.match(r"^[a-z0-9][a-z0-9_-]*$", cleaned_schema):
+                raise serializers.ValidationError(
+                    {
+                        "schema_name": (
+                            "Schema name must start with an alphanumeric character and contain "
+                            "only lowercase letters, digits, underscores, or hyphens."
+                        )
+                    }
+                )
+
+            reserved = {
+                "public",
+                "default",
+                "postgres",
+                "information_schema",
+                "pg_catalog",
+                "template0",
+                "template1",
+            }
+            if cleaned_schema in reserved or cleaned_schema.startswith("pg_"):
+                raise serializers.ValidationError(
+                    {"schema_name": f"Schema name '{cleaned_schema}' is reserved and cannot be used."}
+                )
+
+            attrs["schema_name"] = cleaned_schema
+
+        return attrs
+
+
+class ChangeAccountSchemaResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    message = serializers.CharField()
+    client_id = serializers.IntegerField()
+    tenant_name = serializers.CharField()
+    old_tenant_name = serializers.CharField(allow_null=True)
+    new_tenant_name = serializers.CharField()
+    old_schema_name = serializers.CharField()
+    new_schema_name = serializers.CharField()
+    old_store_name = serializers.CharField(allow_null=True)
+    new_store_name = serializers.CharField()
+    domains = serializers.ListField(child=serializers.CharField())
+    sub_domain = serializers.CharField()
+    tokens = serializers.DictField(required=False, allow_null=True)
+
+
