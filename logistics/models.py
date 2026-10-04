@@ -6,6 +6,7 @@ class Logistics(models.Model):
     LOGISTIC_CHOICES = (
         ("Dash", "Dash"),
         ("YDM", "YDM"),
+        ("NCM", "NCM"),
     )
     logistic = models.CharField(
         max_length=10, choices=LOGISTIC_CHOICES, null=True, blank=True
@@ -14,6 +15,7 @@ class Logistics(models.Model):
     password = models.CharField(max_length=255)
     client_id = models.IntegerField(null=True, blank=True)
     client_secret = models.CharField(max_length=255, null=True, blank=True)
+    branch = models.CharField(max_length=255, null=True, blank=True)
     grant_type = models.CharField(max_length=255, null=True, blank=True)
     expires_at = models.DateTimeField(null=True, blank=True)
     is_enabled = models.BooleanField(default=False)

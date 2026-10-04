@@ -6,12 +6,15 @@ from .views import (
     DashboardStatsView,
     MyOrderListAPIView,
     MyOrderStatusView,
+    NCMCreateOrderAPIView,
+    NCMWebhookAPIView,
     OrderExcelExportView,
     OrderGetAPIView,
     OrderListCreateAPIView,
     OrderRetrieveUpdateDestroyAPIView,
     OrderStorageStatsView,
     SendOrderToLogisticsAPIView,
+    SendOrderToNCMAPIView,
 )
 
 urlpatterns = [
@@ -35,6 +38,21 @@ urlpatterns = [
         "order/<int:pk>/send-order/",
         SendOrderToLogisticsAPIView.as_view(),
         name="order-send-to-logistics",
+    ),
+    path(
+        "order/<int:pk>/send-ncm/",
+        SendOrderToNCMAPIView.as_view(),
+        name="order-send-to-ncm",
+    ),
+    path(
+        "order/ncm/create/",
+        NCMCreateOrderAPIView.as_view(),
+        name="ncm-order-create",
+    ),
+    path(
+        "order/ncm/webhook/<str:schema_name>/",
+        NCMWebhookAPIView.as_view(),
+        name="ncm-webhook-schema",
     ),
     path("get-order/<str:order_number>/", OrderGetAPIView.as_view(), name="order-get"),
     path("dashboard-stats/", DashboardStatsView.as_view(), name="dashboard-stats"),

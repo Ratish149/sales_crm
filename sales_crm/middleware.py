@@ -115,6 +115,8 @@ class CustomDomainTenantMiddleware:
         "/api/support/",
         "/api/stores/",
         "/api/nps/webhook/",
+        "/api/order/ncm/webhook/",
+        "/api/ncm/webhook/",
     )
 
     def __init__(self, get_response):

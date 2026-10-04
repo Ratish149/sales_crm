@@ -75,6 +75,9 @@ class Order(models.Model):
     transaction_id = models.CharField(max_length=255, null=True, blank=True)
     is_manual = models.BooleanField(default=False)
     dash_tracking_code = models.CharField(max_length=255, null=True, blank=True)
+    ncm_order_id = models.CharField(
+        max_length=255, null=True, blank=True, db_index=True
+    )
     promo_code = models.ForeignKey(
         PromoCode, on_delete=models.CASCADE, null=True, blank=True
     )

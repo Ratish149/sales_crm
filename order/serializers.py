@@ -254,6 +254,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "cash_amount",
             "online_amount",
             "online_payment_type",
+            "dash_tracking_code",
+            "ncm_order_id",
             "items",
             "order_items",
         ]
@@ -261,6 +263,8 @@ class OrderSerializer(serializers.ModelSerializer):
             "order_number",
             "created_at",
             "updated_at",
+            "dash_tracking_code",
+            "ncm_order_id",
         ]
 
     @extend_schema_field(serializers.DictField(allow_null=True))
@@ -844,6 +848,8 @@ class OrderListSerializer(serializers.ModelSerializer):
             "promo_code",
             "promo_code_details",
             "promo_discount",
+            "dash_tracking_code",
+            "ncm_order_id",
             "offer",
             "offer_details",
             "offer_discount",
@@ -865,3 +871,220 @@ class OrderListSerializer(serializers.ModelSerializer):
             subtotal = sum(item.price * item.quantity for item in obj.items.all())
             return subtotal * (obj.promo_code.discount_percentage / Decimal("100.00"))
         return Decimal("0.00")
+
+
+class NCMCreateOrderSerializer(serializers.Serializer):
+    """
+    Serializer for creating an order directly in Nepal Can Move (NCM).
+    """
+
+    DELIVERY_TYPE_CHOICES = (
+        ("Door2Door", "Door2Door"),
+        ("Branch2Door", "Branch2Door"),
+        ("Branch2Branch", "Branch2Branch"),
+        ("Door2Branch", "Door2Branch"),
+    )
+
+    name = serializers.CharField(max_length=255, required=True)
+    phone = serializers.CharField(max_length=20, required=True)
+    phone2 = serializers.CharField(
+        max_length=20, required=False, allow_blank=True, default=""
+    )
+    cod_charge = serializers.CharField(
+        max_length=50,
+        required=False,
+        default="0",
+        allow_blank=True,
+        help_text="COD amount including delivery (defaults to 0 if is_paid is True)",
+    )
+    is_paid = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Whether the order is already paid. If True, cod_charge will be set to 0.",
+    )
+    address = serializers.CharField(max_length=500, required=True)
+    fbranch = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Origin branch name (e.g. TINKUNE). If omitted, falls back to Logistics.branch or Logistics.client_secret.",
+    )
+    branch = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination branch name (or use location_name / location)",
+    )
+    location_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination location/branch name",
+    )
+    location = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination location/branch name",
+    )
+    package = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, default=""
+    )
+    vref_id = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, default=""
+    )
+    instruction = serializers.CharField(required=False, allow_blank=True, default="")
+    delivery_type = serializers.ChoiceField(
+        choices=DELIVERY_TYPE_CHOICES, default="Door2Door", required=False
+    )
+    weight = serializers.CharField(max_length=20, default="1", required=False)
+
+
+class SendOrderToNCMSerializer(serializers.Serializer):
+    """
+    Serializer for sending an existing Order to Nepal Can Move (NCM).
+    """
+
+    DELIVERY_TYPE_CHOICES = (
+        ("Door2Door", "Door2Door"),
+        ("Branch2Door", "Branch2Door"),
+        ("Branch2Branch", "Branch2Branch"),
+        ("Door2Branch", "Door2Branch"),
+    )
+
+    fbranch = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Origin branch name (e.g. TINKUNE). If omitted, falls back to Logistics.branch or Logistics.client_secret.",
+    )
+    branch = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination branch name (defaults to location_name, location, or order city if omitted)",
+    )
+    location_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination location/branch name",
+    )
+    location = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Destination location/branch name",
+    )
+    delivery_type = serializers.ChoiceField(
+        choices=DELIVERY_TYPE_CHOICES,
+        default="Door2Door",
+        required=False,
+        help_text="Delivery type: Door2Door, Branch2Door, Branch2Branch, Door2Branch",
+    )
+    weight = serializers.CharField(
+        max_length=20,
+        default="1",
+        required=False,
+        help_text="Weight in kg (default: 1)",
+    )
+    package = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        help_text="Package name or description (defaults to ordered item names if omitted)",
+    )
+    vref_id = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True,
+        help_text="Vendor reference ID (defaults to order number)",
+    )
+    instruction = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Delivery instruction (defaults to order note)",
+    )
+    phone2 = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Customer secondary phone number",
+    )
+    cod_charge = serializers.CharField(
+        max_length=50,
+        required=False,
+        allow_blank=True,
+        help_text="COD amount override including delivery (defaults to order total or 0 if paid)",
+    )
+    name = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        help_text="Customer name override",
+    )
+    phone = serializers.CharField(
+        max_length=20,
+        required=False,
+        allow_blank=True,
+        help_text="Customer phone override",
+    )
+    address = serializers.CharField(
+        max_length=500,
+        required=False,
+        allow_blank=True,
+        help_text="Customer address override",
+    )
+    is_paid = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Override is_paid status. If True, cod_charge will be set to 0.",
+    )
+
+
+class NCMWebhookSerializer(serializers.Serializer):
+    """
+    Serializer for parsing and validating Nepal Can Move (NCM) webhook events.
+    Supports single order (order_id) and bulk orders (order_ids).
+    """
+
+    order_id = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Unique NCM order identifier (single order)",
+    )
+    order_ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="List of NCM order identifiers (bulk orders)",
+    )
+    status = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Current order status (e.g. Delivered, Dispatched, Arrived, Pickup Complete)",
+    )
+    event = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="Event type identifier (e.g. delivery_completed, order_dispatched)",
+    )
+    timestamp = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="ISO 8601 formatted timestamp",
+    )
+    test = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="Flag indicating whether this is a test webhook payload from NCM",
+    )
+

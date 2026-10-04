@@ -5,13 +5,15 @@ import os
 from django.db.models import Prefetch, Sum
 from django.http import FileResponse
 from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django_filters import rest_framework as django_filters
 from dotenv import load_dotenv
 from drf_spectacular.utils import extend_schema, inline_serializer
 from openpyxl import Workbook
 from rest_framework import filters, generics, serializers, status
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -22,7 +24,19 @@ from sales_crm.authentication import TenantJWTAuthentication
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
 from .models import Order, OrderItem, OrderItemImage
-from .serializers import AdminOrderSerializer, OrderListSerializer, OrderSerializer
+from .serializers import (
+    AdminOrderSerializer,
+    NCMCreateOrderSerializer,
+    NCMWebhookSerializer,
+    OrderListSerializer,
+    OrderSerializer,
+    SendOrderToNCMSerializer,
+)
+from .services.ncm_service import (
+    create_direct_ncm_order,
+    process_ncm_webhook,
+    send_order_to_ncm,
+)
 from .utils import send_order_to_dash
 
 # Optimized queryset for order listings and retrieval
@@ -200,7 +214,19 @@ class SendOrderToLogisticsAPIView(APIView):
 
     def post(self, request, pk):
         try:
-            order = Order.objects.get(pk=pk)
+            order = (
+                Order.objects
+                .select_related("customer", "promo_code")
+                .prefetch_related(
+                    Prefetch(
+                        "items",
+                        queryset=OrderItem.objects.select_related(
+                            "product", "variant", "variant__product"
+                        ),
+                    )
+                )
+                .get(pk=pk)
+            )
         except Order.DoesNotExist:
             return Response(
                 {"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND
@@ -236,11 +262,212 @@ class SendOrderToLogisticsAPIView(APIView):
                 if old_status == "pending":
                     order.deduct_stock()
             return res
+        elif logistic_obj.logistic == "NCM":
+            extra_data = (
+                request.data.copy()
+                if hasattr(request.data, "copy")
+                else dict(request.data)
+            )
+            location_name = (
+                extra_data.get("branch")
+                or extra_data.get("location_name")
+                or extra_data.get("location")
+                or getattr(order, "city", None)
+            )
+            if location_name:
+                extra_data["branch"] = str(location_name).strip()
+                if not order.city:
+                    order.city = str(location_name).strip()
+                    order.save(update_fields=["city"])
+
+            if getattr(order, "is_paid", False) or str(
+                extra_data.get("is_paid", "")
+            ).lower() in ["true", "1", "yes"]:
+                extra_data["cod_charge"] = "0"
+
+            return send_order_to_ncm(
+                order=order,
+                extra_data=extra_data,
+                logistic_obj=logistic_obj,
+            )
         else:
             return Response(
                 {"error": f"Unsupported logistic type: {logistic_obj.logistic}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class SendOrderToNCMAPIView(APIView):
+    """
+    Dedicated endpoint to send an order to Nepal Can Move (NCM).
+    """
+
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=SendOrderToNCMSerializer,
+        responses={
+            200: inline_serializer(
+                name="NCMOrderSuccessResponse",
+                fields={
+                    "Message": serializers.CharField(),
+                    "orderid": serializers.IntegerField(),
+                },
+            ),
+            400: serializers.DictField(),
+            404: serializers.DictField(),
+        },
+        description="Send an existing order to Nepal Can Move (NCM) logistics.",
+    )
+    def post(self, request, pk):
+        try:
+            order = (
+                Order.objects
+                .select_related("customer", "promo_code")
+                .prefetch_related(
+                    Prefetch(
+                        "items",
+                        queryset=OrderItem.objects.select_related(
+                            "product", "variant", "variant__product"
+                        ),
+                    )
+                )
+                .get(pk=pk)
+            )
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = SendOrderToNCMSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        extra_data = serializer.validated_data.copy()
+        location_name = (
+            extra_data.get("branch")
+            or extra_data.get("location_name")
+            or extra_data.get("location")
+            or getattr(order, "city", None)
+        )
+        if location_name:
+            extra_data["branch"] = str(location_name).strip()
+            if not order.city:
+                order.city = str(location_name).strip()
+                order.save(update_fields=["city"])
+
+        if getattr(order, "is_paid", False) or extra_data.get("is_paid") is True:
+            extra_data["cod_charge"] = "0"
+
+        return send_order_to_ncm(
+            order=order,
+            extra_data=extra_data,
+        )
+
+
+class NCMCreateOrderAPIView(APIView):
+    """
+    Endpoint allowing vendors to directly create an order in Nepal Can Move (NCM).
+    """
+
+    authentication_classes = [TenantJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=NCMCreateOrderSerializer,
+        responses={
+            200: inline_serializer(
+                name="NCMDirectOrderSuccessResponse",
+                fields={
+                    "Message": serializers.CharField(),
+                    "orderid": serializers.IntegerField(),
+                },
+            ),
+            400: serializers.DictField(),
+        },
+        description="Directly create an order in Nepal Can Move (NCM) with customer and delivery details.",
+    )
+    def post(self, request):
+        serializer = NCMCreateOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        return create_direct_ncm_order(validated_data=serializer.validated_data)
+
+
+@extend_schema(
+    operation_id="ncm_webhook_listener",
+    request=NCMWebhookSerializer,
+    responses={
+        200: inline_serializer(
+            name="NCMWebhookSuccessResponse",
+            fields={
+                "status": serializers.CharField(),
+                "message": serializers.CharField(),
+                "updated_orders": serializers.ListField(
+                    child=serializers.DictField(), required=False
+                ),
+            },
+        ),
+        400: serializers.DictField(),
+        404: serializers.DictField(),
+    },
+    description="Public webhook listener for Nepal Can Move (NCM) order updates with multi-tenant schema support.",
+)
+@method_decorator(csrf_exempt, name="dispatch")
+class NCMWebhookAPIView(APIView):
+    """
+    Public webhook receiver for Nepal Can Move (NCM).
+    Accepts status notifications (e.g. pickup_completed, sent_for_delivery, order_dispatched,
+    order_arrived, delivery_completed) for single and bulk orders.
+    Supports multi-tenancy via:
+      - URL path schema_name: /api/order/ncm/webhook/<str:schema_name>/
+      - Query param: ?schema_name=<schema_name>
+      - Request payload key: {"schema_name": "<schema_name>"}
+      - Domain tenant context
+      - Cross-schema auto-detection
+    """
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, schema_name=None):
+        """
+        Supports ping / verification GET request from webhook setups.
+        """
+        resolved_schema = (
+            schema_name
+            or request.query_params.get("schema_name")
+            or request.query_params.get("schema")
+        )
+        return Response(
+            {
+                "status": "active",
+                "message": "NCM Webhook endpoint is active and listening.",
+                "schema": resolved_schema,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request, schema_name=None):
+        resolved_schema = (
+            schema_name
+            or request.query_params.get("schema_name")
+            or request.query_params.get("schema")
+            or (
+                request.data.get("schema_name")
+                if isinstance(request.data, dict)
+                else None
+            )
+        )
+        payload = request.data if isinstance(request.data, dict) else {}
+
+        status_code, response_data = process_ncm_webhook(
+            data=payload,
+            schema_name=resolved_schema,
+            request_tenant=getattr(request, "tenant", None),
+        )
+
+        return Response(response_data, status=status_code)
 
 
 class OrderGetAPIView(generics.RetrieveAPIView):

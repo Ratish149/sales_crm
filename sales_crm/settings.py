@@ -26,6 +26,7 @@ BACKEND_URL = os.getenv("BACKEND_URL", "localhost:8000")
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost:8000")
 HTTP = os.getenv("HTTP", "https")
 DASH_BASE_URL = os.getenv("DASH_BASE_URL", "https://dashlogistics.com.np")
+NCM_BASE_URL = os.getenv("NCM_BASE_URL", "https://demo.nepalcanmove.com")
 
 USE_SPACES = False
 
@@ -272,7 +273,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://bibek.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.localhost:8000",
-    "https://tiger-phoenix-operations-palestinian.trycloudflare.com",
+    "https://application-contributor-above-hepatitis.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 CSRF_TRUSTED_ORIGINS = [
@@ -293,7 +294,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://*.127.0.0.1.nip.io:8000",
     "http://*.127.0.0.1.nip.io",
     "http://*.localhost:8000",
-    "https://tiger-phoenix-operations-palestinian.trycloudflare.com",
+    "https://application-contributor-above-hepatitis.trycloudflare.com",
     "https://sales-crm-8s09.onrender.com",
 ]
 

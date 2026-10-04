@@ -91,12 +91,14 @@ def send_order_to_dash(order):
 
     # Map payment type
     raw_payment_type = order.payment_type.lower() if order.payment_type else "cod"
-    if raw_payment_type in ["cod", "cash_on_delivery"]:
+    if getattr(order, "is_paid", False):
+        payment_type = "pre-paid"
+        product_price = 0.00
+    elif raw_payment_type in ["cod", "cash_on_delivery"]:
         payment_type = "cashOnDelivery"
     elif raw_payment_type in ["khalti", "esewa"]:
         payment_type = "pre-paid"
-        if getattr(order, "is_paid", False):
-            product_price = 0.00
+        product_price = 0.00
     elif raw_payment_type == "split":
         cash_amt = getattr(order, "cash_amount", 0.00) or 0.00
         if cash_amt > 0:
@@ -208,3 +210,9 @@ def send_order_to_dash(order):
         return Response(
             {"error": "An unexpected error occurred", "details": str(e)}, status=500
         )
+
+
+# Expose NCM integration function
+from order.services.ncm_service import send_order_to_ncm  # noqa: E402
+
+__all__ = ["send_order_to_dash", "send_order_to_ncm"]
