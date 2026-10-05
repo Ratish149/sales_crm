@@ -2,6 +2,7 @@
 from rest_framework import serializers
 
 from product.models import (
+    Brand,
     Category,
     PricingMetric,
     Product,
@@ -94,6 +95,12 @@ class BulkProductCreateSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False,
     )
+    brand_id = serializers.PrimaryKeyRelatedField(
+        queryset=Brand.objects.all(),
+        source="brand",
+        allow_null=True,
+        required=False,
+    )
     compositions = BulkProductCompositionSerializer(many=True, required=False)
     variants = BulkProductVariantSerializer(many=True, required=False)
 
@@ -104,11 +111,16 @@ class BulkProductCreateSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "market_price",
+            "cost_price",
+            "barcode",
             "stock",
             "track_stock",
             "weight",
+            "require_custom_image",
+            "thumbnail_alt_description",
             "category_id",
             "sub_category_id",
+            "brand_id",
             "is_popular",
             "is_featured",
             "fast_shipping",

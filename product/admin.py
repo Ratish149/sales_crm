@@ -2,6 +2,7 @@ from django.contrib import admin
 from tinymce.widgets import TinyMCE
 
 from .models import (
+    Brand,
     Category,
     Offer,
     PricingMetric,
@@ -17,6 +18,13 @@ from .models import (
 )
 
 # Register your models here.
+
+
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "id")
+    search_fields = ("name", "slug")
+    list_per_page = 25
 
 
 @admin.register(Category)
@@ -49,8 +57,18 @@ class ProductCompositionInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "price", "final_price", "stock", "use_dynamic_pricing")
-    search_fields = ["name"]
+    list_display = (
+        "name",
+        "brand",
+        "category",
+        "price",
+        "final_price",
+        "stock",
+        "use_dynamic_pricing",
+    )
+    list_filter = ("brand", "category", "sub_category", "status", "use_dynamic_pricing")
+    search_fields = ["name", "brand__name"]
+    autocomplete_fields = ["brand", "category", "sub_category"]
     list_per_page = 100
     inlines = [ProductImageInline, ProductCompositionInline]
 

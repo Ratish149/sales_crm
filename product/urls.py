@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     AdminProductListCreateView,
+    BrandListCreateView,
+    BrandRetrieveUpdateDestroyView,
     BulkProductUploadView,
     CategoryListCreateView,
     CategoryRetrieveUpdateDestroyView,
@@ -85,6 +87,12 @@ urlpatterns = [
         "category/<slug:slug>/",
         CategoryRetrieveUpdateDestroyView.as_view(),
         name="category-retrieve-update-destroy",
+    ),
+    path("brand/", BrandListCreateView.as_view(), name="brand-list-create"),
+    path(
+        "brand/<slug:slug>/",
+        BrandRetrieveUpdateDestroyView.as_view(),
+        name="brand-retrieve-update-destroy",
     ),
     path(
         "product-image/",

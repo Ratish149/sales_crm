@@ -33,7 +33,15 @@ from customer.utils import get_customer_from_request
 from sales_crm.authentication import TenantJWTAuthentication
 from website.models import SiteConfig
 
+from .filters import (
+    BrandFilterSet,
+    ProductFilterSet,
+    ProductReviewFilter,
+    ProductVariantFilterSet,
+    SubCategoryFilterSet,
+)
 from .models import (
+    Brand,
     Category,
     Offer,
     PricingMetric,
@@ -48,6 +56,7 @@ from .models import (
     Wishlist,
 )
 from .serializers import (
+    BrandSerializer,
     BulkUploadSerializer,
     CategorySerializer,
     OfferSerializer,
@@ -126,7 +135,8 @@ FINAL_PRICE_ANNOTATION = Case(
                 output_field=DecimalField(max_digits=100, decimal_places=2),
             ),
             Value(0, output_field=DecimalField(max_digits=100, decimal_places=2)),
-        ) + Coalesce(
+        )
+        + Coalesce(
             F("base_making_charge"),
             Value(0, output_field=DecimalField(max_digits=100, decimal_places=2)),
         ),
@@ -140,7 +150,7 @@ FINAL_PRICE_ANNOTATION = Case(
 
 PRODUCT_LIST_QS = (
     Product.objects
-    .select_related("category", "sub_category")
+    .select_related("category", "sub_category", "brand")
     .prefetch_related(
         Prefetch(
             "images",
@@ -199,6 +209,7 @@ PRODUCT_LIST_QS = (
         "thumbnail_alt_description",
         "category_id",
         "sub_category_id",
+        "brand_id",
         "is_popular",
         "is_featured",
         "status",
@@ -228,6 +239,10 @@ SUBCATEGORY_QS = SubCategory.objects.select_related("category").only(
     "category__slug",
     "created_at",
     "updated_at",
+)
+
+BRAND_QS = Brand.objects.only(
+    "id", "name", "slug", "description", "image", "created_at", "updated_at"
 )
 
 PRICING_METRIC_QS = PricingMetric.objects.only(
@@ -263,7 +278,12 @@ WISHLIST_QS = Wishlist.objects.select_related("user", "product").only(
 
 PRODUCT_VARIANT_QS = (
     ProductVariant.objects
-    .select_related("product", "product__category", "product__sub_category")
+    .select_related(
+        "product",
+        "product__category",
+        "product__sub_category",
+        "product__brand",
+    )
     .prefetch_related("option_values__option")
     .only(
         "id",
@@ -290,6 +310,7 @@ PRODUCT_VARIANT_QS = (
         "product__updated_at",
         "product__category_id",
         "product__sub_category_id",
+        "product__brand_id",
         "product__category__id",
         "product__category__name",
         "product__category__slug",
@@ -298,6 +319,10 @@ PRODUCT_VARIANT_QS = (
         "product__sub_category__slug",
         "product__sub_category__description",
         "product__sub_category__image",
+        "product__brand__id",
+        "product__brand__name",
+        "product__brand__slug",
+        "product__brand__image",
     )
 )
 
@@ -319,20 +344,25 @@ class CategoryRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "slug"
 
 
+# ─── Brand ───────────────────────────────────────────────────────────────────
+
+
+class BrandListCreateView(generics.ListCreateAPIView):
+    queryset = BRAND_QS
+    serializer_class = BrandSerializer
+    pagination_class = CustomPagination
+    filter_backends = [filters.SearchFilter, django_filters.DjangoFilterBackend]
+    filterset_class = BrandFilterSet
+    search_fields = ["name"]
+
+
+class BrandRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = BRAND_QS
+    serializer_class = BrandSerializer
+    lookup_field = "slug"
+
+
 # ─── SubCategory ──────────────────────────────────────────────────────────────
-
-
-class SubCategoryFilterSet(django_filters.FilterSet):
-    category = django_filters.CharFilter(
-        field_name="category__id", lookup_expr="iexact"
-    )
-    category_slug = django_filters.CharFilter(
-        field_name="category__slug", lookup_expr="iexact"
-    )
-
-    class Meta:
-        model = SubCategory
-        fields = ["category", "category_slug"]
 
 
 class SubCategoryListCreateView(generics.ListCreateAPIView):
@@ -379,7 +409,6 @@ class SubCategoryWithCategoryRetrieveUpdateDestroyView(
     pass
 
 
-
 # ─── Product Image ────────────────────────────────────────────────────────────
 
 
@@ -406,203 +435,6 @@ class ProductImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
     authentication_classes = [TenantJWTAuthentication]
 
 
-# ─── Product filters ──────────────────────────────────────────────────────────
-
-
-class ProductFilterSet(django_filters.FilterSet):
-    category = django_filters.CharFilter(
-        field_name="category__slug", lookup_expr="iexact"
-    )
-    sub_category = django_filters.CharFilter(
-        field_name="sub_category__slug", lookup_expr="iexact"
-    )
-    min_price = django_filters.NumberFilter(field_name="price", lookup_expr="gte")
-    max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
-    is_popular = django_filters.BooleanFilter(field_name="is_popular")
-    is_featured = django_filters.BooleanFilter(field_name="is_featured")
-    offer = django_filters.CharFilter(method="filter_by_offer")
-    barcode = django_filters.CharFilter(field_name="barcode", lookup_expr="exact")
-    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")
-
-    class Meta:
-        model = Product
-        fields = [
-            "category",
-            "sub_category",
-            "min_price",
-            "max_price",
-            "is_popular",
-            "is_featured",
-            "offer",
-            "flash_sales",
-            "barcode",
-        ]
-
-    def filter_flash_sales(self, queryset, name, value):
-        if not value:
-            return queryset
-
-        from django.db.models import Q
-        from django.utils import timezone
-
-        now = timezone.now()
-        active_offers = Offer.objects.filter(
-            is_active=True, start_date__lte=now, end_date__gte=now
-        )
-
-        if not active_offers.exists():
-            return queryset  # no active offers → return all products
-
-        category_ids = list(
-            filter(None, active_offers.values_list("categories", flat=True))
-        )
-        sub_category_ids = list(
-            filter(None, active_offers.values_list("sub_categories", flat=True))
-        )
-        product_ids = list(
-            filter(None, active_offers.values_list("products", flat=True))
-        )
-
-        q = Q()
-        if category_ids:
-            q |= Q(category_id__in=category_ids)
-        if sub_category_ids:
-            q |= Q(sub_category_id__in=sub_category_ids)
-        if product_ids:
-            q |= Q(id__in=product_ids)
-
-        if not q:
-            return queryset  # offers exist but have no rules → return all
-
-        return queryset.filter(q).distinct()
-
-    def filter_by_offer(self, queryset, name, value):
-        if not value:
-            return queryset
-        try:
-            offer = Offer.objects.get(slug=value)
-        except Offer.DoesNotExist:
-            return queryset.none()
-
-        from django.db.models import Q
-
-        q_objects = Q()
-        has_conditions = False
-
-        if offer.products.exists():
-            q_objects |= Q(id__in=offer.products.values_list("id", flat=True))
-            has_conditions = True
-
-        if offer.categories.exists():
-            q_objects |= Q(category__in=offer.categories.all())
-            has_conditions = True
-
-        if offer.sub_categories.exists():
-            q_objects |= Q(sub_category__in=offer.sub_categories.all())
-            has_conditions = True
-
-        if not has_conditions:
-            return queryset.none()
-
-        return queryset.filter(q_objects).distinct()
-
-
-class ProductVariantFilterSet(django_filters.FilterSet):
-    min_price = django_filters.NumberFilter(field_name="price", lookup_expr="gte")
-    max_price = django_filters.NumberFilter(field_name="price", lookup_expr="lte")
-    category = django_filters.CharFilter(field_name="product__category__slug")
-    sub_category = django_filters.CharFilter(field_name="product__sub_category__slug")
-    status = django_filters.ChoiceFilter(
-        field_name="product__status", choices=Product.STATUS_CHOICES
-    )
-    is_popular = django_filters.BooleanFilter(field_name="product__is_popular")
-    is_featured = django_filters.BooleanFilter(field_name="product__is_featured")
-    offer = django_filters.CharFilter(method="filter_by_offer")
-    flash_sales = django_filters.BooleanFilter(method="filter_flash_sales")  # ← add
-
-    class Meta:
-        model = ProductVariant
-        fields = [
-            "category",
-            "sub_category",
-            "min_price",
-            "max_price",
-            "status",
-            "is_popular",
-            "is_featured",
-            "offer",
-            "flash_sales",  # ← add
-        ]
-
-    def filter_flash_sales(self, queryset, name, value):
-        if not value:
-            return queryset
-
-        from django.db.models import Q
-        from django.utils import timezone
-
-        now = timezone.now()
-        active_offers = Offer.objects.filter(
-            is_active=True, start_date__lte=now, end_date__gte=now
-        )
-
-        if not active_offers.exists():
-            return queryset  # no active offers → return all variants
-
-        category_ids = list(
-            filter(None, active_offers.values_list("categories", flat=True))
-        )
-        sub_category_ids = list(
-            filter(None, active_offers.values_list("sub_categories", flat=True))
-        )
-        product_ids = list(
-            filter(None, active_offers.values_list("products", flat=True))
-        )
-
-        q = Q()
-        if category_ids:
-            q |= Q(product__category_id__in=category_ids)
-        if sub_category_ids:
-            q |= Q(product__sub_category_id__in=sub_category_ids)
-        if product_ids:
-            q |= Q(product_id__in=product_ids)
-
-        if not q:
-            return queryset
-
-        return queryset.filter(q).distinct()
-
-    def filter_by_offer(self, queryset, name, value):
-        if not value:
-            return queryset
-        try:
-            offer = Offer.objects.get(slug=value)
-        except Offer.DoesNotExist:
-            return queryset.none()
-
-        from django.db.models import Q
-
-        q_objects = Q()
-        has_conditions = False
-
-        if offer.products.exists():
-            q_objects |= Q(product_id__in=offer.products.values_list("id", flat=True))
-            has_conditions = True
-
-        if offer.categories.exists():
-            q_objects |= Q(product__category__in=offer.categories.all())
-            has_conditions = True
-
-        if offer.sub_categories.exists():
-            q_objects |= Q(product__sub_category__in=offer.sub_categories.all())
-            has_conditions = True
-
-        if not has_conditions:
-            return queryset.none()
-
-        return queryset.filter(q_objects).distinct()
-
-
 # ─── Product ──────────────────────────────────────────────────────────────────
 
 
@@ -617,7 +449,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
     ]
     filterset_class = ProductFilterSet
     ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
-    search_fields = ["name"]
+    search_fields = ["name", "brand__name"]
 
     def get_authenticators(self):
         request = getattr(self, "request", None)
@@ -716,7 +548,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
         product_qs = (
             Product.objects
             .filter(variants__isnull=True)
-            .select_related("category", "sub_category")
+            .select_related("category", "sub_category", "brand")
             .prefetch_related(
                 Prefetch(
                     "images",
@@ -738,6 +570,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
                 "thumbnail_alt_description",
                 "category_id",
                 "sub_category_id",
+                "brand_id",
                 "is_popular",
                 "is_featured",
                 "fast_shipping",
@@ -832,7 +665,7 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
     ]
     filterset_class = ProductFilterSet
     ordering_fields = ["created_at", "price", "is_popular", "average_rating"]
-    search_fields = ["name"]
+    search_fields = ["name", "brand__name"]
 
     def get_authenticators(self):
         request = getattr(self, "request", None)
@@ -947,6 +780,7 @@ class ProductExcelExportView(generics.ListAPIView):
             "thumbnail_image_aly_description",
             "category",
             "subcategory",
+            "brand",
             "is_popular",
             "is_featured",
             "status",
@@ -985,6 +819,7 @@ class ProductExcelExportView(generics.ListAPIView):
                 product.thumbnail_alt_description,
                 product.category.name if product.category else "",
                 product.sub_category.name if product.sub_category else "",
+                product.brand.name if product.brand else "",
                 "TRUE" if product.is_popular else "FALSE",
                 "TRUE" if product.is_featured else "FALSE",
                 product.status,
@@ -1012,10 +847,10 @@ class ProductExcelExportView(generics.ListAPIView):
 
             if compositions:
                 comp = compositions[0]
-                row_data[17] = (
+                row_data[18] = (
                     f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
                 )
-                row_data[18] = float(comp.quantity)
+                row_data[19] = float(comp.quantity)
 
             if variants:
                 var = variants[0]
@@ -1023,10 +858,10 @@ class ProductExcelExportView(generics.ListAPIView):
                 for val in var_values:
                     for i, opt in enumerate(options[:3]):
                         if val.option_id == opt.id:
-                            row_data[20 + i * 2] = val.value
-                row_data[25] = float(var.price) if var.price else 0.0
-                row_data[26] = var.stock
-                row_data[27] = var.image.url if var.image else ""
+                            row_data[21 + i * 2] = val.value
+                row_data[26] = float(var.price) if var.price else 0.0
+                row_data[27] = var.stock
+                row_data[28] = var.image.url if var.image else ""
 
             for col, value in enumerate(row_data, 1):
                 ws.cell(row=current_row, column=col, value=value)
@@ -1037,10 +872,10 @@ class ProductExcelExportView(generics.ListAPIView):
                 extra_row = [""] * len(headers)
                 if i < len(compositions):
                     comp = compositions[i]
-                    extra_row[17] = (
+                    extra_row[18] = (
                         f"{comp.metric.name} ({comp.metric.price_per_unit}/{comp.metric.unit})"
                     )
-                    extra_row[18] = float(comp.quantity)
+                    extra_row[19] = float(comp.quantity)
 
                 if i < len(variants):
                     var = variants[i]
@@ -1048,10 +883,10 @@ class ProductExcelExportView(generics.ListAPIView):
                     for val in var_values:
                         for j, opt in enumerate(options[:3]):
                             if val.option_id == opt.id:
-                                extra_row[20 + j * 2] = val.value
-                    extra_row[25] = float(var.price) if var.price else 0.0
-                    extra_row[26] = var.stock
-                    extra_row[27] = var.image.url if var.image else ""
+                                extra_row[21 + j * 2] = val.value
+                    extra_row[26] = float(var.price) if var.price else 0.0
+                    extra_row[27] = var.stock
+                    extra_row[28] = var.image.url if var.image else ""
 
                 for col, value in enumerate(extra_row, 1):
                     ws.cell(row=current_row, column=col, value=value)
@@ -1069,15 +904,15 @@ class ProductExcelExportView(generics.ListAPIView):
             "I": 20,
             "J": 15,
             "K": 25,
-            "L": 12,
+            "L": 20,
             "M": 12,
-            "N": 10,
-            "O": 20,
+            "N": 12,
+            "O": 10,
             "P": 20,
             "Q": 20,
-            "R": 30,
-            "S": 12,
-            "T": 15,
+            "R": 20,
+            "S": 30,
+            "T": 12,
             "U": 15,
             "V": 15,
             "W": 15,
@@ -1088,6 +923,7 @@ class ProductExcelExportView(generics.ListAPIView):
             "AB": 20,
             "AC": 20,
             "AD": 25,
+            "AE": 25,
         }
         for col_let, width in column_widths.items():
             ws.column_dimensions[col_let].width = width
@@ -1144,14 +980,6 @@ class ProductCompositionRetrieveUpdateDestroyView(
 
 
 # ─── Product Review ───────────────────────────────────────────────────────────
-
-
-class ProductReviewFilter(django_filters.FilterSet):
-    rating = django_filters.NumberFilter(field_name="rating", lookup_expr="exact")
-
-    class Meta:
-        model = ProductReview
-        fields = ["rating"]
 
 
 class ProductReviewView(generics.ListCreateAPIView):
@@ -1327,6 +1155,7 @@ class DownloadProductSampleTemplateView(APIView):
             "images",
             "category",
             "subcategory",
+            "brand",
             "is_popular",
             "is_featured",
             "status",
@@ -1355,6 +1184,7 @@ class DownloadProductSampleTemplateView(APIView):
         subcategories = SubCategory.objects.select_related("category").only(
             "id", "name", "category__name"
         )
+        brands = Brand.objects.only("id", "name")
 
         sample_category = (
             categories.first().name if categories.exists() else "Electronics"
@@ -1362,6 +1192,7 @@ class DownloadProductSampleTemplateView(APIView):
         sample_subcategory = (
             subcategories.first().name if subcategories.exists() else "Mobile"
         )
+        sample_brand = brands.first().name if brands.exists() else "Apple"
         sample_metric = (
             f"{metrics[0].name} ({metrics[0].price_per_unit}/{metrics[0].unit})"
             if metrics
@@ -1381,6 +1212,7 @@ class DownloadProductSampleTemplateView(APIView):
             "image1.jpg, image2.jpg",
             sample_category,
             sample_subcategory,
+            sample_brand,
             "TRUE",
             "FALSE",
             "active",
@@ -1411,18 +1243,18 @@ class DownloadProductSampleTemplateView(APIView):
             else "Silver (190000.00/10)"
         )
         composition_row_2 = [""] * len(headers)
-        composition_row_2[18] = second_metric
-        composition_row_2[19] = 3
+        composition_row_2[headers.index("composition")] = second_metric
+        composition_row_2[headers.index("quantity")] = 3
         for col, value in enumerate(composition_row_2, 1):
             ws.cell(row=3, column=col, value=value)
 
         def make_variant_row(opt1_val, opt2_val, v_price, v_stock, v_image):
             row = [""] * len(headers)
-            row[21] = opt1_val
-            row[23] = opt2_val
-            row[26] = v_price
-            row[27] = v_stock
-            row[28] = v_image
+            row[headers.index("option1 values")] = opt1_val
+            row[headers.index("option2 values")] = opt2_val
+            row[headers.index("variant price")] = v_price
+            row[headers.index("variant stock")] = v_stock
+            row[headers.index("variant image")] = v_image
             return row
 
         variant_rows = [
@@ -1435,7 +1267,7 @@ class DownloadProductSampleTemplateView(APIView):
             for col, value in enumerate(variant_data, 1):
                 ws.cell(row=row_num, column=col, value=value)
 
-        self._add_data_validations(wb, ws, categories, subcategories, metrics)
+        self._add_data_validations(wb, ws, categories, subcategories, brands, metrics)
         self._adjust_column_widths(ws)
 
         buffer = io.BytesIO()
@@ -1449,7 +1281,7 @@ class DownloadProductSampleTemplateView(APIView):
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    def _add_data_validations(self, wb, ws, categories, subcategories, metrics):
+    def _add_data_validations(self, wb, ws, categories, subcategories, brands, metrics):
         if "_dropdown_data" in wb.sheetnames:
             dropdown_ws = wb["_dropdown_data"]
         else:
@@ -1469,10 +1301,10 @@ class DownloadProductSampleTemplateView(APIView):
             dv.add(cell_range)
 
         add_bool_validation("E2:E1048576")
-        add_bool_validation("M2:M1048576")
         add_bool_validation("N2:N1048576")
-        add_bool_validation("P2:P1048576")
-        add_bool_validation("R2:R1048576")
+        add_bool_validation("O2:O1048576")
+        add_bool_validation("Q2:Q1048576")
+        add_bool_validation("S2:S1048576")
 
         status_dv = DataValidation(
             type="list",
@@ -1483,7 +1315,7 @@ class DownloadProductSampleTemplateView(APIView):
             error="Please select from: active, draft, archived",
         )
         ws.add_data_validation(status_dv)
-        status_dv.add("O2:O1048576")
+        status_dv.add("P2:P1048576")
 
         if categories.exists():
             cat_names = [c.name for c in categories]
@@ -1515,22 +1347,37 @@ class DownloadProductSampleTemplateView(APIView):
             ws.add_data_validation(sub_dv)
             sub_dv.add("L2:L1048576")
 
+        if brands.exists():
+            brand_names = [b.name for b in brands]
+            for i, name in enumerate(brand_names, 1):
+                dropdown_ws.cell(row=i, column=3, value=name)
+            brand_dv = DataValidation(
+                type="list",
+                formula1=f"'_dropdown_data'!$C$1:$C${len(brand_names)}",
+                allow_blank=True,
+                showErrorMessage=True,
+                errorTitle="Invalid brand",
+                error="Please select from available brands",
+            )
+            ws.add_data_validation(brand_dv)
+            brand_dv.add("M2:M1048576")
+
         if metrics:
             metric_display_names = [
                 f"{m.name} ({m.price_per_unit}/{m.unit})" for m in metrics
             ]
             for i, name in enumerate(metric_display_names, 1):
-                dropdown_ws.cell(row=i, column=3, value=name)
+                dropdown_ws.cell(row=i, column=4, value=name)
             comp_dv = DataValidation(
                 type="list",
-                formula1=f"'_dropdown_data'!$C$1:$C${len(metric_display_names)}",
+                formula1=f"'_dropdown_data'!$D$1:$D${len(metric_display_names)}",
                 allow_blank=True,
                 showErrorMessage=True,
                 errorTitle="Invalid composition",
                 error="Please select a valid metric from the dropdown",
             )
             ws.add_data_validation(comp_dv)
-            comp_dv.add("S2:S1048576")
+            comp_dv.add("T2:T1048576")
 
         qty_dv = DataValidation(
             type="decimal",
@@ -1542,7 +1389,7 @@ class DownloadProductSampleTemplateView(APIView):
             error="Enter a numeric quantity greater than 0",
         )
         ws.add_data_validation(qty_dv)
-        qty_dv.add("T2:T1048576")
+        qty_dv.add("U2:U1048576")
 
     def _adjust_column_widths(self, ws):
         column_widths = {
@@ -1558,15 +1405,15 @@ class DownloadProductSampleTemplateView(APIView):
             "J": 20,
             "K": 15,
             "L": 25,
-            "M": 12,
+            "M": 20,
             "N": 12,
-            "O": 10,
-            "P": 20,
+            "O": 12,
+            "P": 10,
             "Q": 20,
             "R": 20,
-            "S": 30,
-            "T": 12,
-            "U": 15,
+            "S": 20,
+            "T": 30,
+            "U": 12,
             "V": 15,
             "W": 15,
             "X": 15,
@@ -1574,9 +1421,10 @@ class DownloadProductSampleTemplateView(APIView):
             "Z": 15,
             "AA": 15,
             "AB": 15,
-            "AC": 20,
+            "AC": 15,
             "AD": 20,
-            "AE": 25,
+            "AE": 20,
+            "AF": 25,
         }
         for col, width in column_widths.items():
             ws.column_dimensions[col].width = width
@@ -1634,6 +1482,7 @@ class BulkProductUploadView(APIView):
         all_subcategories = {
             s.name.lower(): s for s in SubCategory.objects.only("id", "name")
         }
+        all_brands = {b.name.lower(): b for b in Brand.objects.only("id", "name")}
 
         created_products = {}
         current_product = None
@@ -1660,6 +1509,7 @@ class BulkProductUploadView(APIView):
                 if current_product_key not in created_products:
                     category_name = safe_value(row.get("category"))
                     sub_category_name = safe_value(row.get("subcategory"))
+                    brand_name = safe_value(row.get("brand"))
 
                     category = (
                         all_categories.get(category_name.lower())
@@ -1669,6 +1519,11 @@ class BulkProductUploadView(APIView):
                     sub_category = (
                         all_subcategories.get(sub_category_name.lower())
                         if sub_category_name
+                        else None
+                    )
+                    brand = (
+                        all_brands.get(str(brand_name).strip().lower())
+                        if brand_name
                         else None
                     )
 
@@ -1715,6 +1570,7 @@ class BulkProductUploadView(APIView):
                         ),
                         "category": category,
                         "sub_category": sub_category,
+                        "brand": brand,
                         "is_popular": safe_value(row.get("is_popular"), False),
                         "is_featured": safe_value(row.get("is_featured"), False),
                         "status": safe_value(row.get("status"), "active"),
@@ -2093,7 +1949,7 @@ class OfferProductListView(generics.ListAPIView):
         product_qs = (
             Product.objects
             .filter(variants__isnull=True)
-            .select_related("category", "sub_category")
+            .select_related("category", "sub_category", "brand")
             .prefetch_related(
                 Prefetch(
                     "images",
@@ -2115,6 +1971,7 @@ class OfferProductListView(generics.ListAPIView):
                 "thumbnail_alt_description",
                 "category_id",
                 "sub_category_id",
+                "brand_id",
                 "is_popular",
                 "is_featured",
                 "fast_shipping",

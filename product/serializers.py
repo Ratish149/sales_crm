@@ -10,6 +10,7 @@ from customer.serializers import CustomerSerializer
 from customer.utils import get_customer_from_request
 
 from .models import (
+    Brand,
     Category,
     Offer,
     PricingMetric,
@@ -249,6 +250,31 @@ class CategorySmallSerializer(serializers.ModelSerializer):
         ]  # unchanged (the second definition wins, this is correct)
 
 
+class BrandSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "image",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class BrandSmallSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Brand
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "image",
+        ]
+
+
 class SubCategorySmallSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
@@ -330,6 +356,7 @@ class ProductSerializer(serializers.ModelSerializer):
     images = ProductImageSmallSerializer(many=True, read_only=True)
     category = CategorySmallSerializer(read_only=True)
     sub_category = SubCategorySmallSerializer(read_only=True)
+    brand = BrandSmallSerializer(read_only=True)
     category_id = serializers.PrimaryKeyRelatedField(
         queryset=Category.objects.only("id"),  # only pk needed for validation
         source="category",
@@ -340,6 +367,13 @@ class ProductSerializer(serializers.ModelSerializer):
     sub_category_id = serializers.PrimaryKeyRelatedField(
         queryset=SubCategory.objects.only("id"),  # only pk needed for validation
         source="sub_category",
+        write_only=True,
+        allow_null=True,
+        required=False,
+    )
+    brand_id = serializers.PrimaryKeyRelatedField(
+        queryset=Brand.objects.only("id"),
+        source="brand",
         write_only=True,
         allow_null=True,
         required=False,
@@ -391,6 +425,8 @@ class ProductSerializer(serializers.ModelSerializer):
             "sub_category",
             "category_id",
             "sub_category_id",
+            "brand",
+            "brand_id",
             "is_popular",
             "is_featured",
             "status",
@@ -485,6 +521,25 @@ class ProductSerializer(serializers.ModelSerializer):
                 keys_to_remove.append(key)
         for key in keys_to_remove:
             data.pop(key, None)
+
+        if (
+            "brand" in data
+            and "brand_id" not in data
+            and not isinstance(data["brand"], dict)
+        ):
+            data["brand_id"] = data["brand"]
+        if (
+            "category" in data
+            and "category_id" not in data
+            and not isinstance(data["category"], dict)
+        ):
+            data["category_id"] = data["category"]
+        if (
+            "sub_category" in data
+            and "sub_category_id" not in data
+            and not isinstance(data["sub_category"], dict)
+        ):
+            data["sub_category_id"] = data["sub_category"]
 
         if "compositions" in data and isinstance(data["compositions"], str):
             try:
@@ -774,6 +829,7 @@ class ProductSerializer(serializers.ModelSerializer):
 class ProductSmallSerializer(serializers.ModelSerializer):
     sub_category = SubCategorySmallSerializer(read_only=True)
     category = CategorySmallSerializer(read_only=True)
+    brand = BrandSmallSerializer(read_only=True)
     reviews_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     is_wishlist = serializers.SerializerMethodField()
@@ -831,6 +887,7 @@ class ProductSmallSerializer(serializers.ModelSerializer):
             "thumbnail_alt_description",
             "category",
             "sub_category",
+            "brand",
             "is_popular",
             "is_featured",
             "created_at",
@@ -961,6 +1018,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     sub_category = SubCategorySmallSerializer(
         source="product.sub_category", read_only=True
     )
+    brand = BrandSmallSerializer(source="product.brand", read_only=True)
     is_popular = serializers.BooleanField(source="product.is_popular", read_only=True)
     is_featured = serializers.BooleanField(source="product.is_featured", read_only=True)
     created_at = serializers.DateTimeField(source="product.created_at", read_only=True)
@@ -999,6 +1057,7 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
             "thumbnail_alt_description",
             "category",
             "sub_category",
+            "brand",
             "is_popular",
             "require_custom_image",
             "is_featured",

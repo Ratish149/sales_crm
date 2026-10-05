@@ -10,6 +10,36 @@ from sales_crm.utils.file_size_validator import file_size
 from sales_crm.utils.s3bucket import PublicMediaStorage
 
 
+class Brand(models.Model):
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=100, null=True, blank=True)
+    description = models.TextField(null=True, blank=True)
+    image = models.FileField(
+        upload_to="brand_images",
+        storage=PublicMediaStorage(),
+        null=True,
+        blank=True,
+        validators=[file_size],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("name", "slug")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["name"]),
+            models.Index(fields=["slug"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
+
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=100, null=True, blank=True)
@@ -151,6 +181,7 @@ class Product(models.Model):
     sub_category = models.ForeignKey(
         "SubCategory", on_delete=models.CASCADE, null=True, blank=True
     )
+    brand = models.ForeignKey("Brand", on_delete=models.CASCADE, null=True, blank=True)
     is_popular = models.BooleanField(default=False)
     is_featured = models.BooleanField(default=False)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="active")
@@ -182,6 +213,7 @@ class Product(models.Model):
             models.Index(fields=["slug"]),
             models.Index(fields=["category"]),
             models.Index(fields=["sub_category"]),
+            models.Index(fields=["brand"]),
             models.Index(fields=["is_popular"]),
             models.Index(fields=["is_featured"]),
             models.Index(fields=["status"]),
@@ -189,6 +221,7 @@ class Product(models.Model):
             models.Index(fields=["price"]),
             models.Index(fields=["category", "status", "-created_at"]),
             models.Index(fields=["sub_category", "status", "-created_at"]),
+            models.Index(fields=["brand", "status", "-created_at"]),
             models.Index(fields=["is_popular", "-created_at"]),
             models.Index(fields=["is_featured", "-created_at"]),
         ]
@@ -440,4 +473,3 @@ class Offer(models.Model):
 
         now = timezone.now()
         return self.is_active and self.start_date <= now <= self.end_date
-
