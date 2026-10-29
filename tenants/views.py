@@ -393,13 +393,8 @@ class ClientTokenByIdAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         domain_name = domain.domain
-        # Get the first store profile to generate subdomain from store name
-        store_profile = owner.owned_stores.first() or owner.stores.first()
-        sub_domain = (
-            slugify(store_profile.store_name)
-            if store_profile and store_profile.store_name
-            else domain_name.split(".")[0]
-        )
+        # Generate subdomain from the schema name (consistent with schema-based routing)
+        sub_domain = client.schema_name if client.schema_name else domain_name.split(".")[0]
 
         # Get store profile if it exists
         store_profile = None
