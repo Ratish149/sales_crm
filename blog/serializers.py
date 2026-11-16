@@ -1,3 +1,4 @@
+from django.http import QueryDict
 from rest_framework import serializers
 
 from .models import Blog, BlogCategory, Tags
@@ -83,7 +84,13 @@ class BlogSerializer(serializers.ModelSerializer):
         ):
             category_val = data.get("category")
             if isinstance(category_val, (int, str)) or category_val is None:
-                data = data.copy()
+                if isinstance(data, QueryDict):
+                    q_data = QueryDict(mutable=True)
+                    for key, values in data.lists():
+                        q_data.setlist(key, values)
+                    data = q_data
+                else:
+                    data = data.copy()
                 data["category_id"] = category_val
         return super().to_internal_value(data)
 

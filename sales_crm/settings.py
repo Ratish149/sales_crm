@@ -559,6 +559,14 @@ DEFAULT_FILE_STORAGE = "sales_crm.utils.s3bucket.PublicMediaStorage"
 PUBLIC_MEDIA_LOCATION = "public/media"
 # Base media URL served from the custom domain
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+# File upload buffer and payload limits
+FILE_UPLOAD_MAX_MEMORY_SIZE = (
+    10485760  # 10 MB in-memory buffer before writing to temp files
+)
+DATA_UPLOAD_MAX_MEMORY_SIZE = (
+    52428800  # 50 MB max request body size for multipart uploads
+)
 # settings.py
 
 # Redis as broker (recommended)

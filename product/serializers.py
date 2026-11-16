@@ -2,6 +2,7 @@ import json
 
 from django.core.files.base import File
 from django.db import models
+from django.http import QueryDict
 from django.utils.text import slugify
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -157,10 +158,15 @@ class OfferWriteSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
     def to_internal_value(self, data):
-        if hasattr(data, "_mutable"):
-            data._mutable = True
-        if hasattr(data, "copy"):
+        if isinstance(data, QueryDict):
+            q_data = QueryDict(mutable=True)
+            for key, values in data.lists():
+                q_data.setlist(key, values)
+            data = q_data
+        elif hasattr(data, "copy"):
             data = data.copy()
+        else:
+            data = dict(data)
 
         # Clean up empty strings from list fields so they are treated as empty lists
         for field in ["products", "categories", "sub_categories"]:
@@ -505,9 +511,12 @@ class ProductSerializer(serializers.ModelSerializer):
         self._options_temp = None
         self._product_image_order_temp = None
 
-        if hasattr(data, "_mutable"):
-            data._mutable = True
-        if hasattr(data, "copy"):
+        if isinstance(data, QueryDict):
+            q_data = QueryDict(mutable=True)
+            for key, values in data.lists():
+                q_data.setlist(key, values)
+            data = q_data
+        elif hasattr(data, "copy"):
             data = data.copy()
         else:
             data = dict(data)
