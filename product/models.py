@@ -252,6 +252,9 @@ class Product(models.Model):
 
     @property
     def final_price(self):
+        if hasattr(self, "computed_final_price") and self.computed_final_price is not None:
+            return self.computed_final_price
+
         if not self.use_dynamic_pricing:
             return self.price
 
@@ -269,6 +272,9 @@ class Product(models.Model):
 
     @property
     def active_offer(self):
+        if hasattr(self, "_cached_active_offer"):
+            return self._cached_active_offer
+
         from django.utils import timezone
 
         now = timezone.now()
@@ -288,7 +294,9 @@ class Product(models.Model):
             .distinct()
         )
 
-        return offers.order_by("-discount_value").first()
+        offer = offers.order_by("-discount_value").first()
+        self._cached_active_offer = offer
+        return offer
 
     @property
     def discounted_price(self):
@@ -357,7 +365,12 @@ class ProductVariant(models.Model):
 
     @property
     def active_offer(self):
-        return self.product.active_offer
+        if hasattr(self, "_cached_active_offer"):
+            return self._cached_active_offer
+        prod = getattr(self, "_cached_product", None) or self.product
+        offer = prod.active_offer
+        self._cached_active_offer = offer
+        return offer
 
     @property
     def discounted_price(self):
@@ -365,8 +378,9 @@ class ProductVariant(models.Model):
         if not offer:
             return None
 
+        prod = getattr(self, "_cached_product", None) or self.product
         # Use variant price if set, otherwise use product's base price
-        base_price = self.price if self.price is not None else self.product.final_price
+        base_price = self.price if self.price is not None else prod.final_price
         if base_price is None:
             return None
 

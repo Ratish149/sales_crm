@@ -6,6 +6,7 @@ import pandas as pd
 from django.db.models import (
     Avg,
     Case,
+    Count,
     DecimalField,
     ExpressionWrapper,
     F,
@@ -30,6 +31,10 @@ from rest_framework.views import APIView
 
 from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
+from product.selectors.product_selector import (
+    get_admin_product_list_queryset,
+    prefetch_active_offers_for_products,
+)
 from sales_crm.authentication import TenantJWTAuthentication
 from website.models import SiteConfig
 
@@ -85,7 +90,7 @@ from .utils import (
 class CustomPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
-    max_page_size = 100
+    max_page_size = 500
 
 
 class ProductPagination(CustomPagination):
@@ -163,9 +168,9 @@ PRODUCT_LIST_QS = (
             ).prefetch_related(
                 Prefetch(
                     "option_values",
-                    queryset=ProductOptionValue.objects.only(
-                        "id", "value", "option_id"
-                    ).select_related("option"),
+                    queryset=ProductOptionValue.objects.select_related("option").only(
+                        "id", "value", "option_id", "option__id", "option__name"
+                    ),
                 )
             ),
         ),
@@ -191,17 +196,20 @@ PRODUCT_LIST_QS = (
     )
     .annotate(
         average_rating=Avg("productreview__rating"),
+        reviews_count_annotated=Count("productreview", distinct=True),
         computed_final_price=FINAL_PRICE_ANNOTATION,
     )
     .only(
         "id",
         "name",
         "slug",
+        "barcode",
         "description",
         "price",
         "market_price",
         "use_dynamic_pricing",
         "base_making_charge",
+        "require_custom_image",
         "track_stock",
         "stock",
         "weight",
@@ -655,7 +663,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
 
 class AdminProductListCreateView(generics.ListCreateAPIView):
-    queryset = PRODUCT_LIST_QS
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     pagination_class = CustomPagination
     filter_backends = [
@@ -685,7 +693,7 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.method == "GET":
-            return PRODUCT_LIST_QS
+            return get_admin_product_list_queryset()
         return Product.objects.all()
 
     def filter_queryset(self, queryset):
@@ -695,6 +703,18 @@ class AdminProductListCreateView(generics.ListCreateAPIView):
             direction = "-" if ordering.startswith("-") else ""
             queryset = queryset.order_by(f"{direction}computed_final_price")
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            prefetch_active_offers_for_products(page)
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        prefetch_active_offers_for_products(queryset)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class ProductRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):

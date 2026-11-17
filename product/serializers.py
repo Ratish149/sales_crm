@@ -478,14 +478,14 @@ class ProductSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         # use annotated value if available (from queryset), else fall back to query
-        if hasattr(obj, "reviews_count_annotated"):
+        if hasattr(obj, "reviews_count_annotated") and obj.reviews_count_annotated is not None:
             return obj.reviews_count_annotated
         return ProductReview.objects.filter(product=obj).count()
 
     @extend_schema_field(serializers.FloatField)
     def get_average_rating(self, obj):
         # use annotated value if available (from queryset), else fall back to query
-        if hasattr(obj, "average_rating"):
+        if hasattr(obj, "average_rating") and obj.average_rating is not None:
             return obj.average_rating or 0
         return (
             ProductReview.objects.filter(product=obj).aggregate(
@@ -499,10 +499,19 @@ class ProductSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request:
             return False
-        user = get_customer_from_request(request)
-        if not user:
+
+        if not hasattr(request, "_customer_wishlist_product_ids"):
+            user = get_customer_from_request(request)
+            if user:
+                request._customer_wishlist_product_ids = set(
+                    Wishlist.objects.filter(user=user).values_list("product_id", flat=True)
+                )
+            else:
+                request._customer_wishlist_product_ids = None
+
+        if request._customer_wishlist_product_ids is None:
             return False
-        return Wishlist.objects.filter(user=user, product=obj).exists()
+        return obj.id in request._customer_wishlist_product_ids
 
     # to_internal_value, validate_variants, create, update — all unchanged
     def to_internal_value(self, data):
@@ -856,14 +865,14 @@ class ProductSmallSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.IntegerField)
     def get_reviews_count(self, obj):
         # use annotated value if available (from queryset), else fall back to query
-        if hasattr(obj, "reviews_count_annotated"):
+        if hasattr(obj, "reviews_count_annotated") and obj.reviews_count_annotated is not None:
             return obj.reviews_count_annotated
         return ProductReview.objects.filter(product=obj).count()
 
     @extend_schema_field(serializers.FloatField)
     def get_average_rating(self, obj):
         # use annotated value if available (from queryset), else fall back to query
-        if hasattr(obj, "average_rating"):
+        if hasattr(obj, "average_rating") and obj.average_rating is not None:
             return obj.average_rating or 0
         return (
             ProductReview.objects.filter(product=obj).aggregate(
@@ -877,10 +886,19 @@ class ProductSmallSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request:
             return False
-        user = get_customer_from_request(request)
-        if not user:
+
+        if not hasattr(request, "_customer_wishlist_product_ids"):
+            user = get_customer_from_request(request)
+            if user:
+                request._customer_wishlist_product_ids = set(
+                    Wishlist.objects.filter(user=user).values_list("product_id", flat=True)
+                )
+            else:
+                request._customer_wishlist_product_ids = None
+
+        if request._customer_wishlist_product_ids is None:
             return False
-        return Wishlist.objects.filter(user=user, product=obj).exists()
+        return obj.id in request._customer_wishlist_product_ids
 
     class Meta:
         model = Product
