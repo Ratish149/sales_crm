@@ -33,6 +33,10 @@ from customer.authentication import CustomerJWTAuthentication
 from customer.utils import get_customer_from_request
 from product.selectors.product_selector import (
     get_admin_product_list_queryset,
+    get_global_max_price,
+    get_product_variant_list_queryset,
+    get_standalone_product_list_queryset,
+    prefetch_active_offers_and_reviews_for_items,
     prefetch_active_offers_for_products,
 )
 from sales_crm.authentication import TenantJWTAuthentication
@@ -292,7 +296,27 @@ PRODUCT_VARIANT_QS = (
         "product__sub_category",
         "product__brand",
     )
-    .prefetch_related("option_values__option")
+    .prefetch_related(
+        Prefetch(
+            "option_values",
+            queryset=ProductOptionValue.objects.select_related("option").only(
+                "id", "value", "option_id", "option__id", "option__name"
+            ),
+        ),
+        Prefetch(
+            "product__variants",
+            queryset=ProductVariant.objects.only(
+                "id", "product_id", "price", "stock", "image"
+            ).prefetch_related(
+                Prefetch(
+                    "option_values",
+                    queryset=ProductOptionValue.objects.select_related("option").only(
+                        "id", "value", "option_id", "option__id", "option__name"
+                    ),
+                )
+            ),
+        ),
+    )
     .only(
         "id",
         "product_id",
@@ -304,12 +328,14 @@ PRODUCT_VARIANT_QS = (
         "product__id",
         "product__name",
         "product__slug",
+        "product__barcode",
         "product__price",
         "product__market_price",
         "product__thumbnail_image",
         "product__thumbnail_alt_description",
         "product__is_popular",
         "product__is_featured",
+        "product__require_custom_image",
         "product__fast_shipping",
         "product__warranty",
         "product__use_dynamic_pricing",
@@ -447,7 +473,7 @@ class ProductImageRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIVie
 
 
 class ProductListCreateView(generics.ListCreateAPIView):
-    queryset = PRODUCT_LIST_QS
+    queryset = Product.objects.all()
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
     filter_backends = [
@@ -484,14 +510,14 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         if self.request.method == "GET":
-            return PRODUCT_LIST_QS
+            return get_admin_product_list_queryset()
         return Product.objects.all()
 
     def filter_queryset(self, queryset):
         """
         Intercept ordering=price / ordering=-price and redirect to the
         computed_final_price annotation so dynamic-priced products sort
-        correctly.  All other filters/ordering pass through unchanged.
+        correctly. All other filters/ordering pass through unchanged.
         """
         queryset = super().filter_queryset(queryset)
         ordering = self.request.query_params.get("ordering", "")
@@ -505,40 +531,34 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
         if not site_config.use_product_variant:
             queryset = self.filter_queryset(self.get_queryset())
-
-            # Global max_price across ALL products using real final prices,
-            # unaffected by filters or pagination
-            max_price = float(
-                Product.objects.annotate(
-                    computed_final_price=FINAL_PRICE_ANNOTATION
-                ).aggregate(m=Max("computed_final_price"))["m"]
-                or 0.0
-            )
+            max_price = get_global_max_price(is_variant_mode=False)
 
             page = self.paginate_queryset(queryset)
             if page is not None:
                 if self.paginator is not None:
                     self.paginator.max_price = max_price
+                prefetch_active_offers_and_reviews_for_items(page)
                 serializer = self.get_serializer(page, many=True)
                 return self.get_paginated_response(serializer.data)
 
+            prefetch_active_offers_and_reviews_for_items(queryset)
             serializer = self.get_serializer(queryset, many=True)
             return Response(serializer.data)
 
         # ── variant mode ────────────────────────────────────────────────────────
         self.filter_backends = []
-
         params = request.GET.copy()
 
-        from distutils.util import strtobool
-
         if "is_popular" in params:
-            try:
-                params["is_popular"] = strtobool(str(params["is_popular"]))
-            except ValueError:
-                params.pop("is_popular")
+            val = str(params["is_popular"]).lower()
+            if val in ("true", "1", "t", "yes", "y"):
+                params["is_popular"] = True
+            elif val in ("false", "0", "f", "no", "n"):
+                params["is_popular"] = False
+            else:
+                params.pop("is_popular", None)
 
-        variant_qs = PRODUCT_VARIANT_QS
+        variant_qs = get_product_variant_list_queryset()
         variant_filter = ProductVariantFilterSet(params, queryset=variant_qs)
         variant_qs = variant_filter.qs
 
@@ -553,43 +573,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 
         self.search_fields = orig_search_fields
 
-        product_qs = (
-            Product.objects
-            .filter(variants__isnull=True)
-            .select_related("category", "sub_category", "brand")
-            .prefetch_related(
-                Prefetch(
-                    "images",
-                    queryset=ProductImage.objects.only("id", "product_id", "image"),
-                ),
-            )
-            .annotate(
-                average_rating=Avg("productreview__rating"),
-                computed_final_price=FINAL_PRICE_ANNOTATION,
-            )
-            .only(
-                "id",
-                "name",
-                "slug",
-                "price",
-                "market_price",
-                "stock",
-                "thumbnail_image",
-                "thumbnail_alt_description",
-                "category_id",
-                "sub_category_id",
-                "brand_id",
-                "is_popular",
-                "is_featured",
-                "fast_shipping",
-                "warranty",
-                "use_dynamic_pricing",
-                "base_making_charge",
-                "created_at",
-                "updated_at",
-            )
-        )
-
+        product_qs = get_standalone_product_list_queryset()
         product_filter = ProductFilterSet(params, queryset=product_qs)
         product_qs = product_filter.qs
         product_qs = search_filter.filter_queryset(request, product_qs, self)
@@ -603,10 +587,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
         def _sort_key(obj):
             if sort_field == "price":
                 if isinstance(obj, ProductVariant):
-                    # Variants use their own price (no dynamic pricing on variants)
                     return float(obj.price or 0)
-                # Products: use the annotated computed_final_price if available,
-                # otherwise fall back to the model property
                 if (
                     hasattr(obj, "computed_final_price")
                     and obj.computed_final_price is not None
@@ -618,10 +599,16 @@ class ProductListCreateView(generics.ListCreateAPIView):
             if sort_field == "is_popular":
                 val = getattr(obj, "is_popular", False)
                 if isinstance(obj, ProductVariant):
-                    val = getattr(obj.product, "is_popular", False)
-                return 0 if val else 1  # True sorts first when reverse=True
-            # Default / created_at
-            return getattr(obj, "created_at", None) or 0
+                    prod = getattr(obj, "_cached_product", None) or obj.product
+                    val = getattr(prod, "is_popular", False)
+                return 0 if val else 1
+            created_at = getattr(obj, "created_at", None)
+            if created_at is None:
+                from datetime import datetime
+                from datetime import timezone as dt_tz
+
+                return datetime.min.replace(tzinfo=dt_tz.utc)
+            return created_at
 
         combined = sorted(
             chain(variant_qs, product_qs),
@@ -629,35 +616,17 @@ class ProductListCreateView(generics.ListCreateAPIView):
             reverse=sort_reverse,
         )
 
-        # Global max_price across ALL variants and ALL standalone products,
-        # unaffected by filters or pagination
-        variant_max = float(
-            ProductVariant.objects.aggregate(m=Max("price"))["m"] or 0.0
-        )
-        standalone_product_max = float(
-            Product.objects
-            .filter(variants__isnull=True)
-            .annotate(computed_final_price=FINAL_PRICE_ANNOTATION)
-            .aggregate(m=Max("computed_final_price"))["m"]
-            or 0.0
-        )
-        # Also account for variants with no price, which fall back to product.price
-        fallback_max = float(
-            Product.objects.filter(
-                variants__isnull=False,
-                variants__price__isnull=True,
-            ).aggregate(m=Max("price"))["m"]
-            or 0.0
-        )
-        max_price = max(variant_max, standalone_product_max, fallback_max)
+        max_price = get_global_max_price(is_variant_mode=True)
 
         page = self.paginate_queryset(combined)
         if page is not None:
             if self.paginator is not None:
                 self.paginator.max_price = max_price
+            prefetch_active_offers_and_reviews_for_items(page)
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
+        prefetch_active_offers_and_reviews_for_items(combined)
         serializer = self.get_serializer(combined, many=True)
         return Response(serializer.data)
 

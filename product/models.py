@@ -252,7 +252,10 @@ class Product(models.Model):
 
     @property
     def final_price(self):
-        if hasattr(self, "computed_final_price") and self.computed_final_price is not None:
+        if (
+            hasattr(self, "computed_final_price")
+            and self.computed_final_price is not None
+        ):
             return self.computed_final_price
 
         if not self.use_dynamic_pricing:

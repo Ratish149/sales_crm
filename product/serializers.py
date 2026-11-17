@@ -1105,32 +1105,43 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
     def get_name(self, obj):
         options = [v.value for v in obj.option_values.all()]
         options_str = " ".join(options)
+        product = getattr(obj, "_cached_product", None) or obj.product
         if options_str:
-            return f"{obj.product.name} ({options_str})"
-        return obj.product.name
+            return f"{product.name} ({options_str})"
+        return product.name
 
     def get_price(self, obj):
-        return obj.price if obj.price is not None else obj.product.price
+        product = getattr(obj, "_cached_product", None) or obj.product
+        return obj.price if obj.price is not None else product.price
 
     def get_market_price(self, obj):
-        return obj.price if obj.price is not None else obj.product.market_price
+        product = getattr(obj, "_cached_product", None) or obj.product
+        return obj.price if obj.price is not None else product.market_price
 
     def get_final_price(self, obj):
-        return obj.price if obj.price is not None else obj.product.final_price
+        product = getattr(obj, "_cached_product", None) or obj.product
+        return obj.price if obj.price is not None else product.final_price
 
     def get_thumbnail_image(self, obj):
         request = self.context.get("request")
-        image = obj.image if obj.image else obj.product.thumbnail_image
+        product = getattr(obj, "_cached_product", None) or obj.product
+        image = obj.image if obj.image else product.thumbnail_image
         if image and hasattr(image, "url"):
             return request.build_absolute_uri(image.url) if request else image.url
         return None
 
     def get_reviews_count(self, obj):
-        return ProductReview.objects.filter(product=obj.product).count()
+        product = getattr(obj, "_cached_product", None) or obj.product
+        if hasattr(product, "reviews_count_annotated") and product.reviews_count_annotated is not None:
+            return product.reviews_count_annotated
+        return ProductReview.objects.filter(product=product).count()
 
     def get_average_rating(self, obj):
+        product = getattr(obj, "_cached_product", None) or obj.product
+        if hasattr(product, "average_rating") and product.average_rating is not None:
+            return product.average_rating or 0
         return (
-            ProductReview.objects.filter(product=obj.product).aggregate(
+            ProductReview.objects.filter(product=product).aggregate(
                 avg_rating=models.Avg("rating")
             )["avg_rating"]
             or 0
@@ -1140,10 +1151,20 @@ class ProductVariantAsProductSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if not request:
             return False
-        user = get_customer_from_request(request)
-        if not user:
+
+        if not hasattr(request, "_customer_wishlist_product_ids"):
+            user = get_customer_from_request(request)
+            if user:
+                request._customer_wishlist_product_ids = set(
+                    Wishlist.objects.filter(user=user).values_list("product_id", flat=True)
+                )
+            else:
+                request._customer_wishlist_product_ids = None
+
+        if request._customer_wishlist_product_ids is None:
             return False
-        return Wishlist.objects.filter(user=user, product=obj.product).exists()
+        product_id = getattr(obj, "product_id", None) or (obj.product.id if obj.product else None)
+        return product_id in request._customer_wishlist_product_ids
 
 
 class UnifiedProductListingSerializer(serializers.Serializer):
